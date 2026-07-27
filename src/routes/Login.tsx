@@ -1,0 +1,199 @@
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { Lock, Sun, Moon, Monitor, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { Logo } from '@/components/branding/Logo'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Card } from '@/components/ui/Card'
+import { useAuth } from '@/hooks/useAuth'
+import { useTheme } from '@/hooks/useTheme'
+import { toast } from '@/components/ui/Toast'
+import { useI18n } from '@/hooks/useI18n'
+import { useAuthBootstrap } from '@/hooks/useAuth'
+import { Spinner } from '@/components/ui/Spinner'
+
+export default function Login() {
+  const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [totp, setTotp] = useState('')
+  const [showTotp, setShowTotp] = useState(false)
+  const [error, setError] = useState('')
+  const [shake, setShake] = useState(false)
+  const { login } = useAuth()
+  const { theme, setTheme, resolvedTheme } = useTheme()
+  const { t } = useI18n()
+  const navigate = useNavigate()
+  const { installed, loading: bootstrapLoading, authenticated } = useAuthBootstrap()
+
+  useEffect(() => {
+    document.title = t('login.documentTitle')
+  }, [t])
+
+  useEffect(() => {
+    if (!bootstrapLoading) {
+      if (!installed) {
+        navigate('/install', { replace: true })
+      } else if (authenticated) {
+        navigate('/dashboard', { replace: true })
+      }
+    }
+  }, [installed, authenticated, bootstrapLoading, navigate])
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!password) return
+
+    setLoading(true)
+    setError('')
+    try {
+      await login(password, showTotp ? totp : undefined)
+      toast({ type: 'success', title: t('login.success') })
+      navigate('/dashboard', { replace: true })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : t('login.fail')
+      setError(msg)
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
+      if (msg.includes('TOTP') || msg.includes('2FA') || msg.includes('双因素')) {
+        setShowTotp(true)
+      }
+      toast({ type: 'error', title: t('login.fail'), description: msg })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const cycleTheme = () => {
+    if (theme === 'light') setTheme('dark')
+    else if (theme === 'dark') setTheme('system')
+    else setTheme('light')
+  }
+
+  if (bootstrapLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="absolute inset-0 -z-10 grid-bg opacity-40" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-b from-transparent via-transparent to-bg-sunken/50" />
+
+      <div className="absolute top-0 right-0 w-96 h-96 bg-accent/10 rounded-full blur-[100px] -translate-y-1/2 translate-x-1/3" />
+      <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent/5 rounded-full blur-[80px] translate-y-1/3 -translate-x-1/3" />
+
+      <button
+        onClick={cycleTheme}
+        className="fixed top-4 right-4 z-10 p-2.5 rounded-xl text-fg-muted hover:text-fg hover:bg-bg-elevated/80 backdrop-blur-soft transition-all duration-200 focus-ring border border-border/50 active:scale-95"
+        aria-label={t('common.toggleTheme')}
+      >
+        {theme === 'light' ? <Sun size={18} /> : theme === 'dark' ? <Moon size={18} /> : <Monitor size={18} />}
+      </button>
+
+      <div className="w-full max-w-md page-enter">
+        <div className="flex flex-col items-center mb-8">
+          <div className="mb-5 relative">
+            <div className="absolute inset-0 bg-accent/20 rounded-3xl blur-xl" />
+            <div className="relative">
+              <Logo size="lg" showText={false} />
+            </div>
+          </div>
+          <div className="mb-2">
+            <Logo size="md" showText={true} />
+          </div>
+          <p className="text-sm text-fg-muted">{t('login.subtitle')}</p>
+        </div>
+
+        <Card className={`p-6 md:p-8 shadow-xl shadow-black/5 ${shake ? 'animate-shake' : ''}`}>
+          <div className="flex items-center gap-3 mb-6">
+            <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
+              <ShieldCheck size={20} />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold text-fg">{t('login.title')}</h1>
+              <p className="text-xs text-fg-subtle">{t('login.subtitle')}</p>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-fg">
+                {t('login.passwordLabel')}
+              </label>
+              <div className="relative group">
+                <Input
+                  type={showPassword ? 'text' : 'password'}
+                  value={password}
+                  onChange={(e) => {
+                    setPassword(e.target.value)
+                    if (error) setError('')
+                  }}
+                  placeholder={t('login.passwordPlaceholder')}
+                  icon={<Lock size={18} />}
+                  autoFocus
+                  inputMode="text"
+                  autoComplete="current-password"
+                  invalid={!!error}
+                  className={`transition-all duration-200 ${error ? 'animate-pulse' : ''}`}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-fg-subtle hover:text-fg-muted p-1.5 rounded-lg hover:bg-bg-sunken transition-colors"
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {showTotp && (
+              <div className="space-y-2 animate-fade-in-up">
+                <label className="block text-sm font-medium text-fg">
+                  {t('login.totpLabel')}
+                </label>
+                <Input
+                  type="text"
+                  value={totp}
+                  onChange={(e) => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder={t('login.totpPlaceholder')}
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  className="text-center font-mono tracking-widest text-lg"
+                />
+              </div>
+            )}
+
+            {error && (
+              <div className="text-xs text-danger bg-danger/10 rounded-lg px-3 py-2 animate-fade-in flex items-center gap-2">
+                <div className="w-1.5 h-1.5 rounded-full bg-danger shrink-0 animate-pulse" />
+                <span>{error}</span>
+              </div>
+            )}
+
+            <Button
+              type="submit"
+              size="lg"
+              className="w-full font-semibold"
+              loading={loading}
+            >
+              {t('login.submit')}
+            </Button>
+          </form>
+        </Card>
+
+        <div className="flex items-center justify-center gap-2 mt-6">
+          <div className="w-2 h-2 rounded-full bg-success/60" />
+          <p className="text-xs text-fg-subtle">
+            {t('login.currentTheme')}: {resolvedTheme === 'dark' ? t('settings.dark') : t('settings.light')}
+          </p>
+        </div>
+      </div>
+    </div>
+  )
+}

@@ -1,0 +1,77 @@
+# Go.js - 轻量级 PHP 服务器管理面板
+# Apache 配置文件
+
+# 禁止访问 .gojs 配置目录
+<DirectoryMatch "^.*/\.gojs/">
+    Order Allow,Deny
+    Deny from all
+</DirectoryMatch>
+
+<FilesMatch "^\.gojs">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 禁止访问配置文件
+<Files "config.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 禁止访问 .htaccess
+<Files ".htaccess">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 禁止访问 .log 文件
+<FilesMatch "\.log$">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# 禁止访问 .json 配置文件
+<FilesMatch "db_connections\.json$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# 开启 URL 重写
+RewriteEngine On
+
+# 如果请求的是真实存在的文件或目录，直接访问
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteRule ^ - [L]
+
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# API 路由重写：/api/xxx -> index.php?api=xxx
+RewriteRule ^api/(.*)$ index.php?api=$1 [QSA,L]
+
+# 前端页面路由：所有非文件请求指向 index.html（SPA）
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ index.html [L]
+
+# 安全头部
+<IfModule mod_headers.c>
+    # 阻止点击劫持
+    Header always set X-Frame-Options "SAMEORIGIN"
+    
+    # MIME 类型嗅探保护
+    Header always set X-Content-Type-Options "nosniff"
+    
+    # XSS 保护
+    Header always set X-XSS-Protection "1; mode=block"
+    
+    # Referrer Policy
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# PHP 设置
+<IfModule mod_php.c>
+    php_flag display_errors Off
+    php_flag log_errors On
+    php_value error_log .gojs/php_errors.log
+</IfModule>
