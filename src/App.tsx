@@ -95,7 +95,6 @@ export default function App() {
     )
   }
 
-  // bootstrap 失败（access token 无效），显示 404
   if (bootstrapFailed) {
     return <NotFound />
   }

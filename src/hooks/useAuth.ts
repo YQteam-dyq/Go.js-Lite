@@ -15,7 +15,7 @@ export function useAuthBootstrap() {
       setCsrfToken(data.csrfToken)
       setBootstrap(data)
     } catch (err) {
-      // 如果是 404 错误（access token 验证失败），标记为 bootstrap 失败
+
       if (err instanceof Error && err.message.includes('Not Found')) {
         setBootstrapFailed()
       } else {

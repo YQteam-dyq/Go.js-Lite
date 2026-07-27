@@ -56,7 +56,7 @@ export default function SqlConsole() {
         setHistory(JSON.parse(saved))
       }
     } catch {
-      // ignore
+
     }
   }, [connId])
 
@@ -71,7 +71,7 @@ export default function SqlConsole() {
       try {
         localStorage.setItem(`${HISTORY_KEY}-${connId}`, JSON.stringify(updated))
       } catch {
-        // ignore
+
       }
       return updated
     })
@@ -96,7 +96,7 @@ export default function SqlConsole() {
     try {
       localStorage.removeItem(`${HISTORY_KEY}-${connId}`)
     } catch {
-      // ignore
+
     }
   }
 
