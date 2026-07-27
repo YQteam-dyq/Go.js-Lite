@@ -49,6 +49,7 @@ function DbRoutes() {
       <Route index element={<DbConnections />} />
       <Route path=":connId/browse" element={<DbBrowser />} />
       <Route path=":connId/sql" element={<SqlConsole />} />
+      <Route path="*" element={<DbConnections />} />
     </Routes>
   )
 }

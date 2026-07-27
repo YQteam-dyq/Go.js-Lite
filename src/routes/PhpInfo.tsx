@@ -71,7 +71,7 @@ export default function PhpInfo() {
             <InfoCard
               icon={<Cpu size={20} />}
               label={t('phpinfo.loadedExtensions')}
-              value={`${data.loadedExtensions.length}{t('phpinfo.extensionCount')}`}
+              value={`${data.loadedExtensions.length}${t('phpinfo.extensionCount')}`}
             />
           </div>
 

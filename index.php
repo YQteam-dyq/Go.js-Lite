@@ -694,7 +694,7 @@ function gojs_api_install() {
     $_SESSION['last_activity'] = time();
     $csrf_token = gojs_generate_csrf_token();
 
-    $capabilities = gojs_detect_capabilities();
+    $capabilities = gojs_get_capabilities();
     gojs_json_response(array(
         'authenticated' => true,
         'installed' => true,
@@ -1173,7 +1173,6 @@ function gojs_api_file_content() {
             $finfo = finfo_open(FILEINFO_MIME_TYPE);
             if ($finfo) {
                 $mime = finfo_file($finfo, $safe_path);
-                finfo_close($finfo);
             }
         }
 
@@ -1733,7 +1732,6 @@ function gojs_api_download() {
         $finfo = finfo_open(FILEINFO_MIME_TYPE);
         if ($finfo) {
             $mime = finfo_file($finfo, $safe_path);
-            finfo_close($finfo);
         }
     }
 
@@ -1996,6 +1994,14 @@ function gojs_api_processes() {
 
     $processes = array();
 
+    $total_mem = 0;
+    $meminfo = @file_get_contents('/proc/meminfo');
+    if ($meminfo) {
+        if (preg_match('/MemTotal:\s+(\d+)/', $meminfo, $m)) {
+            $total_mem = (int)$m[1];
+        }
+    }
+
     $handle = @opendir('/proc');
     if (!$handle) {
         gojs_json_response(null, array(
@@ -2042,12 +2048,17 @@ function gojs_api_processes() {
             }
         }
 
+        $mem_percent = 0;
+        if ($total_mem > 0 && $vm_rss > 0) {
+            $mem_percent = round(($vm_rss / $total_mem) * 100, 1);
+        }
+
         $processes[] = array(
             'pid' => $pid,
             'name' => $name,
             'cmdline' => $cmdline,
             'cpu' => 0,
-            'mem' => $vm_rss,
+            'mem' => $mem_percent,
         );
     }
     closedir($handle);
