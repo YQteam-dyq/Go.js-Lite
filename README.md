@@ -1,11 +1,11 @@
-# Go.js — 轻量级 PHP 共享主机管理面板
+# Go.js Lite — 轻量级 PHP 共享主机管理面板
 
-> 专为 PHP 共享主机打造的轻量级服务器管理面板，单文件部署，移动端友好。
+> 专为 PHP 共享主机打造的轻量级服务器管理面板，移动端友好。
 
 [English](README.en.md) | 中文
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![PHP](https://img.shields.io/badge/PHP-%3E%3D7.0-777bb4.svg)](https://php.net)
+[![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4.svg)](https://php.net)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org)
 
@@ -15,14 +15,14 @@
 
 ### 普通用户（部署使用）
 
-从 [Releases](https://github.com/YQteam/gojs/releases) 下载最新的 `gojs-VERSION.zip`，解压后上传到 Web 根目录即可使用。
+从 [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases) 下载最新的 `gojs-lite-VERSION.zip`，解压后上传到 Web 根目录即可使用。
 
 ### 开发者（本地开发）
 
 ```bash
 # 克隆项目
-git clone https://github.com/YQteam/gojs.git
-cd gojs
+git clone https://github.com/YQteam-dyq/Go.js-Lite.git
+cd Go.js-Lite
 
 # 安装依赖
 npm install
@@ -38,14 +38,15 @@ npm run dev
 
 ## ✨ 特性
 
-- 📦 **单文件部署** — 上传 `index.php` + `dist/` 到 Web 根目录即可使用，无需 composer、无需 Node
+- 📦 **轻量部署** — 上传 `index.php` + `dist/` 到 Web 根目录即可使用，无需 composer、无需 Node
+- 🔑 **私密入口** — 带 token 的访问链接，隐藏面板存在，提高安全性
 - 🎯 **共享主机友好** — 自动探测 `disable_functions`，功能按能力优雅降级
 - 📱 **移动端优先** — 响应式设计，手机 / 平板 / 桌面完美适配，触控友好
-- 🔒 **安全可靠** — BCrypt 密码、CSRF 防护、路径越权防护、暴力破解防护
+- 🔒 **安全可靠** — BCrypt 密码、CSRF 防护、路径越权防护、系统文件保护
 - 📁 **文件管理** — 在线浏览 / 编辑 / 上传 / 下载，支持权限修改
 - 🗄️ **数据库管理** — MySQL 连接管理、SQL 控制台、表结构浏览
-- ℹ️ **系统信息** — PHP 信息、服务器环境、磁盘使用、进程列表（可选）
-- 🌐 **中英文双语** — 内置 i18n，自动检测浏览器语言
+- ℹ️ **系统信息** — PHP 信息、服务器环境、磁盘使用
+- 🌐 **中英文双语** — 内置 i18n，支持中文和英文
 - 🌙 **明暗主题** — 支持浅色 / 深色 / 跟随系统
 - ⚡ **现代前端** — React + TypeScript + Vite + Tailwind CSS
 
@@ -57,17 +58,17 @@ npm run dev
 
 | 项目 | 最低要求 | 推荐 |
 |------|---------|------|
-| PHP | 7.0 | 7.4+ |
+| PHP | 7.4 | 8.0+ |
 | Web 服务器 | Apache / Nginx / LiteSpeed | Apache + mod_rewrite |
 | PHP 扩展 | `session`、`json`、`mbstring` | `mysqli`、`gd`、`openssl`、`zip` |
 | 浏览器 | Chrome 80+ / Safari 14+ | 最新版 |
 
 ### 部署步骤
 
-1. **下载** 最新发布包（`gojs-VERSION.zip`）
+1. **下载** 最新发布包（`gojs-lite-VERSION.zip`）
 2. **上传** 解压后的所有文件到 Web 根目录（如 `public_html/`、`wwwroot/`）
 3. **访问** 你的域名，自动进入安装向导
-4. **设置** 管理员密码，完成安装 ✅
+4. **设置** 管理员密码，保存私密访问链接，完成安装 ✅
 
 ### 目录结构
 
@@ -127,9 +128,10 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 - 主密码使用 `password_hash(PASSWORD_BCRYPT)` 哈希存储，不可逆
 - 数据库连接密码使用 `AES-256-CBC` 加密存储
 - 所有文件操作经过 `realpath()` 校验，防止路径遍历攻击
-- 登录失败 5 次后锁定 15 分钟，防暴力破解
+- 系统文件（`.gojs/`、`index.php`）受保护，禁止通过文件管理器操作
 - 配置目录 `.gojs/` 通过 `.htaccess` 禁止 Web 直接访问
 - CSRF Token 校验，防跨站请求伪造
+- 🔑 **私密入口** — 面板访问需要带 token 的 URL，隐藏面板存在
 
 ---
 
@@ -141,10 +143,7 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 
 ## 👥 开发者
 
-**YQteam** — 用心打造，轻量高效
-
-- 团队官网：[yq-tuandui.xyz](https://yq-tuandui.xyz)
-- 项目官网：[gojs.yq-tuandui.xyz](https://gojs.yq-tuandui.xyz)
+**YQteam-dyq** — 用心打造，轻量高效
 
 ---
 
@@ -160,5 +159,5 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 ---
 
 <p align="center">
-  Made with ❤️ by YQteam
+  Made with ❤️ by YQteam-dyq
 </p>

@@ -1,11 +1,11 @@
-# Go.js — Lightweight PHP Shared Hosting Control Panel
+# Go.js Lite — Lightweight PHP Shared Hosting Control Panel
 
-> A lightweight server management panel built specifically for PHP shared hosting. Single-file deployment, mobile-friendly.
+> A lightweight server management panel built specifically for PHP shared hosting. Mobile-friendly.
 
 English | [中文](README.md)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![PHP](https://img.shields.io/badge/PHP-%3E%3D7.0-777bb4.svg)](https://php.net)
+[![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4.svg)](https://php.net)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org)
 
@@ -15,14 +15,14 @@ English | [中文](README.md)
 
 ### For Users (Deployment)
 
-Download the latest `gojs-VERSION.zip` from [Releases](https://github.com/YQteam/gojs/releases), extract and upload to your web root.
+Download the latest `gojs-lite-VERSION.zip` from [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases), extract and upload to your web root.
 
 ### For Developers (Local Development)
 
 ```bash
 # Clone the repo
-git clone https://github.com/YQteam/gojs.git
-cd gojs
+git clone https://github.com/YQteam-dyq/Go.js-Lite.git
+cd Go.js-Lite
 
 # Install dependencies
 npm install
@@ -38,14 +38,15 @@ Visit http://localhost:5173 to start developing.
 
 ## ✨ Features
 
-- 📦 **Single-file deployment** — Upload `index.php` + `dist/` to your web root and you're good to go. No composer, no Node.js required.
+- 📦 **Lightweight deployment** — Upload `index.php` + `dist/` to your web root and you're good to go. No composer, no Node.js required.
+- 🔑 **Secret access URL** — Access the panel via a token-based URL to hide its existence from public discovery.
 - 🎯 **Shared hosting friendly** — Automatically detects `disable_functions`, gracefully degrades based on available capabilities.
 - 📱 **Mobile-first** — Responsive design, perfect on phones, tablets, and desktops. Touch-friendly.
-- 🔒 **Secure & reliable** — BCrypt password hashing, CSRF protection, path traversal prevention, brute-force protection.
+- 🔒 **Secure & reliable** — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection.
 - 📁 **File management** — Browse / edit / upload / download files online, permission changes supported.
 - 🗄️ **Database management** — MySQL connection management, SQL console, table structure browser.
-- ℹ️ **System information** — PHP info, server environment, disk usage, process list (optional).
-- 🌐 **Bilingual (EN/ZH)** — Built-in i18n, auto-detects browser language.
+- ℹ️ **System information** — PHP info, server environment, disk usage.
+- 🌐 **Bilingual (EN/ZH)** — Built-in i18n, supports both Chinese and English.
 - 🌙 **Light / dark themes** — Supports light / dark / system preference.
 - ⚡ **Modern frontend** — React + TypeScript + Vite + Tailwind CSS.
 
@@ -57,17 +58,17 @@ Visit http://localhost:5173 to start developing.
 
 | Item | Minimum | Recommended |
 |------|---------|-------------|
-| PHP | 7.0 | 7.4+ |
+| PHP | 7.4 | 8.0+ |
 | Web Server | Apache / Nginx / LiteSpeed | Apache + mod_rewrite |
 | PHP Extensions | `session`, `json`, `mbstring` | `mysqli`, `gd`, `openssl`, `zip` |
 | Browser | Chrome 80+ / Safari 14+ | Latest stable |
 
 ### Deployment
 
-1. **Download** the latest release (`gojs-VERSION.zip`)
+1. **Download** the latest release (`gojs-lite-VERSION.zip`)
 2. **Upload** all files to your web root (e.g. `public_html/`, `wwwroot/`)
 3. **Visit** your domain — the setup wizard will start automatically
-4. **Set** an admin password and you're done ✅
+4. **Set** an admin password, save your secret access URL, and you're done ✅
 
 ### Directory Structure
 
@@ -75,7 +76,7 @@ After deployment on the server:
 
 ```
 public_html/
-├── index.php          # Backend API (single file)
+├── index.php          # Backend API
 ├── .htaccess          # Apache rewrite rules
 └── dist/              # Frontend build
     ├── index.html
@@ -86,8 +87,7 @@ Config files are automatically created during setup:
 
 ```
 .gojs/
-├── config.php         # Main config (PHP array, web access blocked)
-└── auth.log           # Login log (brute-force protection)
+└── config.php         # Main config (PHP array, web access blocked)
 ```
 
 ---
@@ -98,19 +98,20 @@ Config files are automatically created during setup:
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| 🔐 Auth System | Setup wizard, login/logout, change password, session timeout, brute-force protection | ✅ |
+| 🔐 Auth System | Setup wizard, login/logout, change password, session timeout | ✅ |
+| 🔑 Secret Access | Token-based access URL, hides panel existence | ✅ |
 | 📊 Dashboard | System overview, disk usage, file stats, recently modified files | ✅ |
 | 📁 File Manager | Directory browser, file editor, upload/download, create/delete/rename, permissions | ✅ |
 | 🗄️ Database Mgmt | MySQL connections, database/table/column browser, SQL console | ✅ |
 | ℹ️ PHP Info | Version, extensions, ini config, server variables | ✅ |
-| 💻 System Info | Disk, load, uptime, process list, cron | ✅ |
-| ⚙️ Settings | Theme switch, language switch, session settings, password change, developer info | ✅ |
+| 💻 System Info | Disk, load, uptime | ✅ |
+| ⚙️ Settings | Theme switch, language switch, session settings, password change, regenerate access token | ✅ |
 | 📦 Zip Archives | Compress / extract files & directories | 🚧 Coming soon |
 | 📤 SQL Import/Export | .sql file import & export | 🚧 Coming soon |
 
 ### Capability-based Degradation
 
-Go.js automatically detects your server environment and hides unavailable features:
+Go.js Lite automatically detects your server environment and hides unavailable features:
 
 | Feature | Dependency | When unavailable |
 |---------|------------|-----------------|
@@ -127,9 +128,10 @@ Go.js automatically detects your server environment and hides unavailable featur
 - Admin password hashed with `password_hash(PASSWORD_BCRYPT)` — one-way, irreversible.
 - Database connection passwords encrypted with `AES-256-CBC`.
 - All file operations validated via `realpath()` to prevent path traversal.
-- Login locked for 15 minutes after 5 failed attempts — brute-force protection.
+- System files (`.gojs/`, `index.php`) are protected from file manager operations.
 - Config directory `.gojs/` blocked from direct web access via `.htaccess`.
 - CSRF token validation — cross-site request forgery protection.
+- 🔑 **Secret access URL** — Panel requires a token in the URL, hiding its existence.
 
 ---
 
@@ -141,10 +143,7 @@ Go.js automatically detects your server environment and hides unavailable featur
 
 ## 👥 Developers
 
-**YQteam** — Crafted with care, lightweight & efficient.
-
-- Team website: [yq-tuandui.xyz](https://yq-tuandui.xyz)
-- Project website: [gojs.yq-tuandui.xyz](https://gojs.yq-tuandui.xyz)
+**YQteam-dyq** — Crafted with care, lightweight & efficient.
 
 ---
 
@@ -160,5 +159,5 @@ Go.js automatically detects your server environment and hides unavailable featur
 ---
 
 <p align="center">
-  Made with ❤️ by YQteam
+  Made with ❤️ by YQteam-dyq
 </p>
