@@ -1,0 +1,40 @@
+# Go.js Lite v0.2.1
+
+🔥 **本次最大升级：面板 100% 迁移到独立 `/gojs/` 子目录，不再抢占用户 Web 根目录**，共享主机用户可以和自己的站点和平共处。
+
+## ✨ Release Highlights
+
+### 📦 架构重构（不抢占根目录）
+- Vite `base=/gojs/` + React Router `basename=BASE_URL` + API client 自动基于 `BASE_URL + /api` 拼接路径
+- `.htaccess` 新增 `RewriteBase /gojs/`，禁止直接访问 `api.php`，路由 `/gojs/api/* → api.php` + SPA fallback
+- `api.php` 双根设计：当 basename(ROOT) === `gojs` 时 `$files_root = ROOT/..`（用户 public_html），`panel_root` 仍为 ROOT 用于保护面板系统文件
+- `session_set_cookie_params path=/gojs/`：Session/Cookie 作用域收缩到面板路径，不泄露到根目录其他应用
+- `router.php` 剥离 `/gojs/` 前缀再分发；`gojs_dispatch()` 对 `$api` 前导斜杠做双重 `ltrim` 避免 404
+- 修复 `useAuth.logout()` 硬编码 `/login` → `BASE_URL + /login`
+
+### 🧮 系统监控升级
+- `shared/types.ts`：`SystemData` 新增 `memTotal / memAvailable / memUsed / memPercent`；`ProcessInfo.cpu` 改为可 `null`
+- `api.php`：读取 `/proc/meminfo` 计算内存使用率；前 50 个进程 `/proc/stat` + `/proc/<pid>/stat` 双采样（间隔 200ms）计算进程真实 CPU%
+- `System.tsx`：新增 **Memory Used** 卡片；CPU 列 null-safe 渲染；Web Server 信息 enriched
+
+### 🎯 UX / i18n
+- `Settings.tsx` "私密访问链接"区块 + 重新生成对话框 / toasts 全部 i18n（中/英双语）
+- `PhpInfo.tsx` Loaded Configuration File 卡片右侧新增 **一键复制 php.ini 路径** 按钮；`InfoCard` 组件新增 `action` prop
+- Locale key 补充：`system.memoryUsed`（zh/en）、`phpinfo.iniCopied`（zh/en）
+
+### 📄 README 同步（中英文）
+- 部署结构：根目录不再塞满面板文件，**只需要上传独立 `gojs/` 文件夹** + 访问入口 `https://域名/gojs/`
+- 功能表格：Zip/Tar 压缩解压、SQL 导入导出、PHP 错误日志、配置体检、磁盘分析、内存监控、进程 CPU 全部从 🚧 → ✅
+- 安全章节：`$files_root` 绝对路径锚定、Session/Cookie 路径收缩、子目录隔离、保护系统文件 `api.php + .htaccess`
+
+## ✅ 验证清单
+- `tsc -b` → 0 errors
+- `vite build` → 7 assets
+- Release zip 白名单 awk 审计：仅 `gojs/api.php + gojs/.htaccess + gojs/dist/**`，无任何冗余
+- 解耦模拟部署（/tmp/user-site + 面板作为子目录）：`/` 返回用户自己的首页，`/gojs/api/bootstrap` 的 `files_root` 正确指向父目录
+- 集成浏览器端到端：安装向导 → Dashboard → System 内存卡片 → Settings i18n 私密访问 → PhpInfo 复制按钮，URL 始终保持 `/gojs/` 前缀
+
+## 🚀 部署（用户）
+下载 `gojs-lite-0.2.1.zip`，解压后**把整个 `gojs/` 文件夹**上传到 `public_html/` / `wwwroot/` / `httpdocs/` 等 Web 根目录即可，然后访问 `https://你的域名/gojs/`。
+
+用户根目录原有内容零改动。
