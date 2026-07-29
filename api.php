@@ -1,7 +1,8 @@
 <?php
 
-define('VERSION', '1.0.0');
+define('VERSION', '0.2.1');
 define('ROOT', dirname(__FILE__));
+define('PANEL_ROOT', ROOT);
 define('CONFIG_DIR', ROOT . '/.gojs');
 define('CONFIG_FILE', CONFIG_DIR . '/config.php');
 define('AUTH_LOG', CONFIG_DIR . '/auth.log');
@@ -10,6 +11,7 @@ define('DB_CONNECTIONS_FILE', CONFIG_DIR . '/db_connections.json');
 $config = array();
 $installed = false;
 $root_path = ROOT;
+$GLOBALS['files_root'] = ROOT;
 $capabilities = null;
 
 gojs_init();
@@ -25,9 +27,17 @@ function gojs_init() {
 
     if (session_status() == PHP_SESSION_NONE) {
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
+        $cookie_path = '/gojs/';
+        $dir_name = basename(ROOT);
+        if ($dir_name !== 'gojs') {
+            $cookie_path = '/' . $dir_name . '/';
+        }
+        if (PHP_SAPI === 'cli-server') {
+            $cookie_path = '/gojs/';
+        }
         session_set_cookie_params(array(
             'lifetime' => 86400,
-            'path' => '/',
+            'path' => $cookie_path,
             'domain' => '',
             'secure' => $secure,
             'httponly' => true,
@@ -42,6 +52,29 @@ function gojs_init() {
             $installed = !empty($config['installed']);
             if (!empty($config['root_path']) && is_dir($config['root_path'])) {
                 $root_path = rtrim($config['root_path'], '/');
+                $GLOBALS['files_root'] = $root_path;
+            } else {
+                $dir_name = basename(ROOT);
+                if ($dir_name === 'gojs') {
+                    $parent = @realpath(ROOT . '/..');
+                    if ($parent && $parent !== ROOT) {
+                        $GLOBALS['files_root'] = rtrim($parent, '/');
+                        $root_path = $GLOBALS['files_root'];
+                    } else {
+                        $GLOBALS['files_root'] = ROOT;
+                    }
+                } else {
+                    $GLOBALS['files_root'] = ROOT;
+                }
+            }
+        }
+    } else {
+        $dir_name = basename(ROOT);
+        if ($dir_name === 'gojs') {
+            $parent = @realpath(ROOT . '/..');
+            if ($parent && $parent !== ROOT) {
+                $GLOBALS['files_root'] = rtrim($parent, '/');
+                $root_path = $GLOBALS['files_root'];
             }
         }
     }
@@ -178,11 +211,13 @@ function gojs_dispatch() {
     if (!$api && isset($_SERVER['REQUEST_URI'])) {
         $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
         if ($uri && strpos($uri, '/api/') === 0) {
-            $api = substr($uri, 5); 
+            $api = ltrim(substr($uri, 5), '/');
         } elseif ($uri && $uri === '/api') {
             $api = '';
         }
     }
+
+    $api = ltrim($api, '/');
 
     if (!$api) {
         gojs_json_response(null, array(
@@ -1095,6 +1130,7 @@ function gojs_is_protected_path($full_path) {
     $real_path = rtrim(str_replace('\\', '/', realpath($full_path) ?: $full_path), '/');
     $gojs_dir = rtrim(str_replace('\\', '/', CONFIG_DIR), '/');
     $index_file = str_replace('\\', '/', ROOT . '/api.php');
+    $panel_root = rtrim(str_replace('\\', '/', realpath(ROOT) ?: ROOT), '/');
 
     if ($real_path === $gojs_dir || strpos($real_path, $gojs_dir . '/') === 0) {
         return true;
@@ -1102,6 +1138,28 @@ function gojs_is_protected_path($full_path) {
 
     if ($real_path === $index_file) {
         return true;
+    }
+
+    if ($real_path === $panel_root || strpos($real_path, $panel_root . '/.htaccess') !== false) {
+        return true;
+    }
+    if ($real_path === $panel_root . '/index.html' || $real_path === $panel_root . '/favicon.svg') {
+        return false;
+    }
+    if (strpos($real_path, $panel_root . '/assets/') === 0) {
+        return false;
+    }
+    if ($real_path !== $panel_root && strpos($real_path, $panel_root . '/') === 0) {
+        $relative = substr($real_path, strlen($panel_root) + 1);
+        if (strpos($relative, '.') === 0) {
+            return true;
+        }
+        $protected_suffix = array('api.php', '.htaccess', '.user.ini', 'config.php');
+        foreach ($protected_suffix as $sfx) {
+            if ($relative === $sfx) {
+                return true;
+            }
+        }
     }
 
     return false;
@@ -1119,10 +1177,12 @@ function gojs_ensure_not_protected($full_path, $action = '操作') {
 function gojs_safe_path($relative_path) {
     global $root_path;
 
+    $files_root = !empty($GLOBALS['files_root']) ? $GLOBALS['files_root'] : $root_path;
+
     $relative_path = ltrim($relative_path, '/');
     $relative_path = str_replace('\\', '/', $relative_path);
 
-    $full_path = $root_path . '/' . $relative_path;
+    $full_path = $files_root . '/' . $relative_path;
 
     $real_path = realpath($full_path);
 
@@ -1130,7 +1190,7 @@ function gojs_safe_path($relative_path) {
         $parent_dir = dirname($full_path);
         $real_parent = realpath($parent_dir);
 
-        if (!$real_parent || strpos($real_parent, rtrim($root_path, '/')) !== 0) {
+        if (!$real_parent || strpos($real_parent, rtrim($files_root, '/')) !== 0) {
             return false;
         }
 
@@ -1142,7 +1202,7 @@ function gojs_safe_path($relative_path) {
         return $real_parent . '/' . $basename;
     }
 
-    $root_real = rtrim(realpath($root_path), '/');
+    $root_real = rtrim(realpath($files_root), '/');
     if (strpos(rtrim($real_path, '/'), $root_real) !== 0) {
         return false;
     }
@@ -1153,7 +1213,9 @@ function gojs_safe_path($relative_path) {
 function gojs_relative_path($abs_path) {
     global $root_path;
 
-    $root_real = rtrim(realpath($root_path), '/');
+    $files_root = !empty($GLOBALS['files_root']) ? $GLOBALS['files_root'] : $root_path;
+
+    $root_real = rtrim(realpath($files_root), '/');
     $abs_real = rtrim($abs_path, '/');
 
     if ($abs_real === $root_real) {
@@ -1648,6 +1710,8 @@ function gojs_api_file_delete() {
 }
 
 function gojs_api_file_rename() {
+    global $root_path;
+
     $path = gojs_get_param('path', '');
     $target = gojs_get_param('target', '');
 
@@ -1668,38 +1732,56 @@ function gojs_api_file_rename() {
 
     gojs_ensure_not_protected($safe_path, '重命名');
 
-    if (strpos($target, '/') !== false || strpos($target, '\\') !== false) {
-        $target_path = $target;
-    } else {
-        $target_path = dirname($safe_path) . '/' . $target;
+    $target_has_sep = (strpos($target, '/') !== false || strpos($target, '\\') !== false);
+    if ($target_has_sep) {
+        gojs_json_response(null, array(
+            'code' => 'forbidden',
+            'message' => '暂不支持跨目录重命名，请使用同目录内名称',
+        ), 403);
     }
 
-    $safe_target = gojs_safe_path($target_path);
-    if ($safe_target === false) {
+    if (strpos($target, '..') !== false) {
+        gojs_json_response(null, array(
+            'code' => 'forbidden',
+            'message' => '目标名称包含非法字符',
+        ), 403);
+    }
+
+    $files_root = !empty($GLOBALS['files_root']) ? $GLOBALS['files_root'] : $root_path;
+    $root_real = rtrim(realpath($files_root) ?: $files_root, '/');
+
+    $parent_dir = dirname($safe_path);
+    $safe_target = $parent_dir . '/' . basename($target);
+
+    $real_parent = realpath($parent_dir);
+    if (!$real_parent || strpos($real_parent, $root_real) !== 0) {
         gojs_json_response(null, array(
             'code' => 'forbidden',
             'message' => '目标路径访问被拒绝',
         ), 403);
     }
 
-    gojs_ensure_not_protected($safe_target, '重命名到');
+    $target_base = basename($safe_target);
+    $safe_target_final = $real_parent . '/' . $target_base;
 
-    if (file_exists($safe_target)) {
+    gojs_ensure_not_protected($safe_target_final, '重命名到');
+
+    if (file_exists($safe_target_final)) {
         gojs_json_response(null, array(
             'code' => 'already_exists',
             'message' => '目标路径已存在',
         ), 400);
     }
 
-    if (!@rename($safe_path, $safe_target)) {
+    if (!@rename($safe_path, $safe_target_final)) {
         gojs_json_response(null, array(
             'code' => 'rename_failed',
             'message' => '重命名失败',
         ), 500);
     }
 
-    $rel = gojs_relative_path($safe_target);
-    $info = gojs_get_file_info($safe_target, $rel);
+    $rel = gojs_relative_path($safe_target_final);
+    $info = gojs_get_file_info($safe_target_final, $rel);
     gojs_json_response($info);
 }
 
@@ -3249,8 +3331,10 @@ function gojs_build_compat($name, $php_ok, $php_req_lines, $exts) {
 function gojs_api_system() {
     global $root_path;
 
-    $disk_total = @disk_total_space($root_path);
-    $disk_free = @disk_free_space($root_path);
+    $files_root = !empty($GLOBALS['files_root']) ? $GLOBALS['files_root'] : $root_path;
+
+    $disk_total = @disk_total_space($files_root);
+    $disk_free = @disk_free_space($files_root);
     $disk_used = ($disk_total && $disk_free) ? ($disk_total - $disk_free) : 0;
 
     $load_average = null;
@@ -3272,6 +3356,46 @@ function gojs_api_system() {
         }
     }
 
+    $mem_total = null;
+    $mem_available = null;
+    $mem_used = null;
+    $mem_percent = null;
+    if (is_readable('/proc/meminfo')) {
+        $meminfo = @file_get_contents('/proc/meminfo');
+        if ($meminfo) {
+            $lines = explode("\n", $meminfo);
+            $mem_kv = array();
+            foreach ($lines as $line) {
+                if (preg_match('/^([A-Za-z_]+):\s*(\d+)/', $line, $m)) {
+                    $mem_kv[$m[1]] = (int)$m[2];
+                }
+            }
+            if (isset($mem_kv['MemTotal'])) {
+                $mem_total = $mem_kv['MemTotal'];
+            }
+            if (isset($mem_kv['MemAvailable'])) {
+                $mem_available = $mem_kv['MemAvailable'];
+            } elseif (isset($mem_kv['MemFree'])) {
+                $mem_available = $mem_kv['MemFree'];
+                if (isset($mem_kv['Buffers'])) {
+                    $mem_available += $mem_kv['Buffers'];
+                }
+                if (isset($mem_kv['Cached'])) {
+                    $mem_available += $mem_kv['Cached'];
+                }
+            }
+            if ($mem_total !== null && $mem_total > 0) {
+                if ($mem_available !== null) {
+                    $mem_used = $mem_total - $mem_available;
+                    if ($mem_used < 0) {
+                        $mem_used = 0;
+                    }
+                    $mem_percent = round(($mem_used / $mem_total) * 100, 1);
+                }
+            }
+        }
+    }
+
     $data = array(
         'diskTotal' => $disk_total ? $disk_total : 0,
         'diskFree' => $disk_free ? $disk_free : 0,
@@ -3280,6 +3404,11 @@ function gojs_api_system() {
         'uptime' => $uptime,
         'serverAddr' => isset($_SERVER['SERVER_ADDR']) ? $_SERVER['SERVER_ADDR'] : null,
         'serverName' => isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : null,
+        'webServer' => isset($_SERVER['SERVER_SOFTWARE']) ? $_SERVER['SERVER_SOFTWARE'] : null,
+        'memTotal' => $mem_total,
+        'memAvailable' => $mem_available,
+        'memUsed' => $mem_used,
+        'memPercent' => $mem_percent,
     );
 
     gojs_json_response($data);
@@ -3293,7 +3422,20 @@ function gojs_api_processes() {
         ), 400);
     }
 
-    $processes = array();
+    $pids = array();
+    $handle = @opendir('/proc');
+    if (!$handle) {
+        gojs_json_response(null, array(
+            'code' => 'read_failed',
+            'message' => '读取 /proc 失败',
+        ), 500);
+    }
+    while (($entry = readdir($handle)) !== false) {
+        if (preg_match('/^\d+$/', $entry)) {
+            $pids[] = (int)$entry;
+        }
+    }
+    closedir($handle);
 
     $total_mem = 0;
     $meminfo = @file_get_contents('/proc/meminfo');
@@ -3303,20 +3445,86 @@ function gojs_api_processes() {
         }
     }
 
-    $handle = @opendir('/proc');
-    if (!$handle) {
-        gojs_json_response(null, array(
-            'code' => 'read_failed',
-            'message' => '读取 /proc 失败',
-        ), 500);
+    $sample_pids = array_slice($pids, 0, 50);
+
+    function gojs_read_stat_fields($pid) {
+        $stat_path = '/proc/' . $pid . '/stat';
+        if (!is_readable($stat_path)) {
+            return null;
+        }
+        $content = @file_get_contents($stat_path);
+        if (!$content) {
+            return null;
+        }
+        $open = strpos($content, '(');
+        $close = strrpos($content, ')');
+        if ($open === false || $close === false || $close <= $open) {
+            return null;
+        }
+        $prefix = substr($content, 0, $open);
+        $suffix = substr($content, $close + 1);
+        $rest = $prefix . 'COMM' . $suffix;
+        $fields = preg_split('/\s+/', trim($rest));
+        if (count($fields) < 22) {
+            return null;
+        }
+        return $fields;
     }
 
-    while (($entry = readdir($handle)) !== false) {
-        if (!preg_match('/^\d+$/', $entry)) {
-            continue;
+    $stat_t1 = array();
+    $jiffies_total_t1 = 0;
+    $stat_content = @file_get_contents('/proc/stat');
+    if ($stat_content) {
+        $lines = explode("\n", $stat_content);
+        foreach ($lines as $line) {
+            if (strpos($line, 'cpu ') === 0) {
+                $parts = preg_split('/\s+/', trim($line));
+                for ($i = 1; $i < count($parts) && $i <= 8; $i++) {
+                    $jiffies_total_t1 += (int)$parts[$i];
+                }
+                break;
+            }
         }
+    }
+    foreach ($sample_pids as $pid) {
+        $f = gojs_read_stat_fields($pid);
+        if ($f !== null) {
+            $utime = isset($f[13]) ? (int)$f[13] : 0;
+            $stime = isset($f[14]) ? (int)$f[14] : 0;
+            $stat_t1[$pid] = $utime + $stime;
+        }
+    }
 
-        $pid = (int)$entry;
+    usleep(200000);
+
+    $stat_t2 = array();
+    $jiffies_total_t2 = 0;
+    $stat_content2 = @file_get_contents('/proc/stat');
+    if ($stat_content2) {
+        $lines = explode("\n", $stat_content2);
+        foreach ($lines as $line) {
+            if (strpos($line, 'cpu ') === 0) {
+                $parts = preg_split('/\s+/', trim($line));
+                for ($i = 1; $i < count($parts) && $i <= 8; $i++) {
+                    $jiffies_total_t2 += (int)$parts[$i];
+                }
+                break;
+            }
+        }
+    }
+    foreach ($sample_pids as $pid) {
+        $f = gojs_read_stat_fields($pid);
+        if ($f !== null) {
+            $utime = isset($f[13]) ? (int)$f[13] : 0;
+            $stime = isset($f[14]) ? (int)$f[14] : 0;
+            $stat_t2[$pid] = $utime + $stime;
+        }
+    }
+
+    $delta_total = $jiffies_total_t2 - $jiffies_total_t1;
+
+    $processes = array();
+    foreach ($pids as $pid) {
         $status_file = '/proc/' . $pid . '/status';
         $cmdline_file = '/proc/' . $pid . '/cmdline';
 
@@ -3354,15 +3562,29 @@ function gojs_api_processes() {
             $mem_percent = round(($vm_rss / $total_mem) * 100, 1);
         }
 
+        $cpu = null;
+        if (isset($stat_t1[$pid]) && isset($stat_t2[$pid]) && $delta_total > 0) {
+            $delta_proc = $stat_t2[$pid] - $stat_t1[$pid];
+            if ($delta_proc < 0) {
+                $delta_proc = 0;
+            }
+            $cpu = round(($delta_proc / $delta_total) * 100, 1);
+            if ($cpu < 0) {
+                $cpu = 0;
+            }
+            if ($cpu > 100) {
+                $cpu = 100.0;
+            }
+        }
+
         $processes[] = array(
             'pid' => $pid,
             'name' => $name,
             'cmdline' => $cmdline,
-            'cpu' => 0,
+            'cpu' => $cpu,
             'mem' => $mem_percent,
         );
     }
-    closedir($handle);
 
     gojs_json_response($processes);
 }
@@ -3926,19 +4148,33 @@ function gojs_db_connect($conn) {
     $database = !empty($conn['database']) ? $conn['database'] : '';
 
     if (extension_loaded('mysqli')) {
-        $mysqli = @new mysqli($host, $username, $password, $database, $port);
-        if ($mysqli->connect_error) {
+        $old_report = null;
+        try {
+            $old_report = mysqli_report(MYSQLI_REPORT_OFF);
+            $mysqli = @new mysqli($host, $username, $password, $database, $port);
+            if ($mysqli->connect_error || $mysqli->connect_errno) {
+                $err = $mysqli->connect_error ? $mysqli->connect_error : ('Connect error #' . $mysqli->connect_errno);
+                return array(
+                    'success' => false,
+                    'error' => $err,
+                );
+            }
+            $mysqli->set_charset('utf8mb4');
+            return array(
+                'success' => true,
+                'type' => 'mysqli',
+                'connection' => $mysqli,
+            );
+        } catch (Throwable $e) {
             return array(
                 'success' => false,
-                'error' => $mysqli->connect_error,
+                'error' => $e->getMessage(),
             );
+        } finally {
+            if ($old_report !== null) {
+                @mysqli_report($old_report);
+            }
         }
-        $mysqli->set_charset('utf8mb4');
-        return array(
-            'success' => true,
-            'type' => 'mysqli',
-            'connection' => $mysqli,
-        );
     }
 
     if (extension_loaded('pdo_mysql')) {

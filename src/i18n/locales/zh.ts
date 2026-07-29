@@ -340,6 +340,7 @@ const zh = {
     noMatches: '没有匹配的配置项',
     configItem: '配置项',
     value: '值',
+    iniCopied: '已复制 php.ini 路径',
   },
   healthCheck: {
     title: '配置体检',
@@ -402,6 +403,7 @@ const zh = {
     sapi: 'SAPI',
     webServer: 'Web 服务器',
     memoryLimit: '内存限制',
+    memoryUsed: '内存使用',
     rootPath: '根目录',
     rootPathSubtitle: '文件系统限制',
     uploadLimit: '上传限制',

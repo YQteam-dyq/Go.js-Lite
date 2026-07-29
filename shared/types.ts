@@ -261,13 +261,18 @@ export interface SystemData {
   uptime?: number
   serverAddr?: string
   serverName?: string
+  webServer?: string | null
+  memTotal?: number | null
+  memAvailable?: number | null
+  memUsed?: number | null
+  memPercent?: number | null
 }
 
 export interface ProcessInfo {
   pid: number
   name: string
   cmdline: string
-  cpu: number
+  cpu: number | null
   mem: number
 }
 

@@ -38,11 +38,11 @@ export default function Settings() {
   const regenerateMutation = useMutation({
     mutationFn: () => authApi.regenerateAccessToken(),
     onSuccess: () => {
-      toast({ type: 'success', title: '已重新生成访问令牌' })
+      toast({ type: 'success', title: t('settings.tokenRegenerated') })
       setShowRegenToken(false)
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: '生成失败', description: err.message })
+      toast({ type: 'error', title: t('settings.regenerateFailed'), description: err.message })
     },
   })
 
@@ -238,19 +238,19 @@ export default function Settings() {
             <Shield size={20} />
           </div>
           <div>
-            <div className="text-sm font-semibold text-fg">私密访问链接</div>
-            <div className="text-xs text-fg-subtle">带 token 的面板入口，隐藏面板存在</div>
+            <div className="text-sm font-semibold text-fg">{t('settings.privateAccess')}</div>
+            <div className="text-xs text-fg-subtle">{t('settings.privateAccessDesc')}</div>
           </div>
         </CardHeader>
         <CardBody className="space-y-4">
           <div className="space-y-2">
-            <label className="block text-sm font-medium text-fg">面板访问链接</label>
+            <label className="block text-sm font-medium text-fg">{t('settings.panelAccessLink')}</label>
             <div className="flex items-center gap-2">
               <Input
                 readOnly
                 value={settings?.accessToken
                   ? `${window.location.origin}${window.location.pathname}?token=${settings.accessToken}`
-                  : '加载中...'}
+                  : t('common.loading')}
                 className="font-mono text-xs"
               />
               <Button
@@ -260,7 +260,7 @@ export default function Settings() {
                   if (settings?.accessToken) {
                     const url = `${window.location.origin}${window.location.pathname}?token=${settings.accessToken}`
                     navigator.clipboard.writeText(url)
-                    toast({ type: 'success', title: '已复制链接' })
+                    toast({ type: 'success', title: t('settings.linkCopied') })
                   }
                 }}
               >
@@ -268,7 +268,7 @@ export default function Settings() {
               </Button>
             </div>
             <p className="text-xs text-fg-subtle">
-              只有知道此链接的人才能访问面板页面，请妥善保存
+              {t('settings.privateAccessHint')}
             </p>
           </div>
 
@@ -278,7 +278,7 @@ export default function Settings() {
             onClick={() => setShowRegenToken(true)}
           >
             <RotateCcw size={16} />
-            重新生成访问令牌
+            {t('settings.regenerateToken')}
           </Button>
         </CardBody>
       </Card>
@@ -513,9 +513,9 @@ export default function Settings() {
 
       <Confirm
         open={showRegenToken}
-        title="重新生成访问令牌"
-        message="重新生成后，旧的访问链接将失效，所有已打开的面板页面需要用新链接重新访问。确定要继续吗？"
-        confirmText="重新生成"
+        title={t('settings.regenerateTokenTitle')}
+        message={t('settings.regenerateTokenConfirm')}
+        confirmText={t('settings.regenerateTokenBtn')}
         variant="primary"
         onConfirm={() => regenerateMutation.mutate()}
         onCancel={() => setShowRegenToken(false)}

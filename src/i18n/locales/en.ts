@@ -342,6 +342,7 @@ const en: Translation = {
     noMatches: 'No matching directives',
     configItem: 'Directive',
     value: 'Value',
+    iniCopied: 'php.ini path copied',
   },
   healthCheck: {
     title: 'Health Check',
@@ -404,6 +405,7 @@ const en: Translation = {
     sapi: 'SAPI',
     webServer: 'Web Server',
     memoryLimit: 'Memory Limit',
+    memoryUsed: 'Memory Used',
     rootPath: 'Root Path',
     rootPathSubtitle: 'Filesystem Limits',
     uploadLimit: 'Upload Limit',

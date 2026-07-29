@@ -1,5 +1,5 @@
 # Go.js - 轻量级 PHP 服务器管理面板
-# Apache 配置文件
+# Apache 配置文件（部署在 /gojs/ 子目录内，不抢占用户 Web 根）
 
 # 禁止访问 .gojs 配置目录
 <DirectoryMatch "^.*/\.gojs/">
@@ -28,7 +28,7 @@
 <FilesMatch "\.log$">
     Order Allow,Deny
     Deny from all
-</Files>
+</FilesMatch>
 
 # 禁止访问 .json 配置文件
 <FilesMatch "db_connections\.json$">
@@ -36,14 +36,20 @@
     Deny from all
 </FilesMatch>
 
+# 禁止直接访问 api.php（仅允许内部重写访问）
+<Files "api.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
 # 默认入口：前端 SPA 优先
 DirectoryIndex index.html
 
 # 开启 URL 重写
 RewriteEngine On
 
-# 禁止直接访问 api.php（仅允许内部重写访问）
-RewriteRule ^api\.php$ - [R=404,L]
+# ====== 子目录关键：部署于 /gojs/ 时生效，开发环境请注释 ======
+RewriteBase /gojs/
 
 # 如果请求的是真实存在的文件或目录，直接访问
 RewriteCond %{REQUEST_FILENAME} -f
@@ -52,26 +58,19 @@ RewriteRule ^ - [L]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# API 路由重写：/api/xxx -> api.php?api=xxx
+# API 路由重写：/gojs/api/xxx -> api.php?api=xxx
 RewriteRule ^api/(.*)$ api.php?api=$1 [QSA,L]
 
-# 前端页面路由：所有非文件请求指向 index.html（SPA）
+# 前端页面路由：所有非文件请求指向 index.html（SPA，仅限 /gojs/ 子目录内）
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
 
 # 安全头部
 <IfModule mod_headers.c>
-    # 阻止点击劫持
     Header always set X-Frame-Options "DENY"
-    
-    # MIME 类型嗅探保护
     Header always set X-Content-Type-Options "nosniff"
-    
-    # XSS 保护
     Header always set X-XSS-Protection "1; mode=block"
-    
-    # Referrer Policy
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 </IfModule>
 

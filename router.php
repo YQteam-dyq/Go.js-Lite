@@ -1,9 +1,28 @@
 <?php
 
-$uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$uri = urldecode($uri);
+$raw_uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+$raw_uri = urldecode($raw_uri);
 
+$is_panel = false;
+$strip_prefix = '';
 
+if ($raw_uri === '/gojs' || $raw_uri === '/gojs/' || strpos($raw_uri, '/gojs/') === 0) {
+    $is_panel = true;
+    $strip_prefix = '/gojs';
+}
+
+if ($is_panel && strlen($strip_prefix) > 0) {
+    $uri = substr($raw_uri, strlen($strip_prefix));
+    if ($uri === false || $uri === '') {
+        $uri = '/';
+    }
+} else {
+    $uri = $raw_uri;
+}
+
+if (!$is_panel) {
+    return false;
+}
 
 $query = parse_url($_SERVER['REQUEST_URI'], PHP_URL_QUERY);
 if ($query) {
@@ -12,8 +31,7 @@ if ($query) {
         if (session_status() == PHP_SESSION_NONE) {
             session_start();
         }
-        
-$configFile = __DIR__ . '/.gojs/config.php';
+        $configFile = __DIR__ . '/.gojs/config.php';
         if (file_exists($configFile)) {
             $cfg = include $configFile;
             if (is_array($cfg) && !empty($cfg['access_token']) && hash_equals($cfg['access_token'], $queryParams['token'])) {
@@ -23,18 +41,18 @@ $configFile = __DIR__ . '/.gojs/config.php';
     }
 }
 
-
 if (strpos($uri, '/api/') === 0 || $uri === '/api') {
     $apiAction = ($uri === '/api') ? '' : substr($uri, 5);
+    $apiAction = ltrim($apiAction, '/');
     $apiAction = strtok($apiAction, '?');
     $_GET['api'] = $apiAction;
     require __DIR__ . '/api.php';
     return true;
 }
 
-
-if ($uri !== '/') {
-    $distFile = __DIR__ . '/dist' . $uri;
+$staticPath = $uri;
+if ($staticPath !== '/') {
+    $distFile = __DIR__ . '/dist' . $staticPath;
     if (file_exists($distFile) && is_file($distFile)) {
         $ext = pathinfo($distFile, PATHINFO_EXTENSION);
         $mimeMap = [
@@ -60,14 +78,7 @@ if ($uri !== '/') {
         readfile($distFile);
         return true;
     }
-
-    
-$rootFile = __DIR__ . $uri;
-    if (file_exists($rootFile) && is_file($rootFile)) {
-        return false;
-    }
 }
-
 
 $indexFile = __DIR__ . '/dist/index.html';
 if (file_exists($indexFile)) {

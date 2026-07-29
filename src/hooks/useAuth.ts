@@ -77,7 +77,8 @@ export function useAuth() {
       await authApi.logout()
     } finally {
       reset()
-      window.location.href = '/login'
+      const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
+      window.location.href = base + '/login'
     }
   }, [reset])
 

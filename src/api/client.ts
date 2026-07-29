@@ -24,7 +24,8 @@ export async function apiFetch<T = unknown>(
 ): Promise<T> {
   const { method = 'GET', params, body, json = true, responseType = 'json' } = options
 
-  let url = `/api${path.startsWith('/') ? path : '/' + path}`
+  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
+  let url = base + `/api${path.startsWith('/') ? path : '/' + path}`
 
   if (params) {
     const search = new URLSearchParams()

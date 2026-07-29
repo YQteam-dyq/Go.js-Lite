@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Code2, Search, Server, Cpu, HardDrive } from 'lucide-react'
+import { Code2, Search, Server, Cpu, HardDrive, Copy } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Spinner } from '@/components/ui/Spinner'
 import { Badge } from '@/components/ui/Badge'
+import { Button } from '@/components/ui/Button'
+import { toast } from '@/components/ui/Toast'
 import { phpInfoApi } from '@/api/phpinfo'
 import { useI18n } from '@/hooks/useI18n'
 
@@ -32,6 +34,13 @@ export default function PhpInfo() {
           k.toLowerCase().includes(search.toLowerCase()),
         )
       : []
+
+  const copyIniPath = () => {
+    if (data?.iniFile) {
+      navigator.clipboard.writeText(data.iniFile)
+      toast({ type: 'success', title: t('phpinfo.iniCopied') })
+    }
+  }
 
   return (
     <div className="p-4 md:p-6 space-y-5">
@@ -67,6 +76,13 @@ export default function PhpInfo() {
               label={t('phpinfo.iniFile')}
               value={data.iniFile || t('phpinfo.notFound')}
               mono
+              action={
+                data?.iniFile ? (
+                  <Button size="sm" variant="ghost" onClick={copyIniPath}>
+                    <Copy size={14} />
+                  </Button>
+                ) : undefined
+              }
             />
             <InfoCard
               icon={<Cpu size={20} />}
@@ -161,12 +177,14 @@ function InfoCard({
   value,
   accent,
   mono,
+  action,
 }: {
   icon: React.ReactNode
   label: string
   value: string
   accent?: boolean
   mono?: boolean
+  action?: React.ReactNode
 }) {
   return (
     <Card>
@@ -178,10 +196,13 @@ function InfoCard({
         >
           {icon}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <div className="text-xs text-fg-subtle">{label}</div>
-          <div className={`text-base font-semibold text-fg mt-0.5 truncate ${mono ? 'font-mono' : ''}`}>
-            {value}
+          <div className="flex items-center gap-2">
+            <div className={`text-base font-semibold text-fg mt-0.5 truncate flex-1 ${mono ? 'font-mono' : ''}`}>
+              {value}
+            </div>
+            {action}
           </div>
         </div>
       </CardBody>

@@ -1,6 +1,6 @@
 # Go.js Lite — Lightweight PHP Shared Hosting Control Panel
 
-> A lightweight server management panel built specifically for PHP shared hosting. Mobile-friendly.
+> A lightweight server management panel built specifically for PHP shared hosting. **Does not occupy your web root**. Mobile-friendly.
 
 English | [中文](README.md)
 
@@ -15,7 +15,10 @@ English | [中文](README.md)
 
 ### For Users (Deployment)
 
-Download the latest `gojs-lite-VERSION.zip` from [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases), extract and upload to your web root.
+Download the latest `gojs-lite-VERSION.zip` from [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases). Extract, then **upload the `gojs/` directory** as a whole to your web root.
+
+- Panel URL: `https://your-domain.com/gojs/`
+- All panel files are isolated inside `gojs/` — they will never interfere with your existing site ✅
 
 ### For Developers (Local Development)
 
@@ -27,25 +30,29 @@ cd Go.js-Lite
 # Install dependencies
 npm install
 
-# Start PHP backend (port 8080)
-php -S 127.0.0.1:8080 -t .
+# Start PHP backend (port 8080) with /gojs/ prefix-aware router
+php -S 127.0.0.1:8080 router.php
 
-# Start frontend dev server (port 5173)
+# Start frontend dev server (port 5173), auto-proxies /gojs/api
 npm run dev
 ```
 
-Visit http://localhost:5173 to start developing.
+Visit http://localhost:5173/gojs/ to start developing.
 
 ## ✨ Features
 
-- 📦 **Lightweight deployment** — Upload `index.php` + `dist/` to your web root and you're good to go. No composer, no Node.js required.
+- 📦 **Decoupled deployment** — All panel files ship inside the standalone `gojs/` subdirectory. Your web root stays clean.
 - 🔑 **Secret access URL** — Access the panel via a token-based URL to hide its existence from public discovery.
 - 🎯 **Shared hosting friendly** — Automatically detects `disable_functions`, gracefully degrades based on available capabilities.
 - 📱 **Mobile-first** — Responsive design, perfect on phones, tablets, and desktops. Touch-friendly.
 - 🔒 **Secure & reliable** — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection.
 - 📁 **File management** — Browse / edit / upload / download files online, permission changes supported.
-- 🗄️ **Database management** — MySQL connection management, SQL console, table structure browser.
-- ℹ️ **System information** — PHP info, server environment, disk usage.
+- 🗜️ **Zip / Tar archives** — Compress & extract zip / tar.gz archives online ✅
+- 🗄️ **Database management** — MySQL connections, SQL console, table structure browser, **.sql import & export** ✅
+- 🐛 **PHP error log viewer** — Auto-detects log paths, categorised filtering, live refresh ✅
+- 🧱 **Health check** — One-click PHP security / performance / compatibility audit.
+- 🧮 **Disk analysis** — Visualises per-directory usage and identifies large files.
+- ℹ️ **System info** — PHP info, server environment, disk usage, **memory monitor**, process CPU ✅
 - 🌐 **Bilingual (EN/ZH)** — Built-in i18n, supports both Chinese and English.
 - 🌙 **Light / dark themes** — Supports light / dark / system preference.
 - ⚡ **Modern frontend** — React + TypeScript + Vite + Tailwind CSS.
@@ -66,28 +73,35 @@ Visit http://localhost:5173 to start developing.
 ### Deployment
 
 1. **Download** the latest release (`gojs-lite-VERSION.zip`)
-2. **Upload** all files to your web root (e.g. `public_html/`, `wwwroot/`)
-3. **Visit** your domain — the setup wizard will start automatically
-4. **Set** an admin password, save your secret access URL, and you're done ✅
+2. **Extract** the archive — you get a single standalone `gojs/` folder
+3. **Upload** the `gojs/` folder to your web root (e.g. `public_html/gojs/`, `wwwroot/gojs/`)
+4. **Visit** `https://your-domain.com/gojs/` — the setup wizard starts automatically
+5. **Set** an admin password, save your secret access URL, and you're done ✅
+
+> 💡 **Note**: All panel assets live inside `gojs/`. Zero pollution to the rest of your site.
 
 ### Directory Structure
 
 After deployment on the server:
 
 ```
+public_html/              ← Your user site (panel never touches it)
+├── index.html / index.php ← Keep your original content as-is
+└── gojs/                  ← Panel lives here, access through this path
+    ├── api.php            # Backend API (single file)
+    ├── .htaccess          # Apache rewrite rules (RewriteBase /gojs/)
+    └── dist/              # Frontend build
+        ├── index.html
+        └── assets/
+```
+
+Config files are automatically created in the panel's parent directory:
+
+```
 public_html/
-├── index.php          # Backend API
-├── .htaccess          # Apache rewrite rules
-└── dist/              # Frontend build
-    ├── index.html
-    └── assets/
-```
-
-Config files are automatically created during setup:
-
-```
-.gojs/
-└── config.php         # Main config (PHP array, web access blocked)
+└── .gojs/
+    ├── config.php         # Main config (PHP array, web access blocked)
+    └── auth.log           # Login log (brute-force protection)
 ```
 
 ---
@@ -102,12 +116,15 @@ Config files are automatically created during setup:
 | 🔑 Secret Access | Token-based access URL, hides panel existence | ✅ |
 | 📊 Dashboard | System overview, disk usage, file stats, recently modified files | ✅ |
 | 📁 File Manager | Directory browser, file editor, upload/download, create/delete/rename, permissions | ✅ |
+| 🗜️ Zip / Tar | Compress to zip/tar.gz, extract any archive | ✅ |
 | 🗄️ Database Mgmt | MySQL connections, database/table/column browser, SQL console | ✅ |
-| ℹ️ PHP Info | Version, extensions, ini config, server variables | ✅ |
-| 💻 System Info | Disk, load, uptime | ✅ |
-| ⚙️ Settings | Theme switch, language switch, session settings, password change, regenerate access token | ✅ |
-| 📦 Zip Archives | Compress / extract files & directories | 🚧 Coming soon |
-| 📤 SQL Import/Export | .sql file import & export | 🚧 Coming soon |
+| 📤 SQL Import/Export | One-click full/single-table export, chunked .sql import | ✅ |
+| 🐛 PHP Error Log | Auto-detects log path, categorised filtering, live refresh | ✅ |
+| 🧱 Health Check | One-click PHP security / performance / compatibility audit | ✅ |
+| 🧮 Disk Analysis | Per-directory size visualisation, large files list | ✅ |
+| ℹ️ PHP Info | Version, extensions, ini directives, one-click copy php.ini path | ✅ |
+| 💻 System Info | Disk, load, uptime, memory usage, process CPU, Cron | ✅ |
+| ⚙️ Settings | Theme / language switch, session settings, password change, access URL i18n | ✅ |
 
 ### Capability-based Degradation
 
@@ -127,11 +144,13 @@ Go.js Lite automatically detects your server environment and hides unavailable f
 
 - Admin password hashed with `password_hash(PASSWORD_BCRYPT)` — one-way, irreversible.
 - Database connection passwords encrypted with `AES-256-CBC`.
-- All file operations validated via `realpath()` to prevent path traversal.
-- System files (`.gojs/`, `index.php`) are protected from file manager operations.
+- All file operations are anchored to a strict `$files_root` realpath — no path traversal.
+- System files (`.gojs/`, `api.php`, `.htaccess`) are protected from file manager operations.
 - Config directory `.gojs/` blocked from direct web access via `.htaccess`.
 - CSRF token validation — cross-site request forgery protection.
+- Session / Cookie scope shrunk to `/gojs/` — never leaks to sibling apps in the web root.
 - 🔑 **Secret access URL** — Panel requires a token in the URL, hiding its existence.
+- 🛡️ **Subdirectory isolation** — Panel owns the `/gojs/` path and nothing else.
 
 ---
 

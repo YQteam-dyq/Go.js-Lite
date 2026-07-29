@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 import path from 'node:path'
 
 export default defineConfig({
+  base: '/gojs/',
   plugins: [react()],
   resolve: {
     alias: {
@@ -13,11 +14,11 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/api': {
+      '/gojs/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,
         rewrite: (path) => {
-          const cleanPath = path.replace(/^\/api/, '')
+          const cleanPath = path.replace(/^\/gojs\/api/, '')
           const [pathPart, queryPart] = cleanPath.split('?')
           const apiAction = pathPart.replace(/^\//, '')
           const query = queryPart ? `&${queryPart}` : ''

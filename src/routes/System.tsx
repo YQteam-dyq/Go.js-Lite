@@ -99,15 +99,28 @@ export default function System() {
             <InfoCard
               icon={<Globe size={16} />}
               label={t('system.webServer')}
-              value={sys?.serverAddr ? t('system.serverAddr') : t('system.unavailable')}
+              value={sys?.webServer || sys?.serverAddr || t('system.unavailable')}
               color="success"
             />
-            <InfoCard
-              icon={<MemoryStick size={16} />}
-              label={t('system.memoryLimit')}
-              value={capabilities?.memoryLimit ? formatBytes(capabilities.memoryLimit) : '—'}
-              color="warning"
-            />
+            {sys?.memUsed !== undefined && sys.memUsed !== null ? (
+              <InfoCard
+                icon={<MemoryStick size={16} />}
+                label={t('system.memoryUsed') || '内存使用'}
+                value={`${formatBytes(sys.memUsed * 1024)}${
+                  sys.memPercent !== null && sys.memPercent !== undefined
+                    ? ` (${Number(sys.memPercent).toFixed(1)}%)`
+                    : ''
+                }`}
+                color="warning"
+              />
+            ) : (
+              <InfoCard
+                icon={<MemoryStick size={16} />}
+                label={t('system.memoryLimit')}
+                value={capabilities?.memoryLimit ? formatBytes(capabilities.memoryLimit) : '—'}
+                color="warning"
+              />
+            )}
           </div>
         </CardBody>
       </Card>
@@ -241,9 +254,9 @@ export default function System() {
                         <td className="px-4 py-1.5 text-fg-muted truncate max-w-[200px]">
                           {p.name}
                         </td>
-                        <td className="px-4 py-1.5 text-right text-fg">{p.cpu.toFixed(1)}</td>
+                        <td className="px-4 py-1.5 text-right text-fg">{p.cpu == null ? '—' : p.cpu.toFixed(1)}</td>
                         <td className="px-4 py-1.5 text-right text-fg-muted hidden sm:table-cell">
-                          {p.mem.toFixed(1)}
+                          {Number(p.mem).toFixed(1)}
                         </td>
                       </tr>
                     ))}
