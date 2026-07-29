@@ -20,7 +20,7 @@ export default defineConfig({
                     var _a = cleanPath.split('?'), pathPart = _a[0], queryPart = _a[1];
                     var apiAction = pathPart.replace(/^\//, '');
                     var query = queryPart ? "&".concat(queryPart) : '';
-                    return "/index.php?api=".concat(apiAction).concat(query);
+                    return "/api.php?api=".concat(apiAction).concat(query);
                 },
             },
         },

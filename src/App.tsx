@@ -18,6 +18,10 @@ import Settings from '@/routes/Settings'
 import NotFound from '@/routes/NotFound'
 import { useCapabilities } from '@/hooks/useCapabilities'
 import type { TranslationKey } from '@/hooks/useI18n'
+import DiskAnalysis from '@/routes/DiskAnalysis'
+import ErrorLog from '@/routes/ErrorLog'
+import Htaccess from '@/routes/Htaccess'
+import HealthCheck from '@/routes/HealthCheck'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -64,6 +68,10 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/phpinfo': 'phpinfo.documentTitle',
   '/system': 'system.documentTitle',
   '/settings': 'settings.documentTitle',
+  '/disk-analysis': 'diskAnalysis.documentTitle',
+  '/error-log': 'errorLog.documentTitle',
+  '/htaccess': 'htaccess.documentTitle',
+  '/health-check': 'healthCheck.documentTitle',
   '/404': 'notFound.documentTitle',
 }
 
@@ -117,6 +125,10 @@ export default function App() {
                 <Route path="db/*" element={<DbRoutes />} />
                 <Route path="phpinfo" element={<PhpInfo />} />
                 <Route path="system" element={<System />} />
+                <Route path="disk-analysis" element={<DiskAnalysis />} />
+                <Route path="error-log" element={<ErrorLog />} />
+                <Route path="htaccess" element={<Htaccess />} />
+                <Route path="health-check" element={<HealthCheck />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

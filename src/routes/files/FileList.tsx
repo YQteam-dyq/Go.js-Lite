@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -23,6 +23,7 @@ import {
   FolderPlus,
   List,
   Grid3X3,
+  Package,
 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -44,6 +45,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { useCapabilities } from '@/hooks/useCapabilities'
 
 type SortField = 'name' | 'size' | 'mtime'
 type SortOrder = 'asc' | 'desc'
@@ -62,6 +64,7 @@ export default function FileList() {
   const navigate = useNavigate()
   const queryClient = useQueryClient()
   const isMobile = useIsMobile()
+  const caps = useCapabilities()
   const { '*': path = '' } = useParams()
   const [search, setSearch] = useState('')
   const [sortField, setSortField] = useState<SortField>('name')
@@ -70,6 +73,7 @@ export default function FileList() {
   const multiSelection = useUiStore((s) => s.multiSelection)
   const clearSelection = useUiStore((s) => s.clearSelection)
   const toggleSelection = useUiStore((s) => s.toggleSelection)
+  const [zipping, setZipping] = useState(false)
 
   const [newItemType, setNewItemType] = useState<NewItemType>(null)
   const [newItemName, setNewItemName] = useState('')
@@ -98,20 +102,49 @@ export default function FileList() {
   const uploadManager = useUploadManager()
   const [exitingIds, setExitingIds] = useState<Set<string>>(new Set())
 
+  const [pathPicker, setPathPicker] = useState<{
+    open: boolean
+    mode: 'copy' | 'move'
+    file: FileEntry | null
+    target: string
+    error: string
+  }>({ open: false, mode: 'copy', file: null, target: '', error: '' })
+  const [pathPickerLoading, setPathPickerLoading] = useState(false)
+
+  const [chmodModal, setChmodModal] = useState<{
+    open: boolean
+    file: FileEntry | null
+    mode: string
+    error: string
+  }>({ open: false, file: null, mode: '', error: '' })
+  const [chmodLoading, setChmodLoading] = useState(false)
+
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+
   const currentPath = path ? '/' + path : ''
   const currentDir = currentPath || '/'
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedSearch(search), 300)
+    return () => clearTimeout(timer)
+  }, [search])
 
   const { data, isLoading, error, refetch } = useQuery({
     queryKey: ['files', currentPath, sortField, sortOrder],
     queryFn: () => filesApi.list(currentPath, sortField, sortOrder),
   })
 
+  const isSearching = debouncedSearch.trim().length > 0
+  const { data: searchData, isLoading: searchLoading } = useQuery({
+    queryKey: ['file-search', currentDir, debouncedSearch],
+    queryFn: () => filesApi.search(currentDir, debouncedSearch),
+    enabled: isSearching,
+  })
+
   const filteredFiles = useMemo(() => {
-    if (!data?.files) return []
-    if (!search.trim()) return data.files
-    const q = search.toLowerCase()
-    return data.files.filter((f) => f.name.toLowerCase().includes(q))
-  }, [data, search])
+    if (isSearching) return searchData?.files ?? []
+    return data?.files ?? []
+  }, [data, isSearching, searchData])
 
   const breadcrumbs = useMemo(() => {
     const parts = currentPath.split('/').filter(Boolean)
@@ -193,15 +226,17 @@ export default function FileList() {
       uploadManager.addUpload(id, file.name, file.size)
 
       try {
-        await filesApi.simulateUploadProgress((percent) => {
-          uploadManager.updateProgress(id, percent)
-        }, 1000 + Math.random() * 1500)
-
-        await filesApi.uploadFile(currentDir, { name: file.name, size: file.size })
+        await filesApi.uploadFile(currentDir, file, (progress) => {
+          uploadManager.updateProgress(id, progress.percentage)
+        })
         uploadManager.setSuccess(id)
         invalidateFiles()
       } catch (err) {
-        uploadManager.setError(id, err instanceof Error ? err.message : t('files.uploadFailed'))
+        const message =
+          err instanceof Error && err.message
+            ? err.message
+            : t('files.uploadFailed')
+        uploadManager.setError(id, message)
       }
     }
   }
@@ -333,19 +368,226 @@ export default function FileList() {
   }
 
   const handleCopy = (file: FileEntry) => {
-    toast({ type: 'info', title: t('common.copy') + ': ' + file.name })
+    setPathPicker({ open: true, mode: 'copy', file, target: currentDir, error: '' })
   }
 
   const handleMove = (file: FileEntry) => {
-    toast({ type: 'info', title: t('files.move') + ': ' + file.name })
+    setPathPicker({ open: true, mode: 'move', file, target: currentDir, error: '' })
   }
 
-  const handleDownload = (_file: FileEntry) => {
-    toast({ type: 'info', title: t('files.downloadInProgress') })
+  const handleDownload = async (file: FileEntry) => {
+    if (file.type === 'dir') {
+      toast({ type: 'info', title: t('files.zipBeforeDownloadDir') })
+      return
+    }
+    toast({ type: 'info', title: t('files.download') + ': ' + file.name })
+    try {
+      await filesApi.download(file.path)
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: t('files.downloadFailed'),
+        description: err instanceof Error ? err.message : undefined,
+      })
+    }
   }
 
   const handlePermissions = (file: FileEntry) => {
-    toast({ type: 'info', title: t('files.permissions') + ': ' + file.name })
+    setChmodModal({ open: true, file, mode: file.perms, error: '' })
+  }
+
+  const handlePathPickerSubmit = async () => {
+    if (!pathPicker.file) return
+    const targetDir = pathPicker.target.trim()
+    if (!targetDir) {
+      setPathPicker((s) => ({ ...s, error: t('files.nameRequired') }))
+      return
+    }
+
+    const fileName = pathPicker.file.name
+    const targetPath = targetDir === '/' ? '/' + fileName : targetDir.replace(/\/+$/, '') + '/' + fileName
+
+    setPathPickerLoading(true)
+    try {
+      if (pathPicker.mode === 'copy') {
+        await filesApi.copy(pathPicker.file.path, targetPath)
+        toast({ type: 'success', title: t('files.copySuccess') })
+      } else {
+        await filesApi.renameFile(pathPicker.file.path, targetPath)
+        toast({ type: 'success', title: t('files.moveSuccess') })
+      }
+      setPathPicker({ open: false, mode: 'copy', file: null, target: '', error: '' })
+      invalidateFiles()
+    } catch (err) {
+      setPathPicker((s) => ({
+        ...s,
+        error:
+          err instanceof Error
+            ? err.message
+            : pathPicker.mode === 'copy'
+              ? t('files.copyFailed')
+              : t('files.moveFailed'),
+      }))
+    } finally {
+      setPathPickerLoading(false)
+    }
+  }
+
+  const handleChmodSubmit = async () => {
+    if (!chmodModal.file) return
+    const mode = chmodModal.mode.trim()
+    if (!/^[0-7]{3,4}$/.test(mode)) {
+      setChmodModal((s) => ({ ...s, error: t('files.permissionsInvalid') }))
+      return
+    }
+
+    setChmodLoading(true)
+    try {
+      await filesApi.chmod(chmodModal.file.path, mode)
+      toast({ type: 'success', title: t('files.chmodSuccess') })
+      setChmodModal({ open: false, file: null, mode: '', error: '' })
+      invalidateFiles()
+    } catch (err) {
+      setChmodModal((s) => ({
+        ...s,
+        error: err instanceof Error ? err.message : t('files.chmodFailed'),
+      }))
+    } finally {
+      setChmodLoading(false)
+    }
+  }
+
+  const handleZipSingle = (file: FileEntry) => {
+    const target = currentDir === '/'
+      ? '/' + file.name + '.zip'
+      : currentDir + '/' + file.name + '.zip'
+    handleZip([file.path], target)
+  }
+
+  const handleZipSelected = () => {
+    const selectedFiles = filteredFiles.filter((f) => multiSelection.has(f.path))
+    if (selectedFiles.length === 0) return
+    const target = currentDir === '/'
+      ? '/archive.zip'
+      : currentDir + '/archive.zip'
+    handleZip(selectedFiles.map((f) => f.path), target)
+  }
+
+  const handleZip = async (paths: string[], target: string) => {
+    if (!caps.zip) {
+      toast({ type: 'error', title: t('files.zipNotSupported') })
+      return
+    }
+    setZipping(true)
+    try {
+      await filesApi.zip(paths, target)
+      toast({ type: 'success', title: t('files.zipSuccess'), description: target })
+      clearSelection()
+      invalidateFiles()
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: t('files.zipFailed'),
+        description: err instanceof Error ? err.message : t('common.unknownError'),
+      })
+    } finally {
+      setZipping(false)
+    }
+  }
+
+  const handleUnzip = async (file: FileEntry) => {
+    if (!caps.zip) {
+      toast({ type: 'error', title: t('files.zipNotSupported') })
+      return
+    }
+    const target = currentDir === '/'
+      ? '/' + file.name.replace(/\.zip$/i, '')
+      : currentDir + '/' + file.name.replace(/\.zip$/i, '')
+    setZipping(true)
+    try {
+      const res = await filesApi.unzip(file.path, target)
+      toast({
+        type: 'success',
+        title: t('files.unzipSuccess'),
+        description: t('files.unzipSuccessDesc', { count: res.extracted }),
+      })
+      invalidateFiles()
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: t('files.unzipFailed'),
+        description: err instanceof Error ? err.message : t('common.unknownError'),
+      })
+    } finally {
+      setZipping(false)
+    }
+  }
+
+  const handleTargzSingle = (file: FileEntry) => {
+    const target = currentDir === '/'
+      ? '/' + file.name + '.tar.gz'
+      : currentDir + '/' + file.name + '.tar.gz'
+    handleTargz([file.path], target)
+  }
+
+  const handleTargzSelected = () => {
+    const selectedFiles = filteredFiles.filter((f) => multiSelection.has(f.path))
+    if (selectedFiles.length === 0) return
+    const target = currentDir === '/'
+      ? '/archive.tar.gz'
+      : currentDir + '/archive.tar.gz'
+    handleTargz(selectedFiles.map((f) => f.path), target)
+  }
+
+  const handleTargz = async (paths: string[], target: string) => {
+    if (!caps.targz) {
+      toast({ type: 'error', title: t('files.targzNotSupported') })
+      return
+    }
+    setZipping(true)
+    try {
+      await filesApi.targz(paths, target)
+      toast({ type: 'success', title: t('files.targzSuccess'), description: target })
+      clearSelection()
+      invalidateFiles()
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: t('files.targzFailed'),
+        description: err instanceof Error ? err.message : t('common.unknownError'),
+      })
+    } finally {
+      setZipping(false)
+    }
+  }
+
+  const handleUntargz = async (file: FileEntry) => {
+    if (!caps.targz) {
+      toast({ type: 'error', title: t('files.targzNotSupported') })
+      return
+    }
+    const stripped = file.name.replace(/\.(tar\.gz|tgz)$/i, '')
+    const target = currentDir === '/'
+      ? '/' + stripped
+      : currentDir + '/' + stripped
+    setZipping(true)
+    try {
+      const res = await filesApi.untargz(file.path, target)
+      toast({
+        type: 'success',
+        title: t('files.untargzSuccess'),
+        description: t('files.untargzSuccessDesc', { count: res.extracted }),
+      })
+      invalidateFiles()
+    } catch (err) {
+      toast({
+        type: 'error',
+        title: t('files.untargzFailed'),
+        description: err instanceof Error ? err.message : t('common.unknownError'),
+      })
+    } finally {
+      setZipping(false)
+    }
   }
 
   return (
@@ -472,7 +714,7 @@ export default function FileList() {
           )}
 
           <div className="flex-1 overflow-auto">
-            {isLoading ? (
+            {isLoading || (isSearching && searchLoading) ? (
               <SkeletonTable rows={8} columns={4} />
             ) : error ? (
               <EmptyError
@@ -536,6 +778,26 @@ export default function FileList() {
               </span>
             </div>
             <div className="h-5 w-px bg-border mx-1" />
+            {caps.zip && (
+              <button
+                onClick={handleZipSelected}
+                disabled={zipping}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-fg hover:bg-fg/5 transition-colors disabled:opacity-50"
+              >
+                <Package size={16} className={zipping ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">{t('files.compressToZip')}</span>
+              </button>
+            )}
+            {caps.targz && (
+              <button
+                onClick={handleTargzSelected}
+                disabled={zipping}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-fg hover:bg-fg/5 transition-colors disabled:opacity-50"
+              >
+                <Package size={16} className={zipping ? 'animate-spin' : ''} />
+                <span className="hidden sm:inline">{t('files.compressToTargz')}</span>
+              </button>
+            )}
             <button
               onClick={handleDeleteSelected}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-sm text-danger hover:bg-danger/10 transition-colors"
@@ -661,6 +923,102 @@ export default function FileList() {
         onCancel={() => setDeleteConfirm({ open: false, files: [] })}
       />
 
+      <Modal
+        open={pathPicker.open}
+        onClose={() => setPathPicker((s) => ({ ...s, open: false }))}
+        title={pathPicker.mode === 'copy' ? t('files.copyTitle') : t('files.moveTitle')}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPathPicker((s) => ({ ...s, open: false }))}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="primary" onClick={handlePathPickerSubmit} loading={pathPickerLoading}>
+              {t('common.confirm')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-fg-muted truncate">{pathPicker.file?.name}</p>
+          <div>
+            <label className="block text-xs font-medium text-fg-muted mb-1.5">
+              {t('files.targetPath')}
+            </label>
+            <Input
+              value={pathPicker.target}
+              onChange={(e) => {
+                setPathPicker((s) => ({ ...s, target: e.target.value, error: '' }))
+              }}
+              placeholder={t('files.copyTargetPlaceholder')}
+              invalid={!!pathPicker.error}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handlePathPickerSubmit()
+              }}
+            />
+            <p className="text-xs text-fg-subtle mt-1.5">{t('files.targetPathHint')}</p>
+          </div>
+          {pathPicker.error && <p className="text-xs text-danger">{pathPicker.error}</p>}
+        </div>
+      </Modal>
+
+      <Modal
+        open={chmodModal.open}
+        onClose={() => setChmodModal((s) => ({ ...s, open: false }))}
+        title={t('files.permissionsTitle')}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setChmodModal((s) => ({ ...s, open: false }))}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="primary" onClick={handleChmodSubmit} loading={chmodLoading}>
+              {t('common.confirm')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-fg-muted truncate">{chmodModal.file?.name}</p>
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-fg-muted">{t('files.currentPermissions')}</span>
+            <span className="font-mono text-fg">
+              {chmodModal.file?.perms}
+              <span className="text-fg-subtle ml-2">
+                {permsToSymbolic(chmodModal.file?.perms || '', chmodModal.file?.type === 'dir')}
+              </span>
+            </span>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-fg-muted mb-1.5">
+              {t('files.permissions')}
+            </label>
+            <Input
+              value={chmodModal.mode}
+              onChange={(e) => {
+                setChmodModal((s) => ({ ...s, mode: e.target.value, error: '' }))
+              }}
+              placeholder={t('files.newPermissionsPlaceholder')}
+              invalid={!!chmodModal.error}
+              autoFocus
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleChmodSubmit()
+              }}
+            />
+            {/^[0-7]{3,4}$/.test(chmodModal.mode.trim()) && (
+              <p className="text-xs text-fg-subtle mt-1.5">
+                {t('files.permissionsSymbolic')}:{' '}
+                <span className="font-mono">
+                  {permsToSymbolic(chmodModal.mode.trim(), chmodModal.file?.type === 'dir')}
+                </span>
+              </p>
+            )}
+          </div>
+          {chmodModal.error && <p className="text-xs text-danger">{chmodModal.error}</p>}
+        </div>
+      </Modal>
+
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
@@ -674,6 +1032,12 @@ export default function FileList() {
           onDownload={() => handleDownload(contextMenu.file)}
           onDelete={() => handleDeleteSingle(contextMenu.file)}
           onPermissions={() => handlePermissions(contextMenu.file)}
+          onZip={() => handleZipSingle(contextMenu.file)}
+          onUnzip={() => handleUnzip(contextMenu.file)}
+          onTargz={() => handleTargzSingle(contextMenu.file)}
+          onUntargz={() => handleUntargz(contextMenu.file)}
+          canZip={caps.zip}
+          canTargz={caps.targz}
           t={t}
         />
       )}
@@ -982,6 +1346,20 @@ function getFileIcon(file: FileEntry) {
   if (['php', 'js', 'ts', 'tsx', 'css', 'html', 'json', 'sql', 'py'].includes(ext)) return FileCode
   if (isTextFile(file.name)) return FileText
   return File
+}
+
+function permsToSymbolic(perms: string, isDir: boolean): string {
+  let mode = perms
+  if (mode.length === 4) mode = mode.slice(1)
+  if (mode.length !== 3 || !/^[0-7]{3}$/.test(mode)) return perms
+  const chars = 'rwxrwxrwx'
+  let result = isDir ? 'd' : '-'
+  for (let i = 0; i < 9; i++) {
+    const octalDigit = parseInt(mode[Math.floor(i / 3)], 10)
+    const bit = octalDigit & (1 << (2 - (i % 3)))
+    result += bit ? chars[i] : '-'
+  }
+  return result
 }
 
 export { FileList }

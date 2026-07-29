@@ -29,6 +29,7 @@ const mockCapabilities: Capabilities = {
   processes: true,
   cron: true,
   zip: true,
+  targz: true,
   gd: true,
   openBasedir: false,
   disabledFunctions: [],

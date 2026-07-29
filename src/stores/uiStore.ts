@@ -9,10 +9,18 @@ function getInitialLanguage(): Language {
   return 'en'
 }
 
+const SIDEBAR_COLLAPSED_KEY = 'gojs_sidebar_collapsed'
+
+function getInitialSidebarCollapsed(): boolean {
+  if (typeof localStorage === 'undefined') return false
+  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+}
+
 interface UiState {
   theme: ThemeMode
   language: Language
   sidebarOpen: boolean
+  sidebarCollapsed: boolean
   multiSelection: Set<string>
   toasts: ToastItem[]
 
@@ -20,6 +28,8 @@ interface UiState {
   setLanguage: (lang: Language) => void
   toggleSidebar: () => void
   setSidebar: (open: boolean) => void
+  toggleSidebarCollapsed: () => void
+  setSidebarCollapsed: (collapsed: boolean) => void
 
   toggleSelection: (path: string) => void
   clearSelection: () => void
@@ -45,6 +55,7 @@ export const useUiStore = create<UiState>()(
       theme: 'system',
       language: getInitialLanguage(),
       sidebarOpen: true,
+      sidebarCollapsed: getInitialSidebarCollapsed(),
       multiSelection: new Set(),
       toasts: [],
 
@@ -52,6 +63,19 @@ export const useUiStore = create<UiState>()(
       setLanguage: (language) => set({ language }),
       toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
       setSidebar: (open) => set({ sidebarOpen: open }),
+      toggleSidebarCollapsed: () => {
+        const next = !get().sidebarCollapsed
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0')
+        }
+        set({ sidebarCollapsed: next })
+      },
+      setSidebarCollapsed: (collapsed) => {
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
+        }
+        set({ sidebarCollapsed: collapsed })
+      },
 
       toggleSelection: (path) => {
         const next = new Set(get().multiSelection)

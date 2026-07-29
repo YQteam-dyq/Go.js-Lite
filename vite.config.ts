@@ -21,7 +21,7 @@ export default defineConfig({
           const [pathPart, queryPart] = cleanPath.split('?')
           const apiAction = pathPart.replace(/^\//, '')
           const query = queryPart ? `&${queryPart}` : ''
-          return `/index.php?api=${apiAction}${query}`
+          return `/api.php?api=${apiAction}${query}`
         },
       },
     },

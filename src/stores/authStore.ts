@@ -26,6 +26,7 @@ const defaultCaps: Capabilities = {
   processes: false,
   cron: false,
   zip: false,
+  targz: false,
   gd: false,
   openBasedir: false,
   disabledFunctions: [],

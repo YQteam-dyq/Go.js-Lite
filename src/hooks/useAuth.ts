@@ -30,6 +30,7 @@ export function useAuthBootstrap() {
             processes: false,
             cron: false,
             zip: false,
+            targz: false,
             gd: false,
             openBasedir: false,
             disabledFunctions: [],

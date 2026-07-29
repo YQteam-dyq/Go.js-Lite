@@ -60,4 +60,24 @@ export const authApi = {
       method: 'POST',
     })
   },
+
+  async exportConfig(): Promise<void> {
+    const blob = await apiFetch<Blob>('/settings/export', {
+      responseType: 'blob',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'gojs-config.json'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  },
+
+  resetPanel() {
+    return apiFetch<{ success: boolean }>('/settings/reset', {
+      method: 'POST',
+    })
+  },
 }

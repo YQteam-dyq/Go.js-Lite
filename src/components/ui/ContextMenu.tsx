@@ -8,6 +8,8 @@ import {
   Download,
   Trash2,
   Shield,
+  Package,
+  Archive,
 } from 'lucide-react'
 import type { FileEntry } from '@shared/types'
 
@@ -23,6 +25,12 @@ interface ContextMenuProps {
   onDownload: () => void
   onDelete: () => void
   onPermissions: () => void
+  onZip?: () => void
+  onUnzip?: () => void
+  onTargz?: () => void
+  onUntargz?: () => void
+  canZip?: boolean
+  canTargz?: boolean
   t: (key: string) => string
 }
 
@@ -38,6 +46,12 @@ export function ContextMenu({
   onDownload,
   onDelete,
   onPermissions,
+  onZip,
+  onUnzip,
+  onTargz,
+  onUntargz,
+  canZip,
+  canTargz,
   t,
 }: ContextMenuProps) {
   const menuRef = useRef<HTMLDivElement>(null)
@@ -60,7 +74,18 @@ export function ContextMenu({
   }, [onClose])
 
   const adjustedX = Math.min(x, window.innerWidth - 220)
-  const adjustedY = Math.min(y, window.innerHeight - 320)
+  const adjustedY = Math.min(y, window.innerHeight - 400)
+
+  const lowerName = file.name.toLowerCase()
+  const isZip = lowerName.endsWith('.zip')
+  const isTargz = lowerName.endsWith('.tar.gz') || lowerName.endsWith('.tgz')
+
+  const showExtractZip = canZip && isZip && !!onUnzip
+  const showExtractTargz = canTargz && isTargz && !!onUntargz
+  const showCompressZip = canZip && !!onZip
+  const showCompressTargz = canTargz && !!onTargz
+  const showArchiveSection =
+    showExtractZip || showExtractTargz || showCompressZip || showCompressTargz
 
   return (
     <div
@@ -118,6 +143,64 @@ export function ContextMenu({
         <MoveRight size={16} />
         <span>{t('files.move')}</span>
       </button>
+
+      {showArchiveSection && (
+        <>
+          <div className="my-1 h-px bg-border" />
+          {showExtractZip && (
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-bg-sunken transition-colors text-left"
+              onClick={() => {
+                onUnzip!()
+                onClose()
+              }}
+              role="menuitem"
+            >
+              <Archive size={16} />
+              <span>{t('files.extractZip')}</span>
+            </button>
+          )}
+          {showExtractTargz && (
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-bg-sunken transition-colors text-left"
+              onClick={() => {
+                onUntargz!()
+                onClose()
+              }}
+              role="menuitem"
+            >
+              <Archive size={16} />
+              <span>{t('files.extractTargz')}</span>
+            </button>
+          )}
+          {showCompressZip && (
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-bg-sunken transition-colors text-left"
+              onClick={() => {
+                onZip!()
+                onClose()
+              }}
+              role="menuitem"
+            >
+              <Package size={16} />
+              <span>{t('files.compressToZip')}</span>
+            </button>
+          )}
+          {showCompressTargz && (
+            <button
+              className="w-full flex items-center gap-3 px-3 py-2 text-sm text-fg hover:bg-bg-sunken transition-colors text-left"
+              onClick={() => {
+                onTargz!()
+                onClose()
+              }}
+              role="menuitem"
+            >
+              <Package size={16} />
+              <span>{t('files.compressToTargz')}</span>
+            </button>
+          )}
+        </>
+      )}
 
       <div className="my-1 h-px bg-border" />
 

@@ -6,6 +6,11 @@ import {
   Code2,
   Settings,
   Cpu,
+  Bug,
+  FileText,
+  HardDrive,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { useCapabilities } from '@/hooks/useCapabilities'
@@ -27,6 +32,8 @@ export function Sidebar() {
   const isMobile = useIsMobile()
   const sidebarOpen = useUiStore((s) => s.sidebarOpen)
   const setSidebar = useUiStore((s) => s.setSidebar)
+  const collapsed = useUiStore((s) => s.sidebarCollapsed)
+  const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed)
   const location = useLocation()
   const { t } = useI18n()
 
@@ -51,10 +58,20 @@ export function Sidebar() {
       icon: <Cpu size={18} />,
       show: caps.disk || caps.processes || caps.cron,
     },
+    {
+      to: '/disk-analysis',
+      label: t('nav.diskAnalysis'),
+      icon: <HardDrive size={18} />,
+      show: caps.disk,
+    },
+    { to: '/error-log', label: t('nav.errorLog'), icon: <Bug size={18} />, show: true },
+    { to: '/htaccess', label: t('nav.htaccess'), icon: <FileText size={18} />, show: true },
     { to: '/settings', label: t('nav.settings'), icon: <Settings size={18} />, show: true },
   ]
 
   if (isMobile && !sidebarOpen) return null
+
+  const isCollapsed = !isMobile && collapsed
 
   return (
     <>
@@ -67,18 +84,19 @@ export function Sidebar() {
       <aside
         className={`
           fixed md:relative z-40 h-full
-          w-60 shrink-0
+          ${isCollapsed ? 'w-16' : 'w-60'}
+          shrink-0
           bg-bg-elevated border-r border-border
           flex flex-col
-          transition-transform duration-300 ease-out
+          transition-all duration-300 ease-out
           ${isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
       >
-        <div className="h-14 flex items-center px-4 border-b border-border shrink-0">
-          <Logo size="sm" />
+        <div className={`h-14 flex items-center border-b border-border shrink-0 ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}>
+          <Logo size="sm" showText={!isCollapsed} />
         </div>
 
-        <nav className="flex-1 py-3 px-2 overflow-y-auto">
+        <nav className="flex-1 py-3 px-2 overflow-y-auto overflow-x-hidden">
           <ul className="space-y-0.5">
             {items
               .filter((item) => item.show)
@@ -91,10 +109,12 @@ export function Sidebar() {
                     <NavLink
                       to={item.to}
                       onClick={() => isMobile && setSidebar(false)}
+                      title={isCollapsed ? item.label : undefined}
                       className={`
-                        flex items-center gap-3 px-3 h-11 rounded-lg text-sm
+                        flex items-center gap-3 h-11 rounded-lg text-sm
                         transition-colors duration-150
                         min-h-[44px]
+                        ${isCollapsed ? 'justify-center px-0' : 'px-3'}
                         ${
                           isActive
                             ? 'bg-accent/10 text-accent font-medium'
@@ -103,7 +123,7 @@ export function Sidebar() {
                       `}
                     >
                       <span className={isActive ? 'text-accent' : ''}>{item.icon}</span>
-                      <span>{item.label}</span>
+                      {!isCollapsed && <span>{item.label}</span>}
                     </NavLink>
                   </li>
                 )
@@ -112,10 +132,35 @@ export function Sidebar() {
         </nav>
 
         <div className="p-3 border-t border-border shrink-0">
-          <div className="px-3 py-2 rounded-lg bg-bg-sunken">
-            <div className="text-xs text-fg-muted">PHP {caps.phpVersion || '—'}</div>
-            <div className="text-[10px] text-fg-subtle mt-0.5">{caps.sapi}</div>
-          </div>
+          {isCollapsed ? (
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                title={t('nav.expand')}
+                aria-label={t('nav.expand')}
+                className="p-2 rounded-lg text-fg-muted hover:text-fg hover:bg-fg/5 transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between gap-2">
+              <div className="px-3 py-2 rounded-lg bg-bg-sunken min-w-0 flex-1">
+                <div className="text-xs text-fg-muted truncate">PHP {caps.phpVersion || '—'}</div>
+                <div className="text-[10px] text-fg-subtle mt-0.5 truncate">{caps.sapi}</div>
+              </div>
+              <button
+                type="button"
+                onClick={toggleCollapsed}
+                title={t('nav.collapse')}
+                aria-label={t('nav.collapse')}
+                className="shrink-0 p-2 rounded-lg text-fg-muted hover:text-fg hover:bg-fg/5 transition-colors"
+              >
+                <ChevronLeft size={18} />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
     </>

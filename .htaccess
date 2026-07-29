@@ -36,8 +36,14 @@
     Deny from all
 </FilesMatch>
 
+# 默认入口：前端 SPA 优先
+DirectoryIndex index.html
+
 # 开启 URL 重写
 RewriteEngine On
+
+# 禁止直接访问 api.php（仅允许内部重写访问）
+RewriteRule ^api\.php$ - [R=404,L]
 
 # 如果请求的是真实存在的文件或目录，直接访问
 RewriteCond %{REQUEST_FILENAME} -f
@@ -46,8 +52,8 @@ RewriteRule ^ - [L]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# API 路由重写：/api/xxx -> index.php?api=xxx
-RewriteRule ^api/(.*)$ index.php?api=$1 [QSA,L]
+# API 路由重写：/api/xxx -> api.php?api=xxx
+RewriteRule ^api/(.*)$ api.php?api=$1 [QSA,L]
 
 # 前端页面路由：所有非文件请求指向 index.html（SPA）
 RewriteCond %{REQUEST_FILENAME} !-f
@@ -57,7 +63,7 @@ RewriteRule ^ index.html [L]
 # 安全头部
 <IfModule mod_headers.c>
     # 阻止点击劫持
-    Header always set X-Frame-Options "SAMEORIGIN"
+    Header always set X-Frame-Options "DENY"
     
     # MIME 类型嗅探保护
     Header always set X-Content-Type-Options "nosniff"

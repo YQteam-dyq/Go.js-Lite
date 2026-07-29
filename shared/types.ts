@@ -14,6 +14,7 @@ export interface Capabilities {
   processes: boolean
   cron: boolean
   zip: boolean
+  targz: boolean
   gd: boolean
   openBasedir: string | false
   disabledFunctions: string[]
@@ -75,12 +76,68 @@ export interface FileOperationRequest {
   content?: string
 }
 
+export interface SearchResult {
+  files: FileEntry[]
+  total: number
+}
+
+export interface ErrorLogEntry {
+  message: string
+  type: 'fatal' | 'warning' | 'notice' | 'deprecated' | 'info'
+}
+
+export interface ErrorLogData {
+  found: boolean
+  path: string | null
+  entries: ErrorLogEntry[]
+  size?: number
+}
+
+export interface InstallCheckItem {
+  name: string
+  pass: boolean
+  value: string
+  required: string
+}
+
+export interface InstallCheckData {
+  pass: boolean
+  checks: InstallCheckItem[]
+  disabledFunctions: string[]
+}
+
 export interface UploadChunkRequest {
-  path: string
-  filename: string
-  chunk: number
+  target: string
+  fileName: string
+  uploadId: string
+  chunkIndex: number
   totalChunks: number
+  chunk: string
+}
+
+export interface UploadChunkResponse {
+  success: boolean
+  merged: boolean
+  progress: string
+  received: number
+  totalChunks: number
+}
+
+export interface UploadProgress {
+  loaded: number
+  total: number
+  percentage: number
+}
+
+export interface UploadedFile {
+  name: string
   size: number
+}
+
+export interface UploadResult {
+  success: boolean
+  files: UploadedFile[]
+  errors?: Array<{ name: string; error: string }>
 }
 
 export interface DbConnection {
@@ -132,6 +189,19 @@ export interface SqlExecResponse {
   executionTime: number
 }
 
+export interface SqlExportRequest {
+  connId: string
+  tables?: string[]
+  mode: 'structure_only' | 'structure_data'
+}
+
+export interface SqlImportResult {
+  success: boolean
+  executed: number
+  failed: number
+  errors: string[]
+}
+
 export interface DashboardData {
   phpVersion: string
   sapi: string
@@ -159,6 +229,28 @@ export interface PhpInfoData {
   coreIni: Record<string, string>
   env: Record<string, string>
   server: Record<string, string>
+}
+
+export interface HealthCheckItem {
+  name: string
+  currentValue: string
+  recommendedValue: string
+  status: 'pass' | 'warning' | 'danger'
+  description: string
+}
+
+export interface CompatibilityItem {
+  name: string
+  pass: boolean
+  requirements: string[]
+  missing: string[]
+}
+
+export interface HealthCheckData {
+  security: HealthCheckItem[]
+  performance: HealthCheckItem[]
+  compatibility: CompatibilityItem[]
+  summary: { pass: number; warning: number; danger: number; total: number }
 }
 
 export interface SystemData {
@@ -198,6 +290,66 @@ export interface AuthCredentials {
 export interface InstallRequest {
   password: string
   rootPath?: string
+}
+
+export interface HtaccessData {
+  content: string
+  path: string
+  writable: boolean
+  exists: boolean
+}
+
+export interface HtaccessRule {
+  id: string
+  name: string
+  description: string
+}
+
+export type HtaccessRuleType =
+  | 'force_https'
+  | 'block_sensitive'
+  | 'prevent_hotlink'
+  | 'redirect_301'
+  | 'gzip_compress'
+  | 'browser_cache'
+  | 'block_dir_browsing'
+
+export interface HtaccessGenerateRequest {
+  rules: HtaccessRuleType[]
+  from?: string
+  to?: string
+}
+
+export interface HtaccessGenerateResult {
+  content: string
+  rules: string[]
+}
+
+export interface DiskDirectory {
+  name: string
+  path: string
+  size: number
+  fileCount: number
+  percent: number
+}
+
+export interface DiskAnalysisData {
+  directories: DiskDirectory[]
+  totalSize: number
+  diskTotal: number
+  diskFree: number
+}
+
+export interface LargeFile {
+  name: string
+  path: string
+  size: number
+  modified: string
+}
+
+export interface LargeFilesData {
+  files: LargeFile[]
+  total: number
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system'
