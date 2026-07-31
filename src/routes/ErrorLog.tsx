@@ -139,6 +139,9 @@ export default function ErrorLog() {
               <p className="text-xs mt-1">
                 {t('errorLog.notFoundHint')}
               </p>
+              <p className="text-xs mt-2 text-fg-subtle">
+                {t('errorLog.defaultPathHint')}
+              </p>
             </div>
           ) : filteredEntries.length === 0 ? (
             <div className="p-12 text-center text-fg-muted">

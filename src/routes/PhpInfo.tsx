@@ -87,7 +87,16 @@ export default function PhpInfo() {
             <InfoCard
               icon={<Cpu size={20} />}
               label={t('phpinfo.loadedExtensions')}
-              value={`${data.loadedExtensions.length}${t('phpinfo.extensionCount')}`}
+              value={
+                <div className="min-w-0">
+                  <div className="text-2xl font-semibold text-fg leading-tight">
+                    {data.loadedExtensions.length}
+                  </div>
+                  <div className="text-xs text-fg-muted mt-0.5">
+                    {t('phpinfo.extensionCount')}
+                  </div>
+                </div>
+              }
             />
           </div>
 
@@ -181,7 +190,7 @@ function InfoCard({
 }: {
   icon: React.ReactNode
   label: string
-  value: string
+  value: React.ReactNode
   accent?: boolean
   mono?: boolean
   action?: React.ReactNode
@@ -198,9 +207,15 @@ function InfoCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-xs text-fg-subtle">{label}</div>
-          <div className="flex items-center gap-2">
-            <div className={`text-base font-semibold text-fg mt-0.5 truncate flex-1 ${mono ? 'font-mono' : ''}`}>
-              {value}
+          <div className="flex items-center gap-2 min-w-0">
+            <div className={`min-w-0 flex-1 ${mono ? 'font-mono' : ''}`}>
+              {typeof value === 'string' ? (
+                <div className="text-base font-semibold text-fg mt-0.5 truncate">
+                  {value}
+                </div>
+              ) : (
+                value
+              )}
             </div>
             {action}
           </div>

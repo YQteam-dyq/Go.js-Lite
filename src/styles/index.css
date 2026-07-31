@@ -252,6 +252,10 @@
     @apply badge bg-danger/10 text-danger;
   }
 
+  .badge-warning {
+    @apply badge bg-warning/10 text-warning;
+  }
+
   .badge-muted {
     @apply badge bg-bg-sunken text-fg-muted;
   }

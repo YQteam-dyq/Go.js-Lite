@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, ShieldCheck, Eye, EyeOff, CheckCircle2, Zap, Copy } from 'lucide-react'
+import { Lock, ShieldCheck, Eye, EyeOff, CheckCircle2, Zap, Copy, LogIn } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -153,6 +153,16 @@ export default function Install() {
                 </p>
               </div>
             )}
+
+            <Button
+              size="lg"
+              variant="primary"
+              className="w-full font-semibold mb-6"
+              onClick={() => navigate('/login')}
+            >
+              <LogIn size={18} />
+              {t('install.goToLogin')}
+            </Button>
 
             <div className="flex items-center justify-center gap-1">
               {[0, 1, 2].map((i) => (

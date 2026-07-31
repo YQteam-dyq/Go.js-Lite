@@ -12,12 +12,14 @@ import {
   Lock,
   Unlock,
   Globe,
+  Clock,
 } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton } from '@/components/ui/Skeleton'
+import { Spinner } from '@/components/ui/Spinner'
 import { EmptyError } from '@/components/ui/EmptyState'
 import { Confirm } from '@/components/ui/Modal'
 import { sslApi } from '@/api/ssl'
@@ -25,10 +27,8 @@ import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import type { SSLInfo } from '@shared/types'
 
-type SSLStatus = 'ok' | 'warning' | 'critical' | 'expired'
-
 export default function SSL() {
-  const { t, hasKey } = useI18n()
+  const { t } = useI18n()
   const queryClient = useQueryClient()
 
   const [newDomain, setNewDomain] = useState('')
@@ -53,6 +53,7 @@ export default function SSL() {
         [domain]: {
           domain,
           enabled: false,
+          status: 'failed',
           error: 'request_failed',
           error_key: 'connect_failed',
           error_params: { detail: err instanceof Error ? err.message : 'request_failed' },
@@ -272,7 +273,12 @@ function DomainCard({
 }) {
   const { t, hasKey } = useI18n()
 
-  const status = info?.status as SSLStatus | undefined
+  const checkStatus: SSLInfo['status'] = loading
+    ? 'checking'
+    : !info
+      ? 'pending'
+      : info.status
+  const certStatus = info?.cert_status
   const enabled = info?.enabled
 
   const errorKey = info?.error_key
@@ -281,23 +287,33 @@ function DomainCard({
     ? t(errorTranslateKey, info?.error_params as Record<string, string | number> | undefined)
     : (info?.message ?? '')
 
+  const isFailed = checkStatus === 'failed'
+
   return (
     <Card className="card-hover">
       <CardHeader className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3 min-w-0">
           <div
             className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-              status === 'ok'
-                ? 'bg-success/10 text-success'
-                : status === 'warning'
-                  ? 'bg-warning/10 text-warning'
-                  : status === 'critical' || status === 'expired'
-                    ? 'bg-danger/10 text-danger'
+              checkStatus === 'ok'
+                ? certStatus === 'ok'
+                  ? 'bg-success/10 text-success'
+                  : certStatus === 'warning'
+                    ? 'bg-warning/10 text-warning'
+                    : certStatus === 'critical' || certStatus === 'expired'
+                      ? 'bg-danger/10 text-danger'
+                      : 'bg-success/10 text-success'
+                : isFailed
+                  ? 'bg-danger/10 text-danger'
+                  : checkStatus === 'checking'
+                    ? 'bg-accent/10 text-accent'
                     : 'bg-bg-sunken text-fg-muted'
             }`}
           >
-            {loading ? (
+            {checkStatus === 'checking' ? (
               <RefreshCw size={18} className="animate-spin" />
+            ) : isFailed ? (
+              <XCircle size={18} />
             ) : (
               <ShieldCheck size={18} />
             )}
@@ -309,10 +325,10 @@ function DomainCard({
             </div>
           </div>
         </div>
-        <StatusBadge status={status} enabled={enabled} />
+        <StatusBadge status={checkStatus} certStatus={certStatus} daysRemaining={info?.days_remaining} />
       </CardHeader>
       <CardBody className="space-y-3">
-        {loading ? (
+        {checkStatus === 'checking' ? (
           <div className="space-y-2">
             <Skeleton variant="rectangular" height={16} className="w-3/4" />
             <Skeleton variant="rectangular" height={16} className="w-1/2" />
@@ -370,11 +386,10 @@ function DomainCard({
             variant="ghost"
             size="sm"
             onClick={onCheck}
-            disabled={loading}
             loading={loading}
           >
             <RefreshCw size={14} />
-            {t('ssl.check')}
+            {isFailed ? t('ssl.retry') : t('ssl.check')}
           </Button>
           <Button
             variant="ghost"
@@ -393,44 +408,86 @@ function DomainCard({
   )
 }
 
-function StatusBadge({ status, enabled }: { status?: SSLStatus; enabled?: boolean }) {
+function StatusBadge({
+  status,
+  certStatus,
+  daysRemaining,
+}: {
+  status: SSLInfo['status']
+  certStatus?: SSLInfo['cert_status']
+  daysRemaining?: number
+}) {
   const { t } = useI18n()
-  if (!enabled && status === undefined) {
-    return <Badge variant="muted">{t('ssl.statusPending')}</Badge>
-  }
-  if (!enabled) {
+
+  if (status === 'checking') {
     return (
-      <Badge variant="danger">
-        <XCircle size={12} />
-        {t('ssl.statusError')}
+      <Badge variant="muted" aria-label={t('ssl.statusChecking')}>
+        <Spinner size="sm" />
+        {t('ssl.statusChecking')}
       </Badge>
     )
   }
+
+  if (status === 'failed') {
+    return (
+      <Badge variant="danger" aria-label={t('ssl.statusFailed')}>
+        <XCircle size={12} />
+        {t('ssl.statusFailed')}
+      </Badge>
+    )
+  }
+
+  if (status === 'pending') {
+    return (
+      <Badge variant="warning" aria-label={t('ssl.statusPending')}>
+        <Clock size={12} />
+        {t('ssl.statusPending')}
+      </Badge>
+    )
+  }
+
   if (status === 'ok') {
+    if (certStatus === 'expired') {
+      return (
+        <Badge variant="danger" aria-label={t('ssl.statusExpired')}>
+          <XCircle size={12} />
+          {t('ssl.statusExpired')}
+        </Badge>
+      )
+    }
+    if (certStatus === 'critical') {
+      return (
+        <Badge variant="danger" aria-label={t('ssl.statusCritical')}>
+          <AlertTriangle size={12} />
+          {t('ssl.statusCritical')}
+        </Badge>
+      )
+    }
+    if (certStatus === 'warning') {
+      return (
+        <Badge variant="warning" aria-label={t('ssl.statusWarning')}>
+          <AlertTriangle size={12} />
+          {t('ssl.statusWarning')}
+        </Badge>
+      )
+    }
+    const label = typeof daysRemaining === 'number'
+      ? t('ssl.days', { count: daysRemaining })
+      : t('ssl.statusOk')
     return (
-      <Badge variant="success">
+      <Badge variant="success" aria-label={t('ssl.statusOk')}>
         <CheckCircle2 size={12} />
-        {t('ssl.statusOk')}
+        {label}
       </Badge>
     )
   }
-  if (status === 'warning') {
-    return (
-      <span className="badge bg-warning/10 text-warning">
-        <AlertTriangle size={12} />
-        {t('ssl.statusWarning')}
-      </span>
-    )
-  }
-  if (status === 'critical' || status === 'expired') {
-    return (
-      <Badge variant="danger">
-        <XCircle size={12} />
-        {status === 'expired' ? t('ssl.statusExpired') : t('ssl.statusCritical')}
-      </Badge>
-    )
-  }
-  return <Badge variant="muted">{t('ssl.statusPending')}</Badge>
+
+  return (
+    <Badge variant="muted" aria-label={t('ssl.statusPending')}>
+      <Clock size={12} />
+      {t('ssl.statusPending')}
+    </Badge>
+  )
 }
 
 function InfoCell({ label, value }: { label: string; value: string }) {

@@ -106,7 +106,10 @@ export default function Dashboard() {
                 <span className="text-fg-muted">{t('dashboard.used')}</span>
                 <span className={`font-semibold ${getDiskTextColor()}`}>{formatBytes(data.diskUsed)}</span>
               </div>
-              <div className="h-2.5 bg-bg-sunken rounded-full overflow-hidden">
+              <div
+                className="h-2.5 bg-bg-sunken rounded-full overflow-hidden cursor-help"
+                title={`${t('dashboard.memUsedTotal', { used: formatBytes(data.diskUsed), total: formatBytes(data.diskTotal) })}\n${t('dashboard.memPercentage', { pct: diskPercent.toFixed(1) })}`}
+              >
                 <div
                   className={`h-full bg-gradient-to-r ${getDiskColor()} rounded-full transition-all duration-700 ease-out`}
                   style={{ width: `${Math.min(diskPercent, 100)}%` }}

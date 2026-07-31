@@ -1,7 +1,7 @@
 import type { HTMLAttributes, ReactNode } from 'react'
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'accent' | 'success' | 'danger' | 'muted'
+  variant?: 'accent' | 'success' | 'danger' | 'warning' | 'muted'
   children: ReactNode
 }
 
@@ -10,6 +10,7 @@ export function Badge({ variant = 'muted', className = '', children, ...props }:
     accent: 'badge-accent',
     success: 'badge-success',
     danger: 'badge-danger',
+    warning: 'badge-warning',
     muted: 'badge-muted',
   }
 

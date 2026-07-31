@@ -47,7 +47,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   capabilities: null,
   user: null,
   backendVersion: '',
-  frontendVersion: import.meta.env.VITE_APP_VERSION || '0.1.0',
+  frontendVersion: import.meta.env.VITE_APP_VERSION || '0.3.1',
 
   setBootstrap: (data) =>
     set({
@@ -60,7 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       capabilities: data.capabilities,
       user: data.user || null,
       backendVersion: data.backendVersion,
-      frontendVersion: data.frontendVersion || '0.3.0',
+      frontendVersion: data.frontendVersion || '0.3.1',
     }),
 
   setBootstrapFailed: () =>

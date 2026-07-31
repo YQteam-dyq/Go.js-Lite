@@ -1,8 +1,8 @@
-# Go.js Lite — 轻量级 PHP 共享主机管理面板
+# Go.js Lite — Lightweight PHP Shared Hosting Control Panel
 
-> 专为 PHP 共享主机打造的轻量级服务器管理面板，**不抢占 Web 根目录**，移动端友好。
+> A lightweight server management panel built specifically for PHP shared hosting. **Does not occupy your web root**. Mobile-friendly.
 
-[English](README.en.md) | 中文
+**English** (primary) · [Full Chinese Translation (全文中文)](README.zh-CN.md)
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4.svg)](https://php.net)
@@ -10,6 +10,36 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org)
 
 ---
+
+## 🚀 Quick Start
+
+### For Users (Deployment)
+
+Download the latest `gojs-lite-VERSION.zip` from [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases). Extract, then **upload the `gojs/` directory** as a whole to your web root.
+
+- Panel URL: `https://your-domain.com/gojs/`
+- All panel files are isolated inside `gojs/` — they will never interfere with your existing site ✅
+
+### For Developers (Local Development)
+
+```bash
+# Clone the repo
+git clone https://github.com/YQteam-dyq/Go.js-Lite.git
+cd Go.js-Lite
+
+# Install dependencies
+npm install
+
+# Start PHP backend (port 8080) with /gojs/ prefix-aware router
+php -S 127.0.0.1:8080 router.php
+
+# Start frontend dev server (port 5173), auto-proxies /gojs/api
+npm run dev
+```
+
+Visit http://localhost:5173/gojs/ to start developing.
+
+<details><summary>📖 中文翻译</summary>
 
 ## 🚀 快速开始
 
@@ -39,6 +69,30 @@ npm run dev
 
 访问 http://localhost:5173/gojs/ 即可开发。
 
+</details>
+
+---
+
+## ✨ Features
+
+- 📦 **Decoupled deployment** — All panel files ship inside the standalone `gojs/` subdirectory. Your web root stays clean.
+- 🔑 **Secret access URL** — Access the panel via a token-based URL to hide its existence from public discovery.
+- 🎯 **Shared hosting friendly** — Automatically detects `disable_functions`, gracefully degrades based on available capabilities.
+- 📱 **Mobile-first** — Responsive design, perfect on phones, tablets, and desktops. Touch-friendly.
+- 🔒 **Secure & reliable** — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection.
+- 📁 **File management** — Browse / edit / upload / download files online, permission changes supported.
+- 🗜️ **Zip / Tar archives** — Compress & extract zip / tar.gz archives online ✅
+- 🗄️ **Database management** — MySQL connections, SQL console, table structure browser, **.sql import & export** ✅
+- 🐛 **PHP error log viewer** — Auto-detects log paths, categorised filtering, live refresh ✅
+- 🧱 **Health check** — One-click PHP security / performance / compatibility audit.
+- 🧮 **Disk analysis** — Visualises per-directory usage and identifies large files.
+- ℹ️ **System info** — PHP info, server environment, disk usage, **memory monitor**, process CPU ✅
+- 🌐 **Bilingual (EN/ZH)** — Built-in i18n, supports both Chinese and English.
+- 🌙 **Light / dark themes** — Supports light / dark / system preference.
+- ⚡ **Modern frontend** — React + TypeScript + Vite + Tailwind CSS.
+
+<details><summary>📖 中文翻译</summary>
+
 ## ✨ 特性
 
 - 📦 **轻量解耦部署** — 面板文件打包进独立 `gojs/` 子目录，不与用户站点抢占 Web 根目录
@@ -57,7 +111,56 @@ npm run dev
 - 🌙 **明暗主题** — 支持浅色 / 深色 / 跟随系统
 - ⚡ **现代前端** — React + TypeScript + Vite + Tailwind CSS
 
+</details>
+
 ---
+
+## 🚀 Quick Start
+
+### Requirements
+
+| Item | Minimum | Recommended |
+|------|---------|-------------|
+| PHP | 7.4 | 8.0+ |
+| Web Server | Apache / Nginx / LiteSpeed | Apache + mod_rewrite |
+| PHP Extensions | `session`, `json`, `mbstring` | `mysqli`, `gd`, `openssl`, `zip` |
+| Browser | Chrome 80+ / Safari 14+ | Latest stable |
+
+### Deployment
+
+1. **Download** the latest release (`gojs-lite-VERSION.zip`)
+2. **Extract** the archive — you get a single standalone `gojs/` folder
+3. **Upload** the `gojs/` folder to your web root (e.g. `public_html/gojs/`, `wwwroot/gojs/`)
+4. **Visit** `https://your-domain.com/gojs/` — the setup wizard starts automatically
+5. **Set** an admin password, save your secret access URL, and you're done ✅
+
+> 💡 **Note**: All panel assets live inside `gojs/`. Zero pollution to the rest of your site.
+
+### Directory Structure
+
+After deployment on the server:
+
+```
+public_html/              ← Your user site (panel never touches it)
+├── index.html / index.php ← Keep your original content as-is
+└── gojs/                  ← Panel lives here, access through this path
+    ├── api.php            # Backend API (single file)
+    ├── .htaccess          # Apache rewrite rules (RewriteBase /gojs/)
+    └── dist/              # Frontend build
+        ├── index.html
+        └── assets/
+```
+
+Config files are automatically created in the panel's parent directory:
+
+```
+public_html/
+└── .gojs/
+    ├── config.php         # Main config (PHP array, web access blocked)
+    └── auth.log           # Login log (brute-force protection)
+```
+
+<details><summary>📖 中文翻译</summary>
 
 ## 🚀 快速开始
 
@@ -104,7 +207,43 @@ public_html/
     └── auth.log           # 登录日志（暴力破解防护）
 ```
 
+</details>
+
 ---
+
+## 📱 Feature Overview
+
+### Core Features
+
+| Feature | Description | Status |
+|---------|-------------|--------|
+| 🔐 Auth System | Setup wizard, login/logout, change password, session timeout | ✅ |
+| 🔑 Secret Access | Token-based access URL, hides panel existence | ✅ |
+| 📊 Dashboard | System overview, disk usage, file stats, recently modified files | ✅ |
+| 📁 File Manager | Directory browser, file editor, upload/download, create/delete/rename, permissions | ✅ |
+| 🗜️ Zip / Tar | Compress to zip/tar.gz, extract any archive | ✅ |
+| 🗄️ Database Mgmt | MySQL connections, database/table/column browser, SQL console | ✅ |
+| 📤 SQL Import/Export | One-click full/single-table export, chunked .sql import | ✅ |
+| 🐛 PHP Error Log | Auto-detects log path, categorised filtering, live refresh | ✅ |
+| 🧱 Health Check | One-click PHP security / performance / compatibility audit | ✅ |
+| 🧮 Disk Analysis | Per-directory size visualisation, large files list | ✅ |
+| ℹ️ PHP Info | Version, extensions, ini directives, one-click copy php.ini path | ✅ |
+| 💻 System Info | Disk, load, uptime, memory usage, process CPU, Cron | ✅ |
+| ⚙️ Settings | Theme / language switch, session settings, password change, access URL i18n | ✅ |
+
+### Capability-based Degradation
+
+Go.js Lite automatically detects your server environment and hides unavailable features:
+
+| Feature | Dependency | When unavailable |
+|---------|------------|-----------------|
+| Database management | `mysqli` or `pdo_mysql` extension | Database menu hidden |
+| Zip compression | `ZipArchive` class | Compress button hidden |
+| Process list | `/proc` readable | Processes tab hidden |
+| Cron management | `exec()` function | Cron menu hidden |
+| Image thumbnails | `gd` extension | No thumbnails shown |
+
+<details><summary>📖 中文翻译</summary>
 
 ## 📱 功能预览
 
@@ -137,7 +276,23 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 | Cron 管理 | `exec()` 函数 | 隐藏 Cron 菜单 |
 | 图片预览 | `gd` 扩展 | 不显示缩略图 |
 
+</details>
+
 ---
+
+## 🔒 Security
+
+- Admin password hashed with `password_hash(PASSWORD_BCRYPT)` — one-way, irreversible.
+- Database connection passwords encrypted with `AES-256-CBC`.
+- All file operations are anchored to a strict `$files_root` realpath — no path traversal.
+- System files (`.gojs/`, `api.php`, `.htaccess`) are protected from file manager operations.
+- Config directory `.gojs/` blocked from direct web access via `.htaccess`.
+- CSRF token validation — cross-site request forgery protection.
+- Session / Cookie scope shrunk to `/gojs/` — never leaks to sibling apps in the web root.
+- 🔑 **Secret access URL** — Panel requires a token in the URL, hiding its existence.
+- 🛡️ **Subdirectory isolation** — Panel owns the `/gojs/` path and nothing else.
+
+<details><summary>📖 中文翻译</summary>
 
 ## 🔒 安全说明
 
@@ -151,19 +306,48 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 - 🔑 **私密入口** — 面板访问需要带 token 的 URL，隐藏面板存在
 - 🛡️ **子目录隔离** — 面板独占 `/gojs/` 子目录，不会污染用户根目录路由
 
+</details>
+
 ---
+
+## 📄 License
+
+[MIT License](LICENSE)
+
+<details><summary>📖 中文翻译</summary>
 
 ## 📄 开源协议
 
 [MIT License](LICENSE)
 
+</details>
+
 ---
+
+## 👥 Developers
+
+**YQteam-dyq** — Crafted with care, lightweight & efficient.
+
+<details><summary>📖 中文翻译</summary>
 
 ## 👥 开发者
 
 **YQteam-dyq** — 用心打造，轻量高效
 
+</details>
+
 ---
+
+## 🙏 Acknowledgments
+
+- [React](https://react.dev)
+- [Vite](https://vitejs.dev)
+- [Tailwind CSS](https://tailwindcss.com)
+- [Lucide Icons](https://lucide.dev)
+- [TanStack Query](https://tanstack.com/query)
+- [Zustand](https://github.com/pmndrs/zustand)
+
+<details><summary>📖 中文翻译</summary>
 
 ## 🙏 致谢
 
@@ -173,6 +357,8 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 - [Lucide Icons](https://lucide.dev)
 - [TanStack Query](https://tanstack.com/query)
 - [Zustand](https://github.com/pmndrs/zustand)
+
+</details>
 
 ---
 

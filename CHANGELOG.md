@@ -1,48 +1,72 @@
 # Changelog
 
+> Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+> Project language policy: this file is **English only** starting from v0.3.1; Chinese is no longer maintained here.
+
+## [0.3.1] - 2026-07-31
+
+### Fixed
+- Session cookie path is now auto-inferred from `SCRIPT_NAME` (works for `/`, `/gojs/`, `/panel/`, or any sub-path).
+- Cron capability detection now decouples `exec()` availability from the presence of the `crontab` CLI; a warning banner is shown when only `crontab` is missing instead of locking the entire UI.
+- Settings "Developer" row no longer duplicates the team name; the `developerTeam` i18n key is now a proper label.
+- Bare-name file rename in React is 100% stable: the dialog opens with the text auto-selected, and submit synchronises the DOM `input.value` back into React state before calling the API.
+- Database `export`/`import` and all other `db/*` endpoints return HTTP 400 with the standard `{ ok: false, error: { code, message, message_key } }` shape on failure; the error is surfaced in the UI via a toast.
+- SSL Status visual states: Checking / Failed / Pending / OK now render with distinct icon badges (Spinner, XCircle, Clock, CheckCircle), a `warning` Badge variant was added, and failed rows show a retry-style Check button label.
+- Pre-existing TypeScript `TS6133: 'hasKey' is declared but never read` warning in `SSL.tsx` eliminated.
+
+### UX / Polish
+- Dashboard memory usage tooltip shows "Used / Total" plus the percentage on two lines.
+- PhpInfo top card "Loaded Extensions" count renders on its own line with a larger font and `min-w-0`, so it no longer horizontally overflows at 375px.
+- Install wizard success page now shows a prominent large "Go to Login" CTA button.
+- Error Log empty state now mentions the default log path `.gojs/php_errors.log`.
+- Activity Log list row uses `grid-cols-[1fr_auto_auto] gap-4` so the action / time / IP columns are clearly separated.
+
+### Breaking Changes
+- None. `.gojs/` config stays compatible; upgrade by overwriting the `gojs/` folder.
+
 ## [0.3.0] - 2026-07-31
 
-### 新增
-- 环境自检页：一进面板即可查看 PHP 环境能力矩阵，每项标 ✅/❌
-- 操作日志系统：所有写操作自动记录 IP + 时间戳，支持筛选和分页
-- 登录防爆破增强：同一 IP 连续失败 5 次锁定 15 分钟，登录页显示倒计时
-- Cron 定时任务管理：支持增删改 crontab，exec 禁用时优雅降级
-- 一键备份与恢复：打包站点文件 + 数据库 SQL，一键下载/恢复
-- SSL 证书状态查看：检测域名 SSL 到期时间
-- 空间占用可视化：环形进度图 + 目录占比条形图
-- 版本管理与迁移：首次启动自动检测旧版配置并迁移
+### Added
+- Environment check page: a PHP capability matrix is shown the moment you enter the panel, each item marked ✅ / ❌.
+- Operation log system: every write action is auto-recorded with IP + timestamp, with filtering and pagination.
+- Login brute-force lockout: 5 consecutive failures per IP ban the IP for 15 minutes, with a countdown shown on the login page.
+- Cron job management: add / edit / delete crontab entries, with graceful degradation when `exec` is disabled.
+- One-click backup and restore: packs site files + database SQL, for one-click download / restore.
+- SSL certificate status monitor: detects SSL expiry dates for added domains.
+- Disk usage visualisation: ring progress chart + directory size bar chart.
+- Version management and migration: auto-detects legacy configs on first boot and migrates them forward.
 
-### 修复
-- 文件管理边界 bug（特殊字符文件名、空目录删除、深层嵌套路径）
-- 数据库管理边界 bug（空 SQL 导入、超大文件分块、特殊字符表名）
-- 日期显示 1970：formatDate 将 PHP 秒级时间戳当毫秒处理，新增 toMs() 归一化
-- 设置页前端版本显示 0.1.0：authStore.setBootstrap 改为从 API 接收 frontendVersion
-- SSL 域名正则过严：localhost/IP/内部主机名被拒，前后端正则统一放宽为可选 TLD
-- EnvCheck 相关功能/原因/建议混中文：后端改返回 i18n key，前端 hasKey + t() 翻译
-- Cron/SSL 错误提示硬编码中文：后端返回 message_key/error_key + 参数，前端统一翻译
+### Fixed
+- File management edge bugs (special-character filenames, empty-directory deletion, deeply nested paths).
+- Database management edge bugs (empty SQL import, chunked upload of very large files, special-character table names).
+- 1970 date display: `formatDate` was treating PHP second-level timestamps as milliseconds; a new `toMs()` helper now normalises both units.
+- Settings page front-end version stuck at `0.1.0`: `authStore.setBootstrap` now accepts `frontendVersion` from the bootstrap API.
+- SSL domain regex too strict: localhost / IPs / internal hostnames were rejected. Frontend and backend regexes are now unified and accept optional TLDs.
+- EnvCheck related-feature / reason / suggestion fields contained mixed Chinese. Backend now returns i18n keys, frontend uses `hasKey` + `t()` to translate.
+- Cron / SSL error messages hard-coded in Chinese. Backend now returns `message_key` / `error_key` with params; frontend translates uniformly.
 
-### 破坏性变更
-- 无。`.gojs/` 配置目录结构保持向后兼容，老用户直接覆盖 `gojs/` 文件夹即可升级
+### Breaking Changes
+- None. The `.gojs/` config directory structure remains backward-compatible. Existing users may upgrade by overwriting the `gojs/` folder.
 
 ## [0.2.1] - 2026-07-29
 
-### 新增
-- 子目录架构重构：面板迁移到 /gojs/ 子目录，不抢占 Web 根目录
-- 系统信息：新增内存使用卡片，/proc 双采样计算进程 CPU
-- 设置页私密访问完整 i18n 化
-- PHP Info 页新增复制 php.ini 路径按钮
+### Added
+- Sub-path architecture refactor: the panel is served from the `/gojs/` subdirectory and does not occupy the web root.
+- System Info: added memory usage card, dual `/proc` sampling for per-process CPU.
+- Settings page "Private Access" section is fully i18n-ified.
+- PHP Info page: added a "Copy php.ini path" button.
 
-### 修复
-- 修复 router.php/api.php dispatch 前导斜杠导致 API 404
-- 修复 useAuth.logout() 硬编码 /login 路径
-- 补充 ImportMetaEnv.BASE_URL 类型声明
+### Fixed
+- `router.php` / `api.php` dispatch leading-slash bug that caused API 404s.
+- `useAuth.logout()` hard-coded `/login` redirect path.
+- Added `ImportMetaEnv.BASE_URL` TypeScript declaration.
 
 ## [0.2.0] - 2026-07-28
 
-### 新增
-- 文件压缩解压（Zip/Tar）
-- 数据库 SQL 导入导出
-- PHP 错误日志查看
-- 配置体检
-- 磁盘分析
-- 安全加固（路径遍历防护、IP 伪造防护、文件上传安全等）
+### Added
+- File compress / extract (Zip / Tar).
+- Database SQL import / export.
+- PHP error log viewer.
+- Config health check.
+- Disk analysis.
+- Security hardening (path traversal protection, IP forgery protection, file upload safety, etc.).

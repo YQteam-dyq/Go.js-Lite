@@ -84,6 +84,7 @@ export default function FileList() {
   const [renameName, setRenameName] = useState('')
   const [renameError, setRenameError] = useState('')
   const [renaming, setRenaming] = useState(false)
+  const renameInputRef = useRef<HTMLInputElement>(null)
 
   const [deleteConfirm, setDeleteConfirm] = useState<{
     open: boolean
@@ -304,12 +305,21 @@ export default function FileList() {
     setRenameFile(file)
     setRenameName(file.name)
     setRenameError('')
+    queueMicrotask(() => {
+      renameInputRef.current?.select()
+    })
   }
 
   const handleRenameSubmit = async () => {
     if (!renameFile) return
 
-    const validation = validateFileName(renameName)
+    const domVal = renameInputRef.current?.value
+    if (typeof domVal === 'string' && domVal !== renameName) {
+      setRenameName(domVal)
+    }
+    const targetName = (domVal ?? renameName).trim()
+
+    const validation = validateFileName(targetName)
     if (!validation.valid) {
       setRenameError(t(validation.error!))
       return
@@ -317,7 +327,7 @@ export default function FileList() {
 
     setRenaming(true)
     try {
-      await filesApi.renameFile(renameFile.path, renameName.trim())
+      await filesApi.renameFile(renameFile.path, targetName)
       toast({ type: 'success', title: t('files.renameSuccess') })
       setRenameFile(null)
       setRenameName('')
@@ -890,6 +900,7 @@ export default function FileList() {
         <div className="space-y-3">
           <p className="text-sm text-fg-muted">{renameFile?.name}</p>
           <Input
+            ref={renameInputRef}
             value={renameName}
             onChange={(e) => {
               setRenameName(e.target.value)

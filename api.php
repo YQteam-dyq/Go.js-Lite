@@ -1,7 +1,7 @@
 <?php
 
-define('VERSION', '0.3.0');
-define('APP_VERSION', '0.3.0');
+define('VERSION', '0.3.1');
+define('APP_VERSION', '0.3.1');
 define('ROOT', dirname(__FILE__));
 define('PANEL_ROOT', ROOT);
 define('CONFIG_DIR', ROOT . '/.gojs');
@@ -17,6 +17,38 @@ $capabilities = null;
 
 gojs_init();
 
+function gojs_infer_cookie_path() {
+    global $config;
+
+    try {
+        if (is_array($config) && !empty($config['session']['cookie_path'])) {
+            return $config['session']['cookie_path'];
+        }
+
+        if (file_exists(CONFIG_FILE)) {
+            $loaded_config = include CONFIG_FILE;
+            if (is_array($loaded_config) && !empty($loaded_config['session']['cookie_path'])) {
+                return $loaded_config['session']['cookie_path'];
+            }
+        }
+
+        $script_name = $_SERVER['SCRIPT_NAME'] ?? '/';
+        $path = parse_url($script_name, PHP_URL_PATH);
+        if ($path === null || $path === false) {
+            return '/';
+        }
+        $dir = dirname($path);
+        if ($dir === '.' || $dir === '/' || $dir === '\\') {
+            return '/';
+        }
+        $dir = '/' . ltrim($dir, '/\\');
+        $dir = rtrim($dir, '/\\') . '/';
+        return $dir;
+    } catch (\Throwable $e) {
+        return '/';
+    }
+}
+
 function gojs_init() {
     global $config, $installed, $root_path;
 
@@ -26,16 +58,16 @@ function gojs_init() {
     ini_set('display_errors', '0');
     error_reporting(E_ALL);
 
+    if (file_exists(CONFIG_FILE)) {
+        $config = include CONFIG_FILE;
+        if (!is_array($config)) {
+            $config = array();
+        }
+    }
+
     if (session_status() == PHP_SESSION_NONE) {
         $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') || (!empty($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] == 443);
-        $cookie_path = '/gojs/';
-        $dir_name = basename(ROOT);
-        if ($dir_name !== 'gojs') {
-            $cookie_path = '/' . $dir_name . '/';
-        }
-        if (PHP_SAPI === 'cli-server') {
-            $cookie_path = '/gojs/';
-        }
+        $cookie_path = gojs_infer_cookie_path();
         session_set_cookie_params(array(
             'lifetime' => 86400,
             'path' => $cookie_path,
@@ -47,26 +79,23 @@ function gojs_init() {
         session_start();
     }
 
-    if (file_exists(CONFIG_FILE)) {
-        $config = include CONFIG_FILE;
-        if (is_array($config)) {
-            $installed = !empty($config['installed']);
-            if (!empty($config['root_path']) && is_dir($config['root_path'])) {
-                $root_path = rtrim($config['root_path'], '/');
-                $GLOBALS['files_root'] = $root_path;
-            } else {
-                $dir_name = basename(ROOT);
-                if ($dir_name === 'gojs') {
-                    $parent = @realpath(ROOT . '/..');
-                    if ($parent && $parent !== ROOT) {
-                        $GLOBALS['files_root'] = rtrim($parent, '/');
-                        $root_path = $GLOBALS['files_root'];
-                    } else {
-                        $GLOBALS['files_root'] = ROOT;
-                    }
+    if (is_array($config)) {
+        $installed = !empty($config['installed']);
+        if (!empty($config['root_path']) && is_dir($config['root_path'])) {
+            $root_path = rtrim($config['root_path'], '/');
+            $GLOBALS['files_root'] = $root_path;
+        } else {
+            $dir_name = basename(ROOT);
+            if ($dir_name === 'gojs') {
+                $parent = @realpath(ROOT . '/..');
+                if ($parent && $parent !== ROOT) {
+                    $GLOBALS['files_root'] = rtrim($parent, '/');
+                    $root_path = $GLOBALS['files_root'];
                 } else {
                     $GLOBALS['files_root'] = ROOT;
                 }
+            } else {
+                $GLOBALS['files_root'] = ROOT;
             }
         }
     } else {
@@ -704,6 +733,7 @@ function gojs_run_migration() {
         }
 
         // 0.2.x → 0.3.0 migration
+        // 0.3.0 → 0.3.1: hotfix release, no migration step
         if (version_compare($current_version, '0.3.0', '<')) {
             // 创建操作日志文件
             $log_file = CONFIG_DIR . '/operation_log.json';
@@ -889,6 +919,11 @@ function gojs_check_auth() {
     }
 
     gojs_check_access_token();
+
+    if (!empty($_SESSION['access_token_valid'])) {
+        $_SESSION['last_activity'] = time();
+        return;
+    }
 
     $timeout = isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800;
 
@@ -4011,54 +4046,95 @@ function gojs_api_cron() {
 
 // 检测 Cron 是否可用
 function gojs_cron_capabilities() {
-    $disabled = ini_get('disable_functions');
-    $disabled_list = $disabled ? array_map('trim', explode(',', $disabled)) : array();
+    $disabled = explode(',', (string)ini_get('disable_functions'));
+    $disabled_list = array_map('trim', $disabled);
     $exec_available = function_exists('exec') && !in_array('exec', $disabled_list, true);
 
+    $crontab_available = false;
+    $method = 'none';
+    $cron_file = null;
+    $msg = '';
+    $msg_key = null;
+    $info_key = null;
+    $info_params = array();
+
     if ($exec_available) {
-        $output = array();
-        $exit_code = 0;
-        @exec('crontab -l 2>&1', $output, $exit_code);
-        if ($exit_code === 0 || $exit_code === 1) {
-            // exit_code 1 表示无 crontab 任务，但 crontab 命令可用
-            return array(
-                'available' => true,
-                'method' => 'exec',
-                'message' => '',
-            );
+        $out = array();
+        $code = 0;
+        @exec('command -v crontab 2>&1', $out, $code);
+        if ($code === 0) {
+            $crontab_available = true;
+        }
+
+        if (!$crontab_available) {
+            $out2 = array();
+            $code2 = 0;
+            @exec('crontab -l 2>&1', $out2, $code2);
+            if ($code2 === 0 || $code2 === 1) {
+                $crontab_available = true;
+            }
+        }
+
+        if ($crontab_available) {
+            $method = 'exec';
         }
     }
 
-    // 降级：检测用户级 crontab 文件
-    $home = isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '';
-    $user = function_exists('get_current_user') ? get_current_user() : '';
-    $cron_files = array();
-    if ($home) {
-        $cron_files[] = $home . '/.config/cron/crontab';
-        $cron_files[] = $home . '/.crontab';
-    }
-    if ($user) {
-        $cron_files[] = '/var/spool/cron/' . $user;
-        $cron_files[] = '/var/spool/cron/crontabs/' . $user;
-    }
+    if (!$crontab_available) {
+        $home = isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '';
+        $user = function_exists('get_current_user') ? get_current_user() : '';
+        $cron_files = array();
+        if ($home) {
+            $cron_files[] = $home . '/.config/cron/crontab';
+            $cron_files[] = $home . '/.crontab';
+        }
+        if ($user) {
+            $cron_files[] = '/var/spool/cron/' . $user;
+            $cron_files[] = '/var/spool/cron/crontabs/' . $user;
+        }
 
-    foreach ($cron_files as $file) {
-        if ((is_writable(dirname($file)) || is_writable($file))) {
-            return array(
-                'available' => true,
-                'method' => 'file',
-                'cron_file' => $file,
-                'message' => '',
-            );
+        foreach ($cron_files as $file) {
+            if ((is_writable(dirname($file)) || is_writable($file))) {
+                $method = 'file';
+                $cron_file = $file;
+                $crontab_available = true;
+                break;
+            }
         }
     }
 
-    return array(
-        'available' => false,
-        'method' => 'none',
-        'message_key' => 'unavailable',
-        'message' => '环境不支持 Cron 管理（exec 被禁且 crontab 文件不可写）',
+    $available = $exec_available;
+
+    if (!$exec_available) {
+        $msg_key = 'unavailable';
+        $msg = '环境不支持 Cron 管理（exec 被禁且 crontab 文件不可写）';
+    } elseif ($exec_available && !$crontab_available) {
+        $info_key = 'crontab_cli_missing';
+        $msg = 'exec() 可用但 crontab 命令未安装';
+    }
+
+    $result = array(
+        'available'         => $available,
+        'exec_available'    => $exec_available,
+        'crontab_available' => $crontab_available,
+        'message'           => $msg,
     );
+
+    if ($msg_key !== null) {
+        $result['message_key'] = $msg_key;
+    }
+    if ($info_key !== null) {
+        $result['info_key'] = $info_key;
+        $result['info_params'] = $info_params;
+    }
+    if ($method !== 'none') {
+        $result['method'] = $method;
+    }
+    if ($cron_file !== null) {
+        $result['cron_file'] = $cron_file;
+    }
+
+    return $result;
 }
 
 // 读取 crontab 任务列表
@@ -4831,8 +4907,9 @@ function gojs_api_db_connections() {
 
         if (!$capabilities['mysql']) {
             gojs_json_response(null, array(
-                'code' => 'not_supported',
-                'message' => '系统不支持 MySQL',
+                'code' => 'mysql_not_available',
+                'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+                'message_key' => 'db.mysqlNotAvailable',
             ), 400);
         }
 
@@ -4861,8 +4938,9 @@ function gojs_api_db_connections() {
         $connect_result = gojs_db_connect($test_conn);
         if (!$connect_result['success']) {
             gojs_json_response(null, array(
-                'code' => 'connect_failed',
+                'code' => 'db_connect_failed',
                 'message' => '连接失败: ' . $connect_result['error'],
+                'message_key' => 'db.connectFailed',
             ), 400);
         }
 
@@ -4905,8 +4983,9 @@ function gojs_api_db_connection($id, $method) {
 
         if (!$capabilities['mysql']) {
             gojs_json_response(null, array(
-                'code' => 'not_supported',
-                'message' => '系统不支持 MySQL',
+                'code' => 'mysql_not_available',
+                'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+                'message_key' => 'db.mysqlNotAvailable',
             ), 400);
         }
 
@@ -4995,8 +5074,9 @@ function gojs_api_db_databases() {
 
     if (!$capabilities['mysql']) {
         gojs_json_response(null, array(
-            'code' => 'not_supported',
-            'message' => '系统不支持 MySQL',
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
         ), 400);
     }
 
@@ -5005,16 +5085,18 @@ function gojs_api_db_databases() {
     $conn_config = gojs_get_db_connection($conn_id);
     if (!$conn_config) {
         gojs_json_response(null, array(
-            'code' => 'not_found',
-            'message' => '连接不存在',
-        ), 404);
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
     }
 
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
         gojs_json_response(null, array(
-            'code' => 'connect_failed',
+            'code' => 'db_connect_failed',
             'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
         ), 400);
     }
 
@@ -5047,8 +5129,9 @@ function gojs_api_db_tables() {
 
     if (!$capabilities['mysql']) {
         gojs_json_response(null, array(
-            'code' => 'not_supported',
-            'message' => '系统不支持 MySQL',
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
         ), 400);
     }
 
@@ -5057,17 +5140,19 @@ function gojs_api_db_tables() {
 
     if (!$database) {
         gojs_json_response(null, array(
-            'code' => 'invalid_database',
+            'code' => 'db_not_connected',
             'message' => '数据库名不能为空',
+            'message_key' => 'db.notConnected',
         ), 400);
     }
 
     $conn_config = gojs_get_db_connection($conn_id);
     if (!$conn_config) {
         gojs_json_response(null, array(
-            'code' => 'not_found',
-            'message' => '连接不存在',
-        ), 404);
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
     }
 
     $conn_config['database'] = $database;
@@ -5075,8 +5160,9 @@ function gojs_api_db_tables() {
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
         gojs_json_response(null, array(
-            'code' => 'connect_failed',
+            'code' => 'db_connect_failed',
             'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
         ), 400);
     }
 
@@ -5123,8 +5209,9 @@ function gojs_api_db_structure() {
 
     if (!$capabilities['mysql']) {
         gojs_json_response(null, array(
-            'code' => 'not_supported',
-            'message' => '系统不支持 MySQL',
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
         ), 400);
     }
 
@@ -5134,17 +5221,19 @@ function gojs_api_db_structure() {
 
     if (!$database || !$table) {
         gojs_json_response(null, array(
-            'code' => 'invalid_params',
+            'code' => 'db_not_connected',
             'message' => '数据库名和表名不能为空',
+            'message_key' => 'db.notConnected',
         ), 400);
     }
 
     $conn_config = gojs_get_db_connection($conn_id);
     if (!$conn_config) {
         gojs_json_response(null, array(
-            'code' => 'not_found',
-            'message' => '连接不存在',
-        ), 404);
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
     }
 
     $conn_config['database'] = $database;
@@ -5152,8 +5241,9 @@ function gojs_api_db_structure() {
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
         gojs_json_response(null, array(
-            'code' => 'connect_failed',
+            'code' => 'db_connect_failed',
             'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
         ), 400);
     }
 
@@ -5202,8 +5292,9 @@ function gojs_api_db_sql() {
 
     if (!$capabilities['mysql']) {
         gojs_json_response(null, array(
-            'code' => 'not_supported',
-            'message' => '系统不支持 MySQL',
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
         ), 400);
     }
 
@@ -5213,17 +5304,19 @@ function gojs_api_db_sql() {
 
     if (!$sql) {
         gojs_json_response(null, array(
-            'code' => 'invalid_sql',
+            'code' => 'db_import_empty',
             'message' => 'SQL 不能为空',
+            'message_key' => 'db.importEmpty',
         ), 400);
     }
 
     $conn_config = gojs_get_db_connection($conn_id);
     if (!$conn_config) {
         gojs_json_response(null, array(
-            'code' => 'not_found',
-            'message' => '连接不存在',
-        ), 404);
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
     }
 
     if ($database) {
@@ -5233,8 +5326,9 @@ function gojs_api_db_sql() {
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
         gojs_json_response(null, array(
-            'code' => 'connect_failed',
+            'code' => 'db_connect_failed',
             'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
         ), 400);
     }
 
@@ -5403,8 +5497,9 @@ function gojs_api_db_export() {
 
     if (!$capabilities['mysql']) {
         gojs_json_response(null, array(
-            'code' => 'not_supported',
-            'message' => '系统不支持 MySQL',
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
         ), 400);
     }
 
@@ -5420,9 +5515,10 @@ function gojs_api_db_export() {
     $conn_config = gojs_get_db_connection($conn_id);
     if (!$conn_config) {
         gojs_json_response(null, array(
-            'code' => 'not_found',
-            'message' => '连接不存在',
-        ), 404);
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
     }
 
     if ($database) {
@@ -5432,8 +5528,9 @@ function gojs_api_db_export() {
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
         gojs_json_response(null, array(
-            'code' => 'connect_failed',
+            'code' => 'db_connect_failed',
             'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
         ), 400);
     }
 
@@ -5473,9 +5570,10 @@ function gojs_api_db_export() {
     $out = fopen('php://output', 'w');
     if (!$out) {
         gojs_json_response(null, array(
-            'code' => 'stream_failed',
-            'message' => '无法打开输出流',
-        ), 500);
+            'code' => 'db_export_failed',
+            'message' => '导出失败：无法打开输出流',
+            'message_key' => 'db.exportFailed',
+        ), 400);
     }
 
     fwrite($out, "-- Go.js SQL Dump\n");
@@ -5759,8 +5857,9 @@ function gojs_api_db_import() {
 
     if (!$capabilities['mysql']) {
         gojs_json_response(null, array(
-            'code' => 'not_supported',
-            'message' => '系统不支持 MySQL',
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
         ), 400);
     }
 
@@ -5775,47 +5874,53 @@ function gojs_api_db_import() {
 
     if (!$conn_id) {
         gojs_json_response(null, array(
-            'code' => 'invalid_params',
+            'code' => 'db_not_connected',
             'message' => '连接 ID 不能为空',
+            'message_key' => 'db.notConnected',
         ), 400);
     }
 
     if (empty($_FILES['file'])) {
         gojs_json_response(null, array(
-            'code' => 'no_file',
+            'code' => 'db_import_empty',
             'message' => '没有上传文件',
+            'message_key' => 'db.importEmpty',
         ), 400);
     }
 
     $file = $_FILES['file'];
     if ($file['error'] !== UPLOAD_ERR_OK) {
         gojs_json_response(null, array(
-            'code' => 'upload_error',
+            'code' => 'db_import_empty',
             'message' => '文件上传错误: ' . $file['error'],
+            'message_key' => 'db.importEmpty',
         ), 400);
     }
 
     if (!is_uploaded_file($file['tmp_name'])) {
         gojs_json_response(null, array(
-            'code' => 'invalid_file',
+            'code' => 'db_import_empty',
             'message' => '无效的上传文件',
+            'message_key' => 'db.importEmpty',
         ), 400);
     }
 
     $filename = isset($file['name']) ? $file['name'] : 'import.sql';
     if (strtolower(pathinfo($filename, PATHINFO_EXTENSION)) !== 'sql') {
         gojs_json_response(null, array(
-            'code' => 'invalid_extension',
+            'code' => 'db_import_empty',
             'message' => '仅支持 .sql 文件',
+            'message_key' => 'db.importEmpty',
         ), 400);
     }
 
     $sql_content = file_get_contents($file['tmp_name']);
     if ($sql_content === false) {
         gojs_json_response(null, array(
-            'code' => 'read_failed',
+            'code' => 'db_import_failed',
             'message' => '无法读取上传文件',
-        ), 500);
+            'message_key' => 'db.importFailed',
+        ), 400);
     }
     $cleaned_sql = gojs_sql_strip_comments($sql_content);
     $dangerous_statements = gojs_sql_detect_dangerous_statements($cleaned_sql);
@@ -5831,9 +5936,10 @@ function gojs_api_db_import() {
     $conn_config = gojs_get_db_connection($conn_id);
     if (!$conn_config) {
         gojs_json_response(null, array(
-            'code' => 'not_found',
-            'message' => '连接不存在',
-        ), 404);
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
     }
 
     if ($database) {
@@ -5843,8 +5949,9 @@ function gojs_api_db_import() {
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
         gojs_json_response(null, array(
-            'code' => 'connect_failed',
+            'code' => 'db_connect_failed',
             'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
         ), 400);
     }
 
@@ -5869,9 +5976,10 @@ function gojs_api_db_import() {
     $handle = @fopen($file['tmp_name'], 'rb');
     if (!$handle) {
         gojs_json_response(null, array(
-            'code' => 'read_failed',
+            'code' => 'db_import_failed',
             'message' => '无法读取上传文件',
-        ), 500);
+            'message_key' => 'db.importFailed',
+        ), 400);
     }
 
     $executed = 0;
@@ -6937,6 +7045,7 @@ function gojs_api_ssl_check() {
         gojs_json_response(array(
             'domain' => $domain,
             'enabled' => false,
+            'status' => 'failed',
             'error' => 'openssl_not_available',
             'error_key' => 'openssl_unavailable',
             'message' => 'OpenSSL 扩展不可用，无法检测 SSL 证书',
@@ -6970,6 +7079,7 @@ function gojs_api_ssl_check() {
         gojs_json_response(array(
             'domain' => $domain,
             'enabled' => false,
+            'status' => 'failed',
             'error' => 'connection_failed',
             'error_key' => 'connect_failed',
             'error_params' => array('detail' => "{$domain}:443 — {$errstr}"),
@@ -6984,6 +7094,7 @@ function gojs_api_ssl_check() {
         gojs_json_response(array(
             'domain' => $domain,
             'enabled' => false,
+            'status' => 'failed',
             'error' => 'no_certificate',
             'error_key' => 'certificate_empty',
             'message' => '未获取到证书数据',
@@ -6997,6 +7108,7 @@ function gojs_api_ssl_check() {
         gojs_json_response(array(
             'domain' => $domain,
             'enabled' => false,
+            'status' => 'failed',
             'error' => 'parse_failed',
             'error_key' => 'certificate_parse_error',
             'message' => '证书解析失败',
@@ -7012,26 +7124,27 @@ function gojs_api_ssl_check() {
     $chain_complete = isset($params['options']['ssl']['peer_certificate_chain']) &&
                       count($params['options']['ssl']['peer_certificate_chain']) > 1;
 
-    // 状态判断
-    $status = 'ok';
+    // 证书健康状态判断
+    $cert_status = 'ok';
     if ($days_remaining < 0) {
-        $status = 'expired';
+        $cert_status = 'expired';
     } else if ($days_remaining < 7) {
-        $status = 'critical';
+        $cert_status = 'critical';
     } else if ($days_remaining < 14) {
-        $status = 'warning';
+        $cert_status = 'warning';
     }
 
     gojs_json_response(array(
         'domain' => $domain,
         'enabled' => true,
+        'status' => 'ok',
+        'cert_status' => $cert_status,
         'issuer' => isset($cert_info['issuer']['CN']) ? $cert_info['issuer']['CN'] : (isset($cert_info['issuer']['O']) ? $cert_info['issuer']['O'] : 'Unknown'),
         'subject' => isset($cert_info['subject']['CN']) ? $cert_info['subject']['CN'] : $domain,
         'valid_from' => date('Y-m-d', $valid_from),
         'valid_to' => date('Y-m-d', $valid_to),
         'days_remaining' => $days_remaining,
         'chain_complete' => $chain_complete,
-        'status' => $status,
     ));
 }
 

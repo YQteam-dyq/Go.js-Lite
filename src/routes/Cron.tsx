@@ -112,10 +112,14 @@ export default function Cron() {
     queryFn: () => cronApi.capabilities(),
   })
 
+  const execAvailable = caps?.exec_available ?? caps?.available ?? false
+  const disabled = !execAvailable || !caps?.available
+  const showCrontabMissing = caps?.available === true && caps?.crontab_available === false
+
   const { data: jobs, isLoading: loadingJobs, error, refetch } = useQuery({
     queryKey: ['cron-jobs'],
     queryFn: () => cronApi.list(),
-    enabled: !!caps?.available,
+    enabled: !!caps?.available && !!caps?.crontab_available,
   })
 
   const saveMutation = useMutation({
@@ -214,7 +218,7 @@ export default function Cron() {
             variant="secondary"
             size="sm"
             onClick={() => refetch()}
-            disabled={loadingJobs || !available}
+            disabled={loadingJobs || disabled}
           >
             <RefreshCw size={16} />
             <span className="hidden sm:inline">{t('common.refresh')}</span>
@@ -223,13 +227,36 @@ export default function Cron() {
             variant="primary"
             size="sm"
             onClick={openAdd}
-            disabled={!available}
+            disabled={disabled}
           >
             <Plus size={16} />
             <span className="hidden sm:inline">{t('cron.add')}</span>
           </Button>
         </div>
       </div>
+
+      {/* crontab CLI 缺失警告横幅 */}
+      {showCrontabMissing && (
+        <Card className="border-warning/30">
+          <CardBody className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-warning/10 text-warning flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-fg">
+                {caps?.info_key && hasKey(`cron.${caps.info_key}`)
+                  ? t(`cron.${caps.info_key}`)
+                  : t('cron.crontabCliMissing')}
+              </div>
+              <p className="text-xs text-fg-muted mt-1 leading-relaxed">
+                {caps?.info_key && hasKey(`cron.${caps.info_key}Detail`)
+                  ? t(`cron.${caps.info_key}Detail`)
+                  : t('cron.crontabCliMissingDetail')}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
 
       {/* 能力检测卡片 */}
       {loadingCaps ? (
@@ -271,15 +298,19 @@ export default function Cron() {
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-medium text-fg">{t('cron.available')}</span>
-                <Badge variant={method === 'exec' ? 'success' : 'accent'}>
-                  {method === 'exec' ? t('cron.methodExec') : t('cron.methodFile')}
-                </Badge>
+                {method !== 'none' && (
+                  <Badge variant={method === 'exec' ? 'success' : 'accent'}>
+                    {method === 'exec' ? t('cron.methodExec') : t('cron.methodFile')}
+                  </Badge>
+                )}
               </div>
-              <p className="text-xs text-fg-muted mt-1 leading-relaxed">
-                {method === 'exec'
-                  ? t('cron.methodExecDesc')
-                  : t('cron.methodFileDesc')}
-              </p>
+              {method !== 'none' && (
+                <p className="text-xs text-fg-muted mt-1 leading-relaxed">
+                  {method === 'exec'
+                    ? t('cron.methodExecDesc')
+                    : t('cron.methodFileDesc')}
+                </p>
+              )}
               {method === 'file' && caps?.cron_file && (
                 <p className="text-xs text-fg-subtle mt-1.5 font-mono break-all">
                   {t('cron.cronFile')}：{caps.cron_file}

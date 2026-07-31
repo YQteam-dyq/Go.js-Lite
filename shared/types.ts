@@ -309,7 +309,10 @@ export interface SSLInfo {
   valid_to?: string
   days_remaining?: number
   chain_complete?: boolean
-  status?: 'ok' | 'warning' | 'critical' | 'expired'
+  /** 证书健康状态：正常 / 即将到期 / 紧急 / 已过期 */
+  cert_status?: 'ok' | 'warning' | 'critical' | 'expired'
+  /** 检测执行状态：待检测 / 检测成功 / 检测失败 / 检测中 */
+  status: 'pending' | 'ok' | 'failed' | 'checking'
   /** 向后兼容：原始错误码 / 错误文本（已过时，优先使用 error_key + error_params） */
   error?: string
   /** 向后兼容：原始错误详情文本（已过时，优先使用 error_key + error_params） */
@@ -347,12 +350,15 @@ export interface ProcessInfo {
 
 export interface CronCapabilities {
   available: boolean
-  method: 'exec' | 'file' | 'none'
+  exec_available: boolean
+  crontab_available: boolean
+  method?: 'exec' | 'file' | 'none'
   cron_file?: string
-  /** 向后兼容：原始提示文本（已过时，优先使用 message_key + message_params） */
   message: string
   message_key?: string
   message_params?: Record<string, string | number> | null
+  info_key?: string
+  info_params?: Record<string, string | number>
 }
 
 export interface CronJob {

@@ -86,6 +86,15 @@ export async function apiFetch<T = unknown>(
     throw new ApiError(errCode, errMsg, res.status, retryAfter)
   }
 
+  if (res.status >= 400 && res.status < 500) {
+    const data = await safeParseJson(res)
+    throw new ApiError(
+      data?.error?.code || 'bad_request',
+      data?.error?.message || '请求错误',
+      res.status,
+    )
+  }
+
   if (res.status >= 500) {
     throw new ApiError('server_error', '服务器错误', res.status)
   }

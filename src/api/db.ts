@@ -67,4 +67,32 @@ export const dbApi = {
       body: { connId, database, sql },
     })
   },
+
+  exportDatabase(connId: string, database: string, tables?: string[], mode: 'structure_only' | 'structure_data' = 'structure_data') {
+    if (USE_MOCK) return Promise.resolve(new Blob()) as unknown as Promise<Blob>
+    const params: Record<string, string | string[] | undefined> = { connId, database, mode }
+    if (tables && tables.length > 0) {
+      params.tables = tables
+    }
+    return apiFetch<Blob>('/db/export', {
+      method: 'POST',
+      body: params,
+      responseType: 'blob',
+    })
+  },
+
+  importDatabase(connId: string, database: string, file: File, allowDangerous = false) {
+    if (USE_MOCK) return Promise.resolve({ success: true }) as unknown as Promise<{ executed: number; failed: number; errors?: string[] }>
+    const formData = new FormData()
+    formData.append('connId', connId)
+    formData.append('database', database)
+    formData.append('file', file)
+    if (allowDangerous) {
+      formData.append('allowDangerous', 'true')
+    }
+    return apiFetch<{ executed: number; failed: number; errors?: string[] }>('/db/import', {
+      method: 'POST',
+      body: formData,
+    })
+  },
 }
