@@ -293,9 +293,7 @@ export default function System() {
                   <li key={i} className="px-4 py-3 font-mono text-xs">
                     <div className="flex items-center gap-2 text-fg-muted">
                       <Clock size={12} />
-                      <span>
-                        {job.minute} {job.hour} {job.day} {job.month} {job.weekday}
-                      </span>
+                      <span>{job.expression}</span>
                     </div>
                     <div className="text-fg mt-1 ml-5 break-all">{job.command}</div>
                   </li>

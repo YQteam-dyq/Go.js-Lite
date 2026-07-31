@@ -60,6 +60,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       capabilities: data.capabilities,
       user: data.user || null,
       backendVersion: data.backendVersion,
+      frontendVersion: data.frontendVersion || '0.3.0',
     }),
 
   setBootstrapFailed: () =>

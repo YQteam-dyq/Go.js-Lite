@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, Sun, Moon, Monitor, Eye, EyeOff, ShieldCheck } from 'lucide-react'
+import { Lock, Sun, Moon, Monitor, Eye, EyeOff, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -11,6 +11,7 @@ import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useAuthBootstrap } from '@/hooks/useAuth'
 import { Spinner } from '@/components/ui/Spinner'
+import { ApiError } from '@/api/client'
 
 export default function Login() {
   const [password, setPassword] = useState('')
@@ -20,11 +21,26 @@ export default function Login() {
   const [showTotp, setShowTotp] = useState(false)
   const [error, setError] = useState('')
   const [shake, setShake] = useState(false)
+  const [lockCountdown, setLockCountdown] = useState(0)
   const { login } = useAuth()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { t } = useI18n()
   const navigate = useNavigate()
   const { installed, loading: bootstrapLoading, authenticated } = useAuthBootstrap()
+
+  useEffect(() => {
+    if (lockCountdown <= 0) return
+    const timer = setInterval(() => {
+      setLockCountdown((prev) => (prev <= 1 ? 0 : prev - 1))
+    }, 1000)
+    return () => clearInterval(timer)
+  }, [lockCountdown > 0])
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60)
+    const s = seconds % 60
+    return `${m}:${s.toString().padStart(2, '0')}`
+  }
 
   useEffect(() => {
     document.title = t('login.documentTitle')
@@ -42,7 +58,7 @@ export default function Login() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!password) return
+    if (!password || lockCountdown > 0) return
 
     setLoading(true)
     setError('')
@@ -51,6 +67,18 @@ export default function Login() {
       toast({ type: 'success', title: t('login.success') })
       navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
+      if (err instanceof ApiError && err.code === 'ip_locked') {
+        const retryAfter = err.retryAfter && err.retryAfter > 0 ? err.retryAfter : 900
+        setLockCountdown(retryAfter)
+        setError('')
+        const minutes = Math.ceil(retryAfter / 60)
+        toast({
+          type: 'error',
+          title: t('login.ipLocked'),
+          description: t('login.retryAfter', { minutes }),
+        })
+        return
+      }
       const msg = err instanceof Error ? err.message : t('login.fail')
       setError(msg)
       setShake(true)
@@ -176,11 +204,30 @@ export default function Login() {
               </div>
             )}
 
+            {lockCountdown > 0 ? (
+              <div className="rounded-lg bg-warning/10 border border-warning/30 px-4 py-3 animate-fade-in space-y-2">
+                <div className="flex items-center gap-2 text-warning">
+                  <ShieldAlert size={18} className="shrink-0" />
+                  <span className="text-sm font-medium">{t('login.ipLocked')}</span>
+                </div>
+                <p className="text-xs text-fg-muted">{t('login.lockedMessage')}</p>
+                <div className="flex items-center gap-2 text-warning">
+                  <span className="text-2xl font-mono font-semibold tabular-nums">
+                    {formatCountdown(lockCountdown)}
+                  </span>
+                  <span className="text-xs text-fg-muted">
+                    {t('login.retryAfterSeconds', { seconds: lockCountdown })}
+                  </span>
+                </div>
+              </div>
+            ) : null}
+
             <Button
               type="submit"
               size="lg"
               className="w-full font-semibold"
               loading={loading}
+              disabled={lockCountdown > 0}
             >
               {t('login.submit')}
             </Button>

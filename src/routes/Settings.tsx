@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
-import { Sun, Moon, Monitor, Clock, Lock, Download, RefreshCw, Eye, EyeOff, CheckCircle2, Code2, Server, Palette, Users, ExternalLink, Heart, Shield, Copy, RotateCcw } from 'lucide-react'
+import { useState, useMemo, useEffect } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { Sun, Moon, Monitor, Clock, Lock, Download, RefreshCw, Eye, EyeOff, CheckCircle2, Code2, Server, Palette, Users, ExternalLink, Heart, Shield, Copy, RotateCcw, History } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
@@ -20,6 +20,7 @@ export default function Settings() {
   const language = useUiStore((s) => s.language)
   const setLanguage = useUiStore((s) => s.setLanguage)
   const { user, backendVersion, frontendVersion } = useAuth()
+  const queryClient = useQueryClient()
 
   const [oldPassword, setOldPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -29,11 +30,46 @@ export default function Settings() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [showReset, setShowReset] = useState(false)
   const [showRegenToken, setShowRegenToken] = useState(false)
+  const [logRetention, setLogRetention] = useState<number | ''>(500)
+  const [logRetentionTouched, setLogRetentionTouched] = useState(false)
 
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => authApi.getSettings(),
   })
+
+  // 当后端返回 logRetention 时同步到本地输入框（仅在用户未编辑时）
+  useEffect(() => {
+    if (!logRetentionTouched && typeof settings?.logRetention === 'number') {
+      setLogRetention(settings.logRetention)
+    }
+  }, [settings?.logRetention, logRetentionTouched])
+
+  const logRetentionMutation = useMutation({
+    mutationFn: (value: number) =>
+      authApi.updateSettings({ logRetention: value }),
+    onSuccess: () => {
+      toast({ type: 'success', title: t('settings.logRetentionSaved') })
+      queryClient.invalidateQueries({ queryKey: ['settings'] })
+      setLogRetentionTouched(false)
+    },
+    onError: (err: Error) => {
+      toast({
+        type: 'error',
+        title: t('common.saveFailed'),
+        description: err.message,
+      })
+    },
+  })
+
+  const handleSaveLogRetention = () => {
+    const value = typeof logRetention === 'number' ? logRetention : 500
+    if (value < 50) {
+      toast({ type: 'error', title: t('settings.logRetentionInvalid') })
+      return
+    }
+    logRetentionMutation.mutate(value)
+  }
 
   const regenerateMutation = useMutation({
     mutationFn: () => authApi.regenerateAccessToken(),
@@ -229,6 +265,54 @@ export default function Settings() {
             />
             <p className="text-xs text-fg-subtle mt-2">{t('settings.sessionTimeoutDesc')}</p>
           </div>
+        </CardBody>
+      </Card>
+
+      <Card className="stagger-3 card-hover">
+        <CardHeader className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
+            <History size={20} />
+          </div>
+          <div>
+            <div className="text-sm font-semibold text-fg">{t('settings.logRetention')}</div>
+            <div className="text-xs text-fg-subtle">{t('settings.logRetentionDesc')}</div>
+          </div>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input
+                type="number"
+                value={logRetention}
+                onChange={(e) => {
+                  const v = e.target.value
+                  setLogRetentionTouched(true)
+                  setLogRetention(v === '' ? '' : Number(v))
+                }}
+                inputMode="numeric"
+                min={50}
+                autoComplete="off"
+                invalid={
+                  logRetentionTouched &&
+                  (logRetention === '' || logRetention < 50)
+                }
+              />
+            </div>
+            <Button
+              variant="primary"
+              onClick={handleSaveLogRetention}
+              loading={logRetentionMutation.isPending}
+              disabled={
+                !logRetentionTouched ||
+                logRetention === '' ||
+                logRetention < 50 ||
+                logRetention === settings?.logRetention
+              }
+            >
+              {t('common.save')}
+            </Button>
+          </div>
+          <p className="text-xs text-fg-subtle">{t('settings.logRetentionDesc')}</p>
         </CardBody>
       </Card>
 

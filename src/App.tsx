@@ -22,6 +22,11 @@ import DiskAnalysis from '@/routes/DiskAnalysis'
 import ErrorLog from '@/routes/ErrorLog'
 import Htaccess from '@/routes/Htaccess'
 import HealthCheck from '@/routes/HealthCheck'
+import EnvCheck from '@/routes/EnvCheck'
+import OperationLog from '@/routes/OperationLog'
+import Cron from '@/routes/Cron'
+import Backup from '@/routes/Backup'
+import SSL from '@/routes/SSL'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -70,8 +75,13 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/settings': 'settings.documentTitle',
   '/disk-analysis': 'diskAnalysis.documentTitle',
   '/error-log': 'errorLog.documentTitle',
+  '/operation-log': 'operationLog.documentTitle',
   '/htaccess': 'htaccess.documentTitle',
   '/health-check': 'healthCheck.documentTitle',
+  '/env-check': 'envCheck.documentTitle',
+  '/cron': 'cron.documentTitle',
+  '/backup': 'backup.documentTitle',
+  '/ssl': 'ssl.documentTitle',
   '/404': 'notFound.documentTitle',
 }
 
@@ -127,8 +137,13 @@ export default function App() {
                 <Route path="system" element={<System />} />
                 <Route path="disk-analysis" element={<DiskAnalysis />} />
                 <Route path="error-log" element={<ErrorLog />} />
+                <Route path="operation-log" element={<OperationLog />} />
                 <Route path="htaccess" element={<Htaccess />} />
                 <Route path="health-check" element={<HealthCheck />} />
+                <Route path="env-check" element={<EnvCheck />} />
+                <Route path="cron" element={<Cron />} />
+                <Route path="backup" element={<Backup />} />
+                <Route path="ssl" element={<SSL />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

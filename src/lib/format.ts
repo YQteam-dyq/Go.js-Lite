@@ -18,8 +18,16 @@ function getLocale(lang: string): string {
   return lang === 'zh' ? 'zh-CN' : 'en-US'
 }
 
+/**
+ * Auto-normalize timestamps: PHP returns seconds (< 10^12), JS Date uses ms.
+ * 10^12 ms ≈ 2001-09-09, which is earlier than any reasonable file mtime.
+ */
+function toMs(ts: number): number {
+  return ts > 1e12 ? ts : ts * 1000
+}
+
 export function formatDate(timestamp: number, lang = 'zh'): string {
-  const date = new Date(timestamp)
+  const date = new Date(toMs(timestamp))
   const locale = getLocale(lang)
   return date.toLocaleString(locale, {
     year: 'numeric',
@@ -31,7 +39,7 @@ export function formatDate(timestamp: number, lang = 'zh'): string {
 }
 
 export function formatDateShort(timestamp: number, lang = 'zh'): string {
-  const date = new Date(timestamp)
+  const date = new Date(toMs(timestamp))
   if (lang === 'zh') {
     const y = date.getFullYear()
     const m = String(date.getMonth() + 1).padStart(2, '0')
@@ -46,8 +54,9 @@ export function formatDateShort(timestamp: number, lang = 'zh'): string {
 }
 
 export function formatRelativeTime(timestamp: number, lang = 'zh', t?: (key: string, params?: Record<string, string | number>) => string): string {
+  const ts = toMs(timestamp)
   const now = Date.now()
-  const diff = now - timestamp
+  const diff = now - ts
 
   if (diff < 60000) {
     return t ? t('common.justNow') : (lang === 'zh' ? '刚刚' : 'Just now')

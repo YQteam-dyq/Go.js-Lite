@@ -45,6 +45,13 @@ export function useI18n() {
     return locales[language as LocaleKey] ?? locales.zh
   }, [language])
 
+  const hasKey = useCallback(
+    (key: string): boolean => {
+      return getNestedValue(currentLocale, key) !== undefined
+    },
+    [currentLocale],
+  )
+
   const t = useCallback(
     <K extends string>(
       key: K,
@@ -59,6 +66,7 @@ export function useI18n() {
 
   return {
     t,
+    hasKey,
     language,
     setLanguage: (lang: LocaleKey) => setLanguage(lang),
   }

@@ -496,9 +496,9 @@ export const mockApi = {
 
   async getCron(): Promise<CronJob[]> {
     return delay([
-      { minute: '0', hour: '2', day: '*', month: '*', weekday: '*', command: 'php /home/user/cron/backup.php', raw: '0 2 * * * php /home/user/cron/backup.php' },
-      { minute: '*/15', hour: '*', day: '*', month: '*', weekday: '*', command: 'php /home/user/cron/queue.php', raw: '*/15 * * * * php /home/user/cron/queue.php' },
-      { minute: '30', hour: '3', day: '*', month: '*', weekday: '0', command: 'php /home/user/cron/weekly-report.php', raw: '30 3 * * 0 php /home/user/cron/weekly-report.php' },
+      { expression: '0 2 * * *', command: 'php /home/user/cron/backup.php', raw: '0 2 * * * php /home/user/cron/backup.php' },
+      { expression: '*/15 * * * *', command: 'php /home/user/cron/queue.php', raw: '*/15 * * * * php /home/user/cron/queue.php' },
+      { expression: '30 3 * * 0', command: 'php /home/user/cron/weekly-report.php', raw: '30 3 * * 0 php /home/user/cron/weekly-report.php' },
     ])
   },
 

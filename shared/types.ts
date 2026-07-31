@@ -44,6 +44,7 @@ export interface UserSettings {
   language: 'zh' | 'en'
   sessionTimeout: number
   accessToken?: string
+  logRetention?: number
 }
 
 export interface FileEntry {
@@ -91,6 +92,24 @@ export interface ErrorLogData {
   path: string | null
   entries: ErrorLogEntry[]
   size?: number
+}
+
+export interface OperationLogEntry {
+  time: string
+  timestamp: number
+  ip: string
+  action: string
+  target: string
+  result: boolean
+  detail: string
+}
+
+export interface OperationLogData {
+  logs: OperationLogEntry[]
+  total: number
+  page: number
+  per_page: number
+  total_pages: number
 }
 
 export interface InstallCheckItem {
@@ -253,6 +272,56 @@ export interface HealthCheckData {
   summary: { pass: number; warning: number; danger: number; total: number }
 }
 
+export interface EnvCheckItem {
+  name: string
+  category: 'extension' | 'function' | 'system' | 'config'
+  available: boolean
+  /** 向后兼容：原始原因文本（已过时，优先使用 reason_key + reason_params） */
+  reason: string
+  /** 向后兼容：原始关联功能文本（已过时，优先使用 feature_key） */
+  related_feature: string
+  /** 向后兼容：原始建议文本（已过时，优先使用 suggestion_key + suggestion_params） */
+  suggestion: string
+  feature_key?: string
+  reason_key?: string
+  reason_params?: Record<string, string | number> | null
+  suggestion_key?: string
+  suggestion_params?: Record<string, string | number> | null
+}
+
+export interface EnvCheckSummary {
+  total: number
+  passed: number
+  failed: number
+}
+
+export interface EnvCheckData {
+  items: EnvCheckItem[]
+  summary: EnvCheckSummary
+}
+
+export interface SSLInfo {
+  domain: string
+  enabled: boolean
+  issuer?: string
+  subject?: string
+  valid_from?: string
+  valid_to?: string
+  days_remaining?: number
+  chain_complete?: boolean
+  status?: 'ok' | 'warning' | 'critical' | 'expired'
+  /** 向后兼容：原始错误码 / 错误文本（已过时，优先使用 error_key + error_params） */
+  error?: string
+  /** 向后兼容：原始错误详情文本（已过时，优先使用 error_key + error_params） */
+  message?: string
+  error_key?: string
+  error_params?: Record<string, string | number> | null
+}
+
+export interface SSLListResponse {
+  domains: string[]
+}
+
 export interface SystemData {
   diskTotal: number
   diskFree: number
@@ -276,14 +345,24 @@ export interface ProcessInfo {
   mem: number
 }
 
+export interface CronCapabilities {
+  available: boolean
+  method: 'exec' | 'file' | 'none'
+  cron_file?: string
+  /** 向后兼容：原始提示文本（已过时，优先使用 message_key + message_params） */
+  message: string
+  message_key?: string
+  message_params?: Record<string, string | number> | null
+}
+
 export interface CronJob {
-  minute: string
-  hour: string
-  day: string
-  month: string
-  weekday: string
+  expression: string
   command: string
-  raw: string
+  raw?: string
+}
+
+export interface CronListResponse {
+  jobs: CronJob[]
 }
 
 export interface AuthCredentials {
@@ -355,6 +434,52 @@ export interface LargeFile {
 export interface LargeFilesData {
   files: LargeFile[]
   total: number
+}
+
+export interface BackupDbMeta {
+  id: string
+  name: string
+  database: string
+  size: number
+}
+
+export interface BackupMetadata {
+  created_at: string
+  version: string
+  files: { count: number; root: string } | null
+  databases: BackupDbMeta[]
+  config: boolean
+  db_error?: string[] | string
+}
+
+export interface BackupRecord {
+  filename: string
+  size: number
+  created: number
+  metadata: BackupMetadata | null
+}
+
+export interface BackupListResponse {
+  backups: BackupRecord[]
+}
+
+export interface BackupCreateRequest {
+  include_files?: boolean
+  include_db?: boolean
+  include_config?: boolean
+  exclude_dirs?: string[]
+}
+
+export interface BackupCreateResult {
+  filename: string
+  size: number
+  metadata: BackupMetadata
+}
+
+export interface BackupRestoreResult {
+  restored_files: number
+  restored_db: number
+  db_errors: string[]
 }
 
 export type ThemeMode = 'light' | 'dark' | 'system'

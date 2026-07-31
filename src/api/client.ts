@@ -79,7 +79,11 @@ export async function apiFetch<T = unknown>(
   }
 
   if (res.status === 429) {
-    throw new ApiError('rate_limited', '请求过于频繁，请稍后再试', res.status)
+    const data = await safeParseJson(res)
+    const errCode = data?.error?.code || 'rate_limited'
+    const errMsg = data?.error?.message || '请求过于频繁，请稍后再试'
+    const retryAfter = typeof data?.error?.retry_after === 'number' ? data.error.retry_after : undefined
+    throw new ApiError(errCode, errMsg, res.status, retryAfter)
   }
 
   if (res.status >= 500) {
@@ -113,11 +117,13 @@ async function safeParseJson(res: Response) {
 export class ApiError extends Error {
   code: string
   status: number
+  retryAfter?: number
 
-  constructor(code: string, message: string, status: number) {
+  constructor(code: string, message: string, status: number, retryAfter?: number) {
     super(message)
     this.code = code
     this.status = status
+    this.retryAfter = retryAfter
     this.name = 'ApiError'
   }
 }

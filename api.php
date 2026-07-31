@@ -1,6 +1,7 @@
 <?php
 
-define('VERSION', '0.2.1');
+define('VERSION', '0.3.0');
+define('APP_VERSION', '0.3.0');
 define('ROOT', dirname(__FILE__));
 define('PANEL_ROOT', ROOT);
 define('CONFIG_DIR', ROOT . '/.gojs');
@@ -78,6 +79,8 @@ function gojs_init() {
             }
         }
     }
+
+    gojs_run_migration();
 
     gojs_dispatch();
 }
@@ -229,7 +232,7 @@ function gojs_dispatch() {
 
     $method = gojs_get_method();
 
-    $public_routes = array('bootstrap', 'install', 'login');
+    $public_routes = array('bootstrap', 'install', 'login', 'env-check');
 
     if (!in_array($api, $public_routes)) {
         gojs_check_auth();
@@ -387,6 +390,15 @@ function gojs_dispatch() {
             }
             gojs_api_error_log_clear();
             break;
+        case 'operation-log':
+            gojs_api_operation_log();
+            break;
+        case 'operation-log/clear':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_operation_log_clear();
+            break;
         case 'install/check':
             gojs_api_install_check();
             break;
@@ -405,6 +417,9 @@ function gojs_dispatch() {
         case 'health-check':
             gojs_api_health_check();
             break;
+        case 'env-check':
+            gojs_api_env_check();
+            break;
         case 'system':
             gojs_api_system();
             break;
@@ -413,6 +428,18 @@ function gojs_dispatch() {
             break;
         case 'system/cron':
             gojs_api_cron();
+            break;
+        case 'cron/capabilities':
+            gojs_api_cron_capabilities();
+            break;
+        case 'cron/list':
+            gojs_api_cron_list();
+            break;
+        case 'cron/save':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_cron_save();
             break;
         case 'disk-analysis':
             gojs_api_disk_analysis();
@@ -464,6 +491,51 @@ function gojs_dispatch() {
                 gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
             }
             gojs_api_htaccess_reset();
+            break;
+        case 'backup/create':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_backup_create();
+            break;
+        case 'backup/list':
+            gojs_api_backup_list();
+            break;
+        case 'backup/download':
+            gojs_api_backup_download();
+            break;
+        case 'backup/delete':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_backup_delete();
+            break;
+        case 'backup/restore':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_backup_restore();
+            break;
+        case 'ssl/check':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ssl_check();
+            break;
+        case 'ssl/list':
+            gojs_api_ssl_list();
+            break;
+        case 'ssl/add-domain':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ssl_add_domain();
+            break;
+        case 'ssl/remove-domain':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ssl_remove_domain();
             break;
         default:
 
@@ -566,37 +638,92 @@ function gojs_get_client_ip() {
 
 function gojs_check_brute_force() {
     $ip = gojs_get_client_ip();
-    $max_attempts = 5;
-    $lockout_time = 900; 
-
-    if (!file_exists(AUTH_LOG)) {
-        return true;
-    }
-
-    $lines = @file(AUTH_LOG, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-    if (!$lines) {
-        return true;
-    }
-
+    $lock_window = 15 * 60; // 15 分钟窗口
+    $max_attempts = 5; // 最大失败次数
     $now = time();
-    $recent_failures = 0;
 
-    foreach ($lines as $line) {
-        $entry = json_decode($line, true);
-        if (!$entry || empty($entry['ip']) || $entry['ip'] !== $ip) {
-            continue;
-        }
-
-        if (empty($entry['time']) || ($now - $entry['time']) > $lockout_time) {
-            continue;
-        }
-
-        if (empty($entry['success'])) {
-            $recent_failures++;
+    $attempts = array();
+    if (file_exists(AUTH_LOG)) {
+        $content = @file_get_contents(AUTH_LOG);
+        if ($content) {
+            $lines = array_filter(explode("\n", $content));
+            foreach ($lines as $line) {
+                $entry = json_decode($line, true);
+                if (is_array($entry) && isset($entry['ip']) && $entry['ip'] === $ip) {
+                    $attempts[] = $entry;
+                }
+            }
         }
     }
 
-    return $recent_failures < $max_attempts;
+    // 筛选最近 lock_window 内的失败记录
+    $recent_failures = array_filter($attempts, function($a) use ($now, $lock_window) {
+        return isset($a['time']) && $a['time'] > ($now - $lock_window) &&
+               isset($a['success']) && $a['success'] === false;
+    });
+
+    $fail_count = count($recent_failures);
+
+    if ($fail_count >= $max_attempts) {
+        // 找到最后一次失败的时间
+        $last_failure_time = 0;
+        foreach ($recent_failures as $f) {
+            if ($f['time'] > $last_failure_time) {
+                $last_failure_time = $f['time'];
+            }
+        }
+        $unlock_time = $last_failure_time + $lock_window;
+        $remaining = $unlock_time - $now;
+
+        return array(
+            'locked' => true,
+            'retry_after' => max(0, $remaining),
+            'fail_count' => $fail_count,
+        );
+    }
+
+    return array(
+        'locked' => false,
+        'retry_after' => 0,
+        'fail_count' => $fail_count,
+    );
+}
+
+function gojs_run_migration() {
+    global $config;
+
+    if (!file_exists(CONFIG_FILE)) {
+        return;
+    }
+
+    try {
+        $current_version = isset($config['version']) ? $config['version'] : '0.0.0';
+
+        if (version_compare($current_version, APP_VERSION, '>=')) {
+            return;
+        }
+
+        // 0.2.x → 0.3.0 migration
+        if (version_compare($current_version, '0.3.0', '<')) {
+            // 创建操作日志文件
+            $log_file = CONFIG_DIR . '/operation_log.json';
+            if (!file_exists($log_file)) {
+                @file_put_contents($log_file, '[]');
+            }
+
+            // 创建备份目录
+            $backup_dir = CONFIG_DIR . '/backups';
+            if (!is_dir($backup_dir)) {
+                @mkdir($backup_dir, 0700, true);
+            }
+        }
+
+        // 更新版本号
+        $config['version'] = APP_VERSION;
+        gojs_save_config();
+    } catch (Exception $e) {
+        // migration 失败不阻断面板启动
+    }
 }
 
 function gojs_log_auth_attempt($success) {
@@ -608,10 +735,78 @@ function gojs_log_auth_attempt($success) {
         'ip' => gojs_get_client_ip(),
         'time' => time(),
         'success' => $success,
+        'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
     );
 
     $line = json_encode($entry, JSON_UNESCAPED_UNICODE) . "\n";
-    @file_put_contents(AUTH_LOG, $line, FILE_APPEND);
+    @file_put_contents(AUTH_LOG, $line, FILE_APPEND | LOCK_EX);
+}
+
+/**
+ * 清除指定 IP 的登录失败记录（登录成功后调用）。
+ */
+function gojs_clear_auth_attempts($ip) {
+    if (!file_exists(AUTH_LOG)) {
+        return;
+    }
+
+    $content = @file_get_contents(AUTH_LOG);
+    if ($content === false || $content === '') {
+        return;
+    }
+
+    $lines = array_filter(explode("\n", $content), 'strlen');
+    $kept = array();
+    foreach ($lines as $line) {
+        $entry = json_decode($line, true);
+        if (is_array($entry) && isset($entry['ip']) && $entry['ip'] === $ip) {
+            continue; // 跳过该 IP 的记录
+        }
+        $kept[] = $line;
+    }
+    @file_put_contents(AUTH_LOG, implode("\n", $kept) . "\n", LOCK_EX);
+}
+
+function gojs_log_operation($action, $target, $result = true, $detail = '') {
+    $log_file = CONFIG_DIR . '/operation_log.json';
+
+    $entry = array(
+        'time' => date('Y-m-d H:i:s'),
+        'timestamp' => time(),
+        'ip' => gojs_get_client_ip(),
+        'action' => $action,
+        'target' => $target,
+        'result' => $result,
+        'detail' => $detail,
+    );
+
+    // 读取现有日志
+    $logs = array();
+    if (file_exists($log_file)) {
+        $content = @file_get_contents($log_file);
+        if ($content) {
+            $logs = json_decode($content, true);
+            if (!is_array($logs)) {
+                $logs = array();
+            }
+        }
+    }
+
+    // 追加新条目
+    $logs[] = $entry;
+
+    // 获取保留条数设置
+    $config = isset($GLOBALS['config']) ? $GLOBALS['config'] : array();
+    $retention = isset($config['log_retention']) ? (int)$config['log_retention'] : 500;
+    if ($retention < 50) $retention = 500;
+
+    // 截断
+    if (count($logs) > $retention) {
+        $logs = array_slice($logs, -$retention);
+    }
+
+    // 写入（失败不影响操作本身）
+    @file_put_contents($log_file, json_encode($logs, JSON_UNESCAPED_UNICODE));
 }
 
 function gojs_generate_csrf_token() {
@@ -740,15 +935,20 @@ function gojs_check_access_token() {
         $token = $_SERVER['HTTP_X_ACCESS_TOKEN'];
     }
 
-    if ($token && hash_equals($config['access_token'], $token)) {
+    // 只有当请求中携带了 token 时才强制校验；没有 token 时允许正常认证流程
+    if (!$token) {
+        return;
+    }
+
+    if (hash_equals($config['access_token'], $token)) {
         $_SESSION['access_token_valid'] = true;
         return;
     }
 
     gojs_json_response(null, array(
-        'code' => 'not_found',
-        'message' => 'Not Found',
-    ), 404);
+        'code' => 'invalid_token',
+        'message' => 'Access token 无效',
+    ), 401);
 }
 
 function gojs_save_config() {
@@ -849,6 +1049,7 @@ function gojs_api_install() {
         'session_timeout' => 1800,
         'encryption_key' => $encryption_key,
         'access_token' => $access_token,
+        'version' => APP_VERSION,
     );
 
     $config_content = '<?php' . "\n" . 'return ' . var_export($config_data, true) . ';' . "\n";
@@ -897,11 +1098,12 @@ function gojs_api_login() {
         ), 400);
     }
 
-    if (!gojs_check_brute_force()) {
-        gojs_log_auth_attempt(false);
+    $brute_check = gojs_check_brute_force();
+    if (!empty($brute_check['locked'])) {
         gojs_json_response(null, array(
-            'code' => 'rate_limited',
-            'message' => '登录失败次数过多，请15分钟后再试',
+            'code' => 'ip_locked',
+            'message' => '该 IP 已被临时锁定，请稍后再试',
+            'retry_after' => (int)$brute_check['retry_after'],
         ), 429);
     }
 
@@ -925,6 +1127,9 @@ function gojs_api_login() {
     }
 
     gojs_log_auth_attempt(true);
+
+    // 登录成功，清除该 IP 的失败记录
+    gojs_clear_auth_attempts(gojs_get_client_ip());
 
     session_regenerate_id(true);
 
@@ -998,6 +1203,7 @@ function gojs_api_change_password() {
         ), 500);
     }
 
+    gojs_log_operation('password_change', 'user', true);
     gojs_json_response(array('success' => true));
 }
 
@@ -1010,11 +1216,15 @@ function gojs_api_get_settings() {
             'theme' => 'system',
             'language' => 'zh',
             'sessionTimeout' => isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800,
+            'logRetention' => isset($config['log_retention']) ? (int)$config['log_retention'] : 500,
         );
     }
 
     if (!empty($config['access_token'])) {
         $settings['accessToken'] = $config['access_token'];
+    }
+    if (!isset($settings['logRetention'])) {
+        $settings['logRetention'] = isset($config['log_retention']) ? (int)$config['log_retention'] : 500;
     }
 
     gojs_json_response($settings);
@@ -1031,6 +1241,7 @@ function gojs_api_update_settings() {
             'theme' => 'system',
             'language' => 'zh',
             'sessionTimeout' => isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800,
+            'logRetention' => isset($config['log_retention']) ? (int)$config['log_retention'] : 500,
         );
     }
 
@@ -1046,12 +1257,23 @@ function gojs_api_update_settings() {
         $new_settings['sessionTimeout'] = max(300, min(86400, (int)$new_settings['sessionTimeout']));
 
         $config['session_timeout'] = $new_settings['sessionTimeout'];
+    }
+    if (isset($new_settings['logRetention'])) {
+        $log_retention = (int)$new_settings['logRetention'];
+        if ($log_retention < 50) $log_retention = 500;
+        $new_settings['logRetention'] = $log_retention;
+        $config['log_retention'] = $log_retention;
+    }
+
+    // 任一会话级/持久化配置发生变化时，统一写入 config.php
+    if (isset($new_settings['sessionTimeout']) || isset($new_settings['logRetention'])) {
         $config_content = '<?php' . "\n" . 'return ' . var_export($config, true) . ';' . "\n";
         @file_put_contents(CONFIG_FILE, $config_content, LOCK_EX);
     }
 
     $_SESSION['settings'] = $new_settings;
 
+    gojs_log_operation('settings_update', 'config', true);
     gojs_json_response($new_settings);
 }
 
@@ -1064,6 +1286,7 @@ function gojs_api_regenerate_access_token() {
 
     $_SESSION['access_token_valid'] = true;
 
+    gojs_log_operation('token_regenerate', 'access_token', true);
     gojs_json_response(array(
         'accessToken' => $new_token,
     ));
@@ -1184,13 +1407,19 @@ function gojs_safe_path($relative_path) {
 
     $full_path = $files_root . '/' . $relative_path;
 
+    $root_real = rtrim(realpath($files_root), '/');
+    if (!$root_real) {
+        $root_real = rtrim($files_root, '/');
+    }
+
     $real_path = realpath($full_path);
 
     if (!$real_path) {
         $parent_dir = dirname($full_path);
         $real_parent = realpath($parent_dir);
 
-        if (!$real_parent || strpos($real_parent, rtrim($files_root, '/')) !== 0) {
+        if (!$real_parent ||
+            ($real_parent !== $root_real && strpos($real_parent, $root_real . '/') !== 0)) {
             return false;
         }
 
@@ -1202,8 +1431,8 @@ function gojs_safe_path($relative_path) {
         return $real_parent . '/' . $basename;
     }
 
-    $root_real = rtrim(realpath($files_root), '/');
-    if (strpos(rtrim($real_path, '/'), $root_real) !== 0) {
+    $real_path = rtrim($real_path, '/');
+    if ($real_path !== $root_real && strpos($real_path, $root_real . '/') !== 0) {
         return false;
     }
 
@@ -1539,6 +1768,7 @@ function gojs_api_file_save() {
         ), 500);
     }
 
+    gojs_log_operation('file_save', $path, true);
     gojs_json_response(array('success' => true));
 }
 
@@ -1569,6 +1799,7 @@ function gojs_api_file_mkdir() {
         ), 500);
     }
 
+    gojs_log_operation('file_mkdir', $path, true);
     $rel = gojs_relative_path($safe_path);
     $info = gojs_get_file_info($safe_path, $rel);
     gojs_json_response($info);
@@ -1706,6 +1937,7 @@ function gojs_api_file_delete() {
         }
     }
 
+    gojs_log_operation('file_delete', $path, true);
     gojs_json_response(array('success' => true));
 }
 
@@ -1780,6 +2012,7 @@ function gojs_api_file_rename() {
         ), 500);
     }
 
+    gojs_log_operation('file_rename', $path . ' → ' . $target, true);
     $rel = gojs_relative_path($safe_target_final);
     $info = gojs_get_file_info($safe_target_final, $rel);
     gojs_json_response($info);
@@ -1938,6 +2171,7 @@ function gojs_api_file_zip() {
 
     $zip->close();
 
+    gojs_log_operation('file_compress', $target, true, 'zip');
     gojs_json_response(array('success' => true, 'target' => $target));
 }
 
@@ -2033,6 +2267,7 @@ function gojs_api_file_unzip() {
 
     $zip->close();
 
+    gojs_log_operation('file_extract', $path, true, 'zip, extracted: ' . $extracted);
     gojs_json_response(array('success' => true, 'extracted' => $extracted));
 }
 
@@ -2145,6 +2380,7 @@ unset($phar);
         @unlink($tar_target);
     }
 
+    gojs_log_operation('file_compress', $target, true, 'tar.gz');
     gojs_json_response(array('success' => true, 'target' => $target));
 }
 
@@ -2252,6 +2488,7 @@ function gojs_api_file_untargz() {
         ), 500);
     }
 
+    gojs_log_operation('file_extract', $path, true, 'tar.gz, extracted: ' . $extracted);
     gojs_json_response(array('success' => true, 'extracted' => $extracted));
 }
 
@@ -2298,6 +2535,7 @@ function gojs_api_file_chmod() {
         ), 500);
     }
 
+    gojs_log_operation('file_chmod', $path . ' → ' . $perms, true);
     gojs_json_response(array('success' => true));
 }
 
@@ -2573,6 +2811,11 @@ function gojs_api_upload() {
         ), 400);
     }
 
+    $uploaded_names = array();
+    foreach ($results as $r) {
+        $uploaded_names[] = isset($r['name']) ? $r['name'] : '';
+    }
+    gojs_log_operation('file_upload', implode(', ', $uploaded_names), true);
     gojs_json_response(array(
         'success' => true,
         'files' => $results,
@@ -2878,8 +3121,11 @@ function gojs_api_download() {
         }
     }
 
+    $ascii_name = preg_replace('/[\x00-\x1F\x7F"]/', '_', $filename);
+    $encoded_name = rawurlencode($filename);
+
     header('Content-Type: ' . $mime);
-    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Disposition: attachment; filename="' . $ascii_name . '"; filename*=UTF-8\'' . $encoded_name);
     header('Content-Length: ' . $size);
     header('Accept-Ranges: bytes');
 
@@ -3308,6 +3554,123 @@ function gojs_api_health_check() {
     ));
 }
 
+function gojs_api_env_check() {
+    $items = array();
+
+    // PHP 扩展检测
+    $extensions = array(
+        'mysqli' => array('feature_key' => 'database_mysql', 'suggestion' => '联系主机商启用 mysqli 扩展'),
+        'pdo_mysql' => array('feature_key' => 'database_pdo_mysql', 'suggestion' => '联系主机商启用 pdo_mysql 扩展'),
+        'zip' => array('feature_key' => 'file_zip', 'suggestion' => '联系主机商启用 zip 扩展，或使用 PharData 替代'),
+        'gd' => array('feature_key' => 'image_thumbnail', 'suggestion' => '联系主机商启用 gd 扩展'),
+        'openssl' => array('feature_key' => 'crypto_ssl', 'suggestion' => '联系主机商启用 openssl 扩展'),
+        'mbstring' => array('feature_key' => 'multibyte_string', 'suggestion' => '联系主机商启用 mbstring 扩展'),
+        'json' => array('feature_key' => 'json_processing', 'suggestion' => 'PHP 7.4+ 应内置 json 扩展'),
+        'session' => array('feature_key' => 'session_management', 'suggestion' => '联系主机商启用 session 扩展'),
+    );
+
+    foreach ($extensions as $ext => $info) {
+        $loaded = extension_loaded($ext);
+        $items[] = array(
+            'name' => $ext,
+            'category' => 'extension',
+            'available' => $loaded,
+            'reason_key' => $loaded ? '' : 'extension_not_installed',
+            'reason_params' => $loaded ? null : array('ext' => $ext),
+            'feature_key' => $info['feature_key'],
+            'suggestion_key' => $loaded ? '' : 'suggestion_contact_host',
+            'suggestion_params' => $loaded ? null : array('msg' => $info['suggestion']),
+        );
+    }
+
+    // 函数可用性检测（双重检测：function_exists + disable_functions）
+    $disabled = explode(',', (string)ini_get('disable_functions'));
+    $disabled = array_map('trim', $disabled);
+
+    $functions = array(
+        'exec' => array('feature_key' => 'cron_terminal', 'suggestion' => '面板仍可使用，但 Cron 管理功能将不可用'),
+        'proc_open' => array('feature_key' => 'process_terminal', 'suggestion' => '面板仍可使用，但部分高级功能受限'),
+        'shell_exec' => array('feature_key' => 'command_exec', 'suggestion' => '面板仍可使用，但部分高级功能受限'),
+    );
+
+    foreach ($functions as $func => $info) {
+        $exists = function_exists($func);
+        $disabled_check = !in_array($func, $disabled);
+        $available = $exists && $disabled_check;
+        $reason_key = '';
+        $reason_params = null;
+        if (!$exists) {
+            $reason_key = 'function_not_exists';
+            $reason_params = array('func' => $func);
+        } elseif (!$disabled_check) {
+            $reason_key = 'function_disabled';
+            $reason_params = array('func' => $func);
+        }
+        $items[] = array(
+            'name' => $func . '()',
+            'category' => 'function',
+            'available' => $available,
+            'reason_key' => $reason_key,
+            'reason_params' => $reason_params,
+            'feature_key' => $info['feature_key'],
+            'suggestion_key' => $available ? '' : 'suggestion_contact_host',
+            'suggestion_params' => $available ? null : array('msg' => $info['suggestion']),
+        );
+    }
+
+    // /proc 可读性检测
+    $proc_readable = is_readable('/proc');
+    $items[] = array(
+        'name' => '/proc 可读',
+        'category' => 'system',
+        'available' => $proc_readable,
+        'reason_key' => $proc_readable ? '' : 'proc_not_readable',
+        'reason_params' => null,
+        'feature_key' => 'process_cpu_monitor',
+        'suggestion_key' => $proc_readable ? '' : 'suggestion_proc_limited',
+        'suggestion_params' => null,
+    );
+
+    // allow_url_fopen 检测
+    $url_fopen = (bool)ini_get('allow_url_fopen');
+    $items[] = array(
+        'name' => 'allow_url_fopen',
+        'category' => 'config',
+        'available' => $url_fopen,
+        'reason_key' => $url_fopen ? '' : 'allow_url_fopen_off',
+        'reason_params' => null,
+        'feature_key' => 'remote_file_download',
+        'suggestion_key' => $url_fopen ? '' : 'suggestion_url_fopen_curl',
+        'suggestion_params' => null,
+    );
+
+    // cURL 检测
+    $curl_available = function_exists('curl_init');
+    $items[] = array(
+        'name' => 'cURL',
+        'category' => 'extension',
+        'available' => $curl_available,
+        'reason_key' => $curl_available ? '' : 'curl_not_installed',
+        'reason_params' => null,
+        'feature_key' => 'remote_file_download',
+        'suggestion_key' => $curl_available ? '' : 'suggestion_contact_host',
+        'suggestion_params' => $curl_available ? null : array('msg' => '联系主机商启用 curl 扩展'),
+    );
+
+    // 统计
+    $total = count($items);
+    $passed = count(array_filter($items, function($i) { return $i['available']; }));
+
+    return gojs_json_response(array(
+        'items' => $items,
+        'summary' => array(
+            'total' => $total,
+            'passed' => $passed,
+            'failed' => $total - $passed,
+        ),
+    ));
+}
+
 function gojs_build_compat($name, $php_ok, $php_req_lines, $exts) {
     $requirements = $php_req_lines;
     $missing = array();
@@ -3610,33 +3973,32 @@ function gojs_api_cron() {
         foreach ($output as $line) {
             $line = trim($line);
 
-            if (!$line || strpos($line, '#') === 0 || strpos($line, '@') !== 0 && strpos($line, 'MAILTO') === 0 || strpos($line, 'SHELL') === 0 || strpos($line, 'PATH') === 0) {
+            if (!$line || strpos($line, '#') === 0) {
+                continue;
+            }
 
-                if (strpos($line, '@') === 0) {
-                    $parts = preg_split('/\s+/', $line, 2);
-                    if (count($parts) >= 2) {
-                        $jobs[] = array(
-                            'minute' => $parts[0],
-                            'hour' => '',
-                            'day' => '',
-                            'month' => '',
-                            'weekday' => '',
-                            'command' => $parts[1],
-                            'raw' => $line,
-                        );
-                    }
+            // 跳过环境变量声明（MAILTO/SHELL/PATH 等）
+            if (preg_match('/^(MAILTO|SHELL|PATH|HOME|CRON_TZ)\s*=/', $line)) {
+                continue;
+            }
+
+            if (strpos($line, '@') === 0) {
+                $parts = preg_split('/\s+/', $line, 2);
+                if (count($parts) >= 2) {
+                    $jobs[] = array(
+                        'expression' => $parts[0],
+                        'command' => $parts[1],
+                        'raw' => $line,
+                    );
                 }
                 continue;
             }
 
             $parts = preg_split('/\s+/', $line, 6);
             if (count($parts) >= 6) {
+                $expression = implode(' ', array_slice($parts, 0, 5));
                 $jobs[] = array(
-                    'minute' => $parts[0],
-                    'hour' => $parts[1],
-                    'day' => $parts[2],
-                    'month' => $parts[3],
-                    'weekday' => $parts[4],
+                    'expression' => $expression,
                     'command' => $parts[5],
                     'raw' => $line,
                 );
@@ -3645,6 +4007,204 @@ function gojs_api_cron() {
     }
 
     gojs_json_response($jobs);
+}
+
+// 检测 Cron 是否可用
+function gojs_cron_capabilities() {
+    $disabled = ini_get('disable_functions');
+    $disabled_list = $disabled ? array_map('trim', explode(',', $disabled)) : array();
+    $exec_available = function_exists('exec') && !in_array('exec', $disabled_list, true);
+
+    if ($exec_available) {
+        $output = array();
+        $exit_code = 0;
+        @exec('crontab -l 2>&1', $output, $exit_code);
+        if ($exit_code === 0 || $exit_code === 1) {
+            // exit_code 1 表示无 crontab 任务，但 crontab 命令可用
+            return array(
+                'available' => true,
+                'method' => 'exec',
+                'message' => '',
+            );
+        }
+    }
+
+    // 降级：检测用户级 crontab 文件
+    $home = isset($_SERVER['HOME']) ? $_SERVER['HOME'] : '';
+    $user = function_exists('get_current_user') ? get_current_user() : '';
+    $cron_files = array();
+    if ($home) {
+        $cron_files[] = $home . '/.config/cron/crontab';
+        $cron_files[] = $home . '/.crontab';
+    }
+    if ($user) {
+        $cron_files[] = '/var/spool/cron/' . $user;
+        $cron_files[] = '/var/spool/cron/crontabs/' . $user;
+    }
+
+    foreach ($cron_files as $file) {
+        if ((is_writable(dirname($file)) || is_writable($file))) {
+            return array(
+                'available' => true,
+                'method' => 'file',
+                'cron_file' => $file,
+                'message' => '',
+            );
+        }
+    }
+
+    return array(
+        'available' => false,
+        'method' => 'none',
+        'message_key' => 'unavailable',
+        'message' => '环境不支持 Cron 管理（exec 被禁且 crontab 文件不可写）',
+    );
+}
+
+// 读取 crontab 任务列表
+function gojs_cron_list() {
+    $caps = gojs_cron_capabilities();
+    if (!$caps['available']) {
+        return array();
+    }
+
+    $content = '';
+    if ($caps['method'] === 'exec') {
+        $output = array();
+        @exec('crontab -l 2>/dev/null', $output);
+        $content = implode("\n", $output);
+    } else if ($caps['method'] === 'file' && isset($caps['cron_file'])) {
+        if (file_exists($caps['cron_file'])) {
+            $content = (string)@file_get_contents($caps['cron_file']);
+        }
+    }
+
+    // 解析 crontab 内容
+    $jobs = array();
+    $lines = explode("\n", $content);
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '' || $line[0] === '#') {
+            continue;
+        }
+
+        // 跳过环境变量声明
+        if (preg_match('/^(MAILTO|SHELL|PATH|HOME|CRON_TZ)\s*=/', $line)) {
+            continue;
+        }
+
+        if (strpos($line, '@') === 0) {
+            $parts = preg_split('/\s+/', $line, 2);
+            if (count($parts) >= 2) {
+                $jobs[] = array(
+                    'expression' => $parts[0],
+                    'command' => $parts[1],
+                    'raw' => $line,
+                );
+            }
+            continue;
+        }
+
+        $parts = preg_split('/\s+/', $line, 6);
+        if (count($parts) >= 6) {
+            $jobs[] = array(
+                'expression' => implode(' ', array_slice($parts, 0, 5)),
+                'command' => $parts[5],
+                'raw' => $line,
+            );
+        }
+    }
+
+    return $jobs;
+}
+
+// 保存 crontab
+function gojs_cron_save($jobs) {
+    $caps = gojs_cron_capabilities();
+    if (!$caps['available']) {
+        return false;
+    }
+
+    // 构建 crontab 内容
+    $content = "# Managed by Go.js Lite\n";
+    foreach ($jobs as $job) {
+        $expression = isset($job['expression']) ? trim($job['expression']) : '';
+        $command = isset($job['command']) ? trim($job['command']) : '';
+        if ($expression === '' || $command === '') {
+            continue;
+        }
+        $content .= $expression . ' ' . $command . "\n";
+    }
+
+    if ($caps['method'] === 'exec') {
+        // 写入临时文件，然后 crontab 加载
+        $tmp = tempnam(sys_get_temp_dir(), 'gojs_cron');
+        if ($tmp === false) {
+            return false;
+        }
+        file_put_contents($tmp, $content);
+        $output = array();
+        $exit_code = 0;
+        @exec('crontab ' . escapeshellarg($tmp) . ' 2>&1', $output, $exit_code);
+        @unlink($tmp);
+        return $exit_code === 0;
+    } else if ($caps['method'] === 'file' && isset($caps['cron_file'])) {
+        $dir = dirname($caps['cron_file']);
+        if (!is_dir($dir)) {
+            @mkdir($dir, 0700, true);
+        }
+        return @file_put_contents($caps['cron_file'], $content) !== false;
+    }
+
+    return false;
+}
+
+function gojs_api_cron_capabilities() {
+    return gojs_json_response(gojs_cron_capabilities());
+}
+
+function gojs_api_cron_list() {
+    return gojs_json_response(array('jobs' => gojs_cron_list()));
+}
+
+function gojs_api_cron_save() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!$input || !isset($input['jobs']) || !is_array($input['jobs'])) {
+        return gojs_json_response(null, array(
+            'code' => 'invalid_input',
+            'message' => '参数无效',
+        ), 400);
+    }
+
+    // 验证每个 job 的表达式和命令
+    foreach ($input['jobs'] as $job) {
+        if (!isset($job['expression']) || !isset($job['command'])) {
+            return gojs_json_response(null, array(
+                'code' => 'invalid_job',
+                'message' => '缺少 expression 或 command',
+            ), 400);
+        }
+        // 简单验证 cron 表达式（5 个字段）
+        $fields = preg_split('/\s+/', trim($job['expression']));
+        if (count($fields) !== 5) {
+            return gojs_json_response(null, array(
+                'code' => 'invalid_expression',
+                'message' => 'Cron 表达式必须为 5 个字段',
+            ), 400);
+        }
+    }
+
+    $result = gojs_cron_save($input['jobs']);
+    if ($result) {
+        gojs_log_operation('cron_save', count($input['jobs']) . ' jobs', true);
+        return gojs_json_response(array('ok' => true));
+    } else {
+        gojs_log_operation('cron_save', count($input['jobs']) . ' jobs', false);
+        return gojs_json_response(null, array(
+            'code' => 'save_failed',
+            'message' => '保存 crontab 失败',
+        ), 500);
+    }
 }
 
 function gojs_scan_dir_size($dir, $max_depth = 6, $depth = 0) {
@@ -3956,6 +4516,57 @@ function gojs_api_error_log_clear() {
     }
 
     gojs_json_response(array('success' => true));
+}
+
+function gojs_api_operation_log() {
+    $log_file = CONFIG_DIR . '/operation_log.json';
+    $logs = array();
+    if (file_exists($log_file)) {
+        $content = @file_get_contents($log_file);
+        if ($content) {
+            $logs = json_decode($content, true);
+            if (!is_array($logs)) $logs = array();
+        }
+    }
+
+    // 倒序排列（最新的在前）
+    $logs = array_reverse($logs);
+
+    // 筛选
+    $type = isset($_GET['type']) ? $_GET['type'] : '';
+    $ip = isset($_GET['ip']) ? $_GET['ip'] : '';
+
+    if ($type) {
+        $logs = array_filter($logs, function($l) use ($type) {
+            return isset($l['action']) && strpos($l['action'], $type) !== false;
+        });
+    }
+    if ($ip) {
+        $logs = array_filter($logs, function($l) use ($ip) {
+            return isset($l['ip']) && strpos($l['ip'], $ip) !== false;
+        });
+    }
+
+    // 分页
+    $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+    $per_page = 50;
+    $total = count($logs);
+    $logs = array_slice($logs, ($page - 1) * $per_page, $per_page);
+
+    return gojs_json_response(array(
+        'logs' => array_values($logs),
+        'total' => $total,
+        'page' => $page,
+        'per_page' => $per_page,
+        'total_pages' => ceil($total / $per_page),
+    ));
+}
+
+function gojs_api_operation_log_clear() {
+    $log_file = CONFIG_DIR . '/operation_log.json';
+    @file_put_contents($log_file, '[]');
+    gojs_log_operation('operation_log_clear', $log_file, true);
+    return gojs_json_response(array('ok' => true));
 }
 
 function gojs_api_install_check() {
@@ -4684,6 +5295,7 @@ function gojs_api_db_sql() {
 
     $execution_time = round((microtime(true) - $start_time) * 1000, 2);
 
+    gojs_log_operation('db_sql_exec', $sql, !empty($sql_result['success']));
     gojs_json_response(array(
         'results' => $results,
         'executionTime' => $execution_time,
@@ -5443,6 +6055,7 @@ function gojs_api_db_import() {
 
     $db->query('SET FOREIGN_KEY_CHECKS=1');
 
+    gojs_log_operation('db_import', $filename, $failed === 0, 'executed: ' . $executed . ', failed: ' . $failed);
     gojs_json_response(array(
         'success' => true,
         'executed' => $executed,
@@ -5790,4 +6403,710 @@ function gojs_api_htaccess_reset() {
         'success' => true,
         'content' => $default_content,
     ));
+}
+
+/**
+ * 备份与恢复
+ * 备份包结构：
+ *   files/                站点目录文件
+ *   database/<conn_id>.sql  各数据库导出
+ *   config/config.php     面板配置
+ *   backup.json           元数据
+ */
+
+function gojs_backup_filename_valid($filename) {
+    return is_string($filename) && preg_match('/^backup-[0-9]{8}-[0-9]{6}\.zip$/', $filename);
+}
+
+function gojs_api_backup_create() {
+    $input = gojs_get_body();
+    $include_files = !isset($input['include_files']) ? true : (bool)$input['include_files'];
+    $include_db = !isset($input['include_db']) ? true : (bool)$input['include_db'];
+    $include_config = !isset($input['include_config']) ? true : (bool)$input['include_config'];
+    $exclude_dirs = isset($input['exclude_dirs']) && is_array($input['exclude_dirs'])
+        ? $input['exclude_dirs']
+        : array('cache', 'node_modules', '.git', '.gojs');
+
+    $backup_dir = CONFIG_DIR . '/backups';
+    if (!is_dir($backup_dir)) {
+        if (!@mkdir($backup_dir, 0700, true)) {
+            gojs_json_response(null, array(
+                'code' => 'mkdir_failed',
+                'message' => '无法创建备份目录',
+            ), 500);
+        }
+    }
+
+    $timestamp = date('Ymd-His');
+    $backup_name = "backup-{$timestamp}";
+    $backup_file = $backup_dir . "/{$backup_name}.zip";
+
+    if (!class_exists('ZipArchive')) {
+        gojs_json_response(null, array(
+            'code' => 'zip_not_available',
+            'message' => 'ZipArchive 扩展不可用',
+        ), 500);
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($backup_file, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        gojs_json_response(null, array(
+            'code' => 'zip_create_failed',
+            'message' => '创建备份包失败',
+        ), 500);
+    }
+
+    @set_time_limit(0);
+
+    $metadata = array(
+        'created_at' => date('Y-m-d H:i:s'),
+        'version' => APP_VERSION,
+        'files' => null,
+        'databases' => array(),
+        'config' => false,
+    );
+
+    $files_root = $GLOBALS['files_root'];
+
+    // 打包站点文件
+    if ($include_files && is_dir($files_root)) {
+        $file_count = gojs_backup_add_dir($zip, $files_root, 'files/', $exclude_dirs);
+        $metadata['files'] = array(
+            'count' => $file_count,
+            'root' => basename($files_root),
+        );
+    }
+
+    // 导出数据库（遍历所有已配置的连接）
+    if ($include_db) {
+        $connections = gojs_load_db_connections();
+        foreach ($connections as $conn) {
+            if (empty($conn['id'])) continue;
+            $conn_config = gojs_get_db_connection($conn['id']);
+            if (!$conn_config) continue;
+
+            try {
+                $sql_content = gojs_backup_export_db($conn_config);
+                if ($sql_content !== '') {
+                    $safe_id = preg_replace('/[^A-Za-z0-9_-]/', '_', $conn['id']);
+                    $zip->addFromString('database/' . $safe_id . '.sql', $sql_content);
+                    $metadata['databases'][] = array(
+                        'id' => $conn['id'],
+                        'name' => isset($conn['name']) ? $conn['name'] : $conn['id'],
+                        'database' => isset($conn_config['database']) ? $conn_config['database'] : '',
+                        'size' => strlen($sql_content),
+                    );
+                }
+            } catch (Exception $e) {
+                if (!isset($metadata['db_error'])) {
+                    $metadata['db_error'] = array();
+                }
+                $metadata['db_error'][] = (isset($conn['name']) ? $conn['name'] : $conn['id']) . ': ' . $e->getMessage();
+            }
+        }
+    }
+
+    // 打包面板配置
+    if ($include_config && file_exists(CONFIG_FILE)) {
+        $zip->addFile(CONFIG_FILE, 'config/config.php');
+        $metadata['config'] = true;
+    }
+
+    // 写入元数据
+    $zip->addFromString('backup.json', json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    $zip->close();
+
+    $size = @filesize($backup_file);
+    gojs_log_operation('backup_create', $backup_name . '.zip', true);
+
+    gojs_json_response(array(
+        'filename' => $backup_name . '.zip',
+        'size' => $size,
+        'metadata' => $metadata,
+    ));
+}
+
+// 递归添加目录到 zip，跳过 exclude_dirs 与受保护路径
+function gojs_backup_add_dir($zip, $dir, $zip_prefix, $exclude_dirs) {
+    $count = 0;
+    $items = @scandir($dir);
+    if ($items === false) return 0;
+
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        if (in_array($item, $exclude_dirs, true)) continue;
+
+        $path = $dir . '/' . $item;
+        $zip_path = $zip_prefix . $item;
+
+        // 跳过面板自身敏感文件、.gojs 配置目录等
+        if (gojs_is_protected_path($path)) continue;
+
+        if (is_dir($path)) {
+            $zip->addEmptyDir($zip_path);
+            $count += gojs_backup_add_dir($zip, $path, $zip_path . '/', $exclude_dirs);
+        } else if (is_file($path)) {
+            $zip->addFile($path, $zip_path);
+            $count++;
+        }
+    }
+    return $count;
+}
+
+// 导出单个数据库连接为 SQL 字符串，复用现有连接与导出辅助函数
+function gojs_backup_export_db($conn_config) {
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        return '';
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $name = isset($conn_config['database']) ? $conn_config['database'] : '';
+    $host = isset($conn_config['host']) ? $conn_config['host'] : 'localhost';
+
+    $sql = "-- Go.js Lite Backup\n";
+    $sql .= "-- Host: {$host}\n";
+    $sql .= "-- Database: {$name}\n";
+    $sql .= "-- Date: " . date('Y-m-d H:i:s') . "\n\n";
+    $sql .= "SET FOREIGN_KEY_CHECKS=0;\n";
+    $sql .= "SET NAMES utf8;\n";
+    $sql .= "SET SQL_MODE=\"\";\n\n";
+
+    $tables = gojs_db_fetch_tables_list($db, $type);
+    $batch_size = 1000;
+
+    foreach ($tables as $table) {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+
+        $sql .= "\n-- ------------------------------------------------------------\n";
+        $sql .= "-- Table structure for `{$table}`\n";
+        $sql .= "-- ------------------------------------------------------------\n";
+        $sql .= "DROP TABLE IF EXISTS {$table_escaped};\n";
+
+        $create_sql = gojs_db_show_create_table($db, $type, $table_escaped);
+        if ($create_sql !== '') {
+            $sql .= $create_sql . ";\n";
+        }
+
+        $columns = gojs_db_fetch_columns($db, $type, $table_escaped);
+        if (empty($columns)) {
+            $sql .= "\n";
+            continue;
+        }
+
+        $col_list_escaped = array();
+        foreach ($columns as $col) {
+            $col_list_escaped[] = '`' . str_replace('`', '``', $col) . '`';
+        }
+        $col_list_sql = implode(', ', $col_list_escaped);
+
+        $sql .= "\n-- Dumping data for `{$table}`\n";
+
+        $offset = 0;
+        $has_more = true;
+        while ($has_more) {
+            $limit_sql = 'SELECT * FROM ' . $table_escaped . ' LIMIT ' . (int)$offset . ', ' . (int)$batch_size;
+
+            $rows = array();
+            if ($type === 'mysqli') {
+                $res = $db->query($limit_sql);
+                if ($res === false || $res === true) break;
+                while ($row = $res->fetch_assoc()) {
+                    $rows[] = $row;
+                }
+                $res->free();
+            } elseif ($type === 'pdo') {
+                $stmt = $db->query($limit_sql);
+                if ($stmt === false) break;
+                $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            if (empty($rows)) break;
+
+            foreach ($rows as $row) {
+                $values = array();
+                foreach ($columns as $col) {
+                    $val = isset($row[$col]) ? $row[$col] : null;
+                    $values[] = gojs_db_escape_value($db, $type, $val);
+                }
+                $sql .= "INSERT INTO {$table_escaped} ({$col_list_sql}) VALUES (" . implode(', ', $values) . ");\n";
+            }
+
+            if (count($rows) < $batch_size) {
+                $has_more = false;
+            } else {
+                $offset += $batch_size;
+            }
+        }
+        $sql .= "\n";
+    }
+
+    $sql .= "SET FOREIGN_KEY_CHECKS=1;\n";
+
+    if ($type === 'mysqli') {
+        $db->close();
+    }
+
+    return $sql;
+}
+
+function gojs_api_backup_list() {
+    $backup_dir = CONFIG_DIR . '/backups';
+    $backups = array();
+
+    if (!is_dir($backup_dir)) {
+        gojs_json_response(array('backups' => array()));
+    }
+
+    $files = glob($backup_dir . '/backup-*.zip');
+    if (!is_array($files)) $files = array();
+
+    foreach ($files as $file) {
+        $basename = basename($file);
+        if (!gojs_backup_filename_valid($basename)) continue;
+
+        $meta = null;
+        if (class_exists('ZipArchive')) {
+            $zip = new ZipArchive();
+            if ($zip->open($file) === true) {
+                $meta_content = $zip->getFromName('backup.json');
+                if ($meta_content) {
+                    $decoded = json_decode($meta_content, true);
+                    if (is_array($decoded)) {
+                        $meta = $decoded;
+                    }
+                }
+                $zip->close();
+            }
+        }
+
+        $backups[] = array(
+            'filename' => $basename,
+            'size' => (int)@filesize($file),
+            'created' => (int)@filemtime($file),
+            'metadata' => $meta,
+        );
+    }
+
+    // 按时间倒序
+    usort($backups, function ($a, $b) {
+        return $b['created'] - $a['created'];
+    });
+
+    gojs_json_response(array('backups' => $backups));
+}
+
+function gojs_api_backup_download() {
+    $filename = gojs_get_param('filename', '');
+    if (!gojs_backup_filename_valid($filename)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_filename',
+            'message' => '无效的备份文件名',
+        ), 400);
+    }
+
+    $file = CONFIG_DIR . '/backups/' . $filename;
+    if (!is_file($file)) {
+        gojs_json_response(null, array(
+            'code' => 'not_found',
+            'message' => '备份文件不存在',
+        ), 404);
+    }
+
+    gojs_log_operation('backup_download', $filename, true);
+
+    // 清空所有缓冲区，避免 corrupting binary output
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
+    header('Content-Type: application/zip');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . filesize($file));
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    readfile($file);
+    exit;
+}
+
+function gojs_api_backup_delete() {
+    $filename = gojs_get_param('filename', '');
+    if (!gojs_backup_filename_valid($filename)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_filename',
+            'message' => '无效的备份文件名',
+        ), 400);
+    }
+
+    $file = CONFIG_DIR . '/backups/' . $filename;
+    if (!is_file($file)) {
+        gojs_json_response(null, array(
+            'code' => 'not_found',
+            'message' => '备份文件不存在',
+        ), 404);
+    }
+
+    $result = @unlink($file);
+    gojs_log_operation('backup_delete', $filename, $result);
+
+    if (!$result) {
+        gojs_json_response(null, array(
+            'code' => 'delete_failed',
+            'message' => '删除备份文件失败',
+        ), 500);
+    }
+
+    gojs_json_response(array('success' => true));
+}
+
+// 恢复备份：从已存在的备份包中还原文件、数据库、配置
+function gojs_api_backup_restore() {
+    $filename = gojs_get_param('filename', '');
+    if (!gojs_backup_filename_valid($filename)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_filename',
+            'message' => '无效的备份文件名',
+        ), 400);
+    }
+
+    $file = CONFIG_DIR . '/backups/' . $filename;
+    if (!is_file($file)) {
+        gojs_json_response(null, array(
+            'code' => 'not_found',
+            'message' => '备份文件不存在',
+        ), 404);
+    }
+
+    if (!class_exists('ZipArchive')) {
+        gojs_json_response(null, array(
+            'code' => 'zip_not_available',
+            'message' => 'ZipArchive 扩展不可用',
+        ), 500);
+    }
+
+    $zip = new ZipArchive();
+    if ($zip->open($file) !== true) {
+        gojs_json_response(null, array(
+            'code' => 'zip_open_failed',
+            'message' => '打开备份包失败',
+        ), 500);
+    }
+
+    @set_time_limit(0);
+
+    $files_root = $GLOBALS['files_root'];
+    $restored_files = 0;
+    $restored_db = 0;
+    $db_errors = array();
+
+    // 还原站点文件
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $entry = $zip->statIndex($i);
+        if (!$entry) continue;
+        $name = $entry['name'];
+
+        if (strpos($name, 'files/') !== 0 || $name === 'files/') continue;
+
+        $relative = substr($name, strlen('files/'));
+        if ($relative === '' || $relative === false) continue;
+
+        // 路径遍历防护：拒绝包含 .. 段的相对路径
+        $parts = explode('/', $relative);
+        $traversal = false;
+        foreach ($parts as $p) {
+            if ($p === '..') { $traversal = true; break; }
+        }
+        if ($traversal) continue;
+
+        $dest = $files_root . '/' . $relative;
+
+        // 不覆盖面板自身敏感文件
+        if (gojs_is_protected_path($dest)) continue;
+
+        if (substr($name, -1) === '/') {
+            if (!is_dir($dest)) @mkdir($dest, 0755, true);
+        } else {
+            $dir = dirname($dest);
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            $content = $zip->getFromIndex($i);
+            if ($content !== false) {
+                if (@file_put_contents($dest, $content) !== false) {
+                    $restored_files++;
+                }
+            }
+        }
+    }
+
+    // 还原数据库（按 connection id 匹配已配置的连接）
+    $connections = gojs_load_db_connections();
+    $conn_by_id = array();
+    foreach ($connections as $conn) {
+        if (!empty($conn['id'])) {
+            $conn_by_id[$conn['id']] = $conn;
+        }
+    }
+
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $entry = $zip->statIndex($i);
+        if (!$entry) continue;
+        $name = $entry['name'];
+
+        if (strpos($name, 'database/') !== 0) continue;
+        if (substr($name, -4) !== '.sql') continue;
+
+        $conn_id = basename($name, '.sql');
+        if (!isset($conn_by_id[$conn_id])) continue;
+
+        $conn_config = gojs_get_db_connection($conn_id);
+        if (!$conn_config) continue;
+
+        $sql_content = $zip->getFromIndex($i);
+        if ($sql_content === false) continue;
+
+        $result = gojs_db_connect($conn_config);
+        if (!$result['success']) {
+            $db_errors[] = (isset($conn_config['name']) ? $conn_config['name'] : $conn_id) . ': ' . $result['error'];
+            continue;
+        }
+
+        $db = $result['connection'];
+        $type = $result['type'];
+
+        @$db->query('SET FOREIGN_KEY_CHECKS=0');
+        @$db->query('SET NAMES utf8');
+        @$db->query('SET SQL_MODE=""');
+
+        $statements = gojs_sql_split_statements($sql_content);
+        foreach ($statements as $stmt) {
+            $stmt = gojs_sql_strip_comments($stmt);
+            if ($stmt === '') continue;
+            @$db->query($stmt);
+        }
+
+        $restored_db++;
+
+        if ($type === 'mysqli') {
+            $db->close();
+        }
+    }
+
+    $zip->close();
+
+    $ok = $restored_files > 0 || $restored_db > 0;
+    gojs_log_operation('backup_restore', $filename, $ok, 'files=' . $restored_files . ', db=' . $restored_db);
+
+    gojs_json_response(array(
+        'restored_files' => $restored_files,
+        'restored_db' => $restored_db,
+        'db_errors' => $db_errors,
+    ));
+}
+
+/**
+ * SSL 证书状态检测：通过 stream_socket_client 检测域名 SSL 到期时间与链路状态，
+ * 仅做状态展示，不自动续期。
+ */
+function gojs_api_ssl_check() {
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        $input = array();
+    }
+    $domain = isset($input['domain']) ? trim($input['domain']) : '';
+
+    if (empty($domain)) {
+        gojs_json_response(null, array(
+            'code' => 'domain_required',
+            'message' => '请提供域名',
+        ), 400);
+    }
+
+    // 验证域名格式（支持 localhost、IP 及无 TLD 的内网域名）
+    if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*(\.[a-zA-Z]{2,})?$/', $domain)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_domain',
+            'message' => '域名格式无效',
+        ), 400);
+    }
+
+    // 检查 openssl 扩展
+    if (!extension_loaded('openssl')) {
+        gojs_json_response(array(
+            'domain' => $domain,
+            'enabled' => false,
+            'error' => 'openssl_not_available',
+            'error_key' => 'openssl_unavailable',
+            'message' => 'OpenSSL 扩展不可用，无法检测 SSL 证书',
+        ));
+    }
+
+    $port = 443;
+    $timeout = 10;
+
+    // 尝试连接
+    $context = stream_context_create(array(
+        'ssl' => array(
+            'capture_peer_cert' => true,
+            'capture_peer_chain' => true,
+            'verify_peer' => false,
+            'verify_peer_name' => false,
+            'allow_self_signed' => true,
+        ),
+    ));
+
+    $socket = @stream_socket_client(
+        "ssl://{$domain}:{$port}",
+        $errno,
+        $errstr,
+        $timeout,
+        STREAM_CLIENT_CONNECT,
+        $context
+    );
+
+    if ($socket === false) {
+        gojs_json_response(array(
+            'domain' => $domain,
+            'enabled' => false,
+            'error' => 'connection_failed',
+            'error_key' => 'connect_failed',
+            'error_params' => array('detail' => "{$domain}:443 — {$errstr}"),
+            'message' => "无法连接到 {$domain}:443 — {$errstr}",
+        ));
+    }
+
+    $params = stream_context_get_params($socket);
+    fclose($socket);
+
+    if (!isset($params['options']['ssl']['peer_certificate'])) {
+        gojs_json_response(array(
+            'domain' => $domain,
+            'enabled' => false,
+            'error' => 'no_certificate',
+            'error_key' => 'certificate_empty',
+            'message' => '未获取到证书数据',
+        ));
+    }
+
+    $cert = $params['options']['ssl']['peer_certificate'];
+    $cert_info = openssl_x509_parse($cert);
+
+    if (!$cert_info) {
+        gojs_json_response(array(
+            'domain' => $domain,
+            'enabled' => false,
+            'error' => 'parse_failed',
+            'error_key' => 'certificate_parse_error',
+            'message' => '证书解析失败',
+        ));
+    }
+
+    $valid_from = $cert_info['validFrom_time_t'];
+    $valid_to = $cert_info['validTo_time_t'];
+    $now = time();
+    $days_remaining = (int)(($valid_to - $now) / 86400);
+
+    // 链路完整性
+    $chain_complete = isset($params['options']['ssl']['peer_certificate_chain']) &&
+                      count($params['options']['ssl']['peer_certificate_chain']) > 1;
+
+    // 状态判断
+    $status = 'ok';
+    if ($days_remaining < 0) {
+        $status = 'expired';
+    } else if ($days_remaining < 7) {
+        $status = 'critical';
+    } else if ($days_remaining < 14) {
+        $status = 'warning';
+    }
+
+    gojs_json_response(array(
+        'domain' => $domain,
+        'enabled' => true,
+        'issuer' => isset($cert_info['issuer']['CN']) ? $cert_info['issuer']['CN'] : (isset($cert_info['issuer']['O']) ? $cert_info['issuer']['O'] : 'Unknown'),
+        'subject' => isset($cert_info['subject']['CN']) ? $cert_info['subject']['CN'] : $domain,
+        'valid_from' => date('Y-m-d', $valid_from),
+        'valid_to' => date('Y-m-d', $valid_to),
+        'days_remaining' => $days_remaining,
+        'chain_complete' => $chain_complete,
+        'status' => $status,
+    ));
+}
+
+function gojs_api_ssl_list() {
+    global $config;
+
+    $domains = isset($config['ssl_domains']) ? $config['ssl_domains'] : array();
+    if (!is_array($domains)) {
+        $domains = array();
+    }
+
+    // 自动添加当前域名
+    $current_domain = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
+    // 去掉端口部分
+    if ($current_domain && strpos($current_domain, ':') !== false) {
+        $current_domain = substr($current_domain, 0, strpos($current_domain, ':'));
+    }
+    if ($current_domain && !in_array($current_domain, $domains)) {
+        array_unshift($domains, $current_domain);
+    }
+
+    gojs_json_response(array('domains' => array_values($domains)));
+}
+
+function gojs_api_ssl_add_domain() {
+    global $config;
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        $input = array();
+    }
+    $domain = isset($input['domain']) ? trim($input['domain']) : '';
+
+    if (empty($domain)) {
+        gojs_json_response(null, array(
+            'code' => 'domain_required',
+            'message' => '请提供域名',
+        ), 400);
+    }
+
+    if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*(\.[a-zA-Z]{2,})?$/', $domain)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_domain',
+            'message' => '域名格式无效',
+        ), 400);
+    }
+
+    if (!isset($config['ssl_domains']) || !is_array($config['ssl_domains'])) {
+        $config['ssl_domains'] = array();
+    }
+    if (!in_array($domain, $config['ssl_domains'])) {
+        $config['ssl_domains'][] = $domain;
+        gojs_save_config();
+    }
+
+    gojs_log_operation('ssl_add_domain', $domain, true);
+    gojs_json_response(array('ok' => true));
+}
+
+function gojs_api_ssl_remove_domain() {
+    global $config;
+
+    $input = json_decode(file_get_contents('php://input'), true);
+    if (!is_array($input)) {
+        $input = array();
+    }
+    $domain = isset($input['domain']) ? trim($input['domain']) : '';
+
+    if (isset($config['ssl_domains']) && is_array($config['ssl_domains'])) {
+        $config['ssl_domains'] = array_values(array_filter($config['ssl_domains'], function($d) use ($domain) {
+            return $d !== $domain;
+        }));
+        gojs_save_config();
+    }
+
+    gojs_log_operation('ssl_remove_domain', $domain, true);
+    gojs_json_response(array('ok' => true));
 }

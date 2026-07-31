@@ -9,8 +9,13 @@ import {
   Bug,
   FileText,
   HardDrive,
+  HardDriveDownload,
+  ClipboardCheck,
+  History,
   ChevronLeft,
   ChevronRight,
+  CalendarClock,
+  Shield,
 } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { useCapabilities } from '@/hooks/useCapabilities'
@@ -65,6 +70,11 @@ export function Sidebar() {
       show: caps.disk,
     },
     { to: '/error-log', label: t('nav.errorLog'), icon: <Bug size={18} />, show: true },
+    { to: '/operation-log', label: t('nav.operationLog'), icon: <History size={18} />, show: true },
+    { to: '/env-check', label: t('nav.envCheck'), icon: <ClipboardCheck size={18} />, show: true },
+    { to: '/ssl', label: t('nav.ssl'), icon: <Shield size={18} />, show: true },
+    { to: '/cron', label: t('nav.cron'), icon: <CalendarClock size={18} />, show: true },
+    { to: '/backup', label: t('nav.backup'), icon: <HardDriveDownload size={18} />, show: true },
     { to: '/htaccess', label: t('nav.htaccess'), icon: <FileText size={18} />, show: true },
     { to: '/settings', label: t('nav.settings'), icon: <Settings size={18} />, show: true },
   ]
