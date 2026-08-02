@@ -60,7 +60,7 @@ const emptyRule = (): Omit<OperationLogAlertRule, 'id'> => ({
   then: { channel_ids: [], severity: 'warning' },
 })
 
-function formatExportFilename(format: 'csv' | 'jsonl'): string {
+function formatExportFilename(format: 'csv' | 'jsonl' | 'json'): string {
   const d = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   const stamp =
@@ -72,6 +72,14 @@ function formatExportFilename(format: 'csv' | 'jsonl'): string {
     pad(d.getMinutes()) +
     pad(d.getSeconds())
   return `operation_log_${stamp}.${format}`
+}
+
+function dateToTs(value: string, endOfDay: boolean): number | undefined {
+  if (!value) return undefined
+  const [y, m, d] = value.split('-').map(Number)
+  if (!y || !m || !d) return undefined
+  const dt = new Date(y, m - 1, d, endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0)
+  return dt.getTime()
 }
 
 function getActionColor(action: string): {
@@ -104,6 +112,10 @@ export default function OperationLog() {
   const [type, setType] = useState('')
   const [ipInput, setIpInput] = useState('')
   const [ip, setIp] = useState('')
+  const [userInput, setUserInput] = useState('')
+  const [user, setUser] = useState('')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [showClear, setShowClear] = useState(false)
   const [clearing, setClearing] = useState(false)
   const [exportOpen, setExportOpen] = useState(false)
@@ -116,7 +128,10 @@ export default function OperationLog() {
   const [actionNotInOpen, setActionNotInOpen] = useState(false)
   const [alertTab, setAlertTab] = useState<'conditions' | 'channels'>('conditions')
 
-  const filterActive = useMemo(() => Boolean(type || ip), [type, ip])
+  const filterActive = useMemo(
+    () => Boolean(type || ip || user || dateFrom || dateTo),
+    [type, ip, user, dateFrom, dateTo],
+  )
 
   const { data: channels = [] } = useQuery({
     queryKey: ['notification-channels'],
@@ -132,9 +147,25 @@ export default function OperationLog() {
     return () => clearTimeout(handle)
   }, [ipInput])
 
+  useEffect(() => {
+    const handle = setTimeout(() => {
+      setUser(userInput.trim())
+      setPage(1)
+    }, 350)
+    return () => clearTimeout(handle)
+  }, [userInput])
+
   const { data, isLoading, error, refetch, isFetching } = useQuery({
-    queryKey: ['operation-log', { type, ip, page }],
-    queryFn: () => operationLogApi.list({ type: type || undefined, ip: ip || undefined, page }),
+    queryKey: ['operation-log', { type, ip, user, dateFrom, dateTo, page }],
+    queryFn: () =>
+      operationLogApi.list({
+        type: type || undefined,
+        ip: ip || undefined,
+        user: user || undefined,
+        dateFrom: dateToTs(dateFrom, false),
+        dateTo: dateToTs(dateTo, true),
+        page,
+      }),
     placeholderData: (prev) => prev,
   })
 
@@ -163,7 +194,7 @@ export default function OperationLog() {
   }
 
   const handleExport = async (
-    format: 'csv' | 'jsonl',
+    format: 'csv' | 'jsonl' | 'json',
     scope: 'current_filter' | 'all',
   ) => {
     setExportOpen(false)
@@ -173,6 +204,11 @@ export default function OperationLog() {
       if (scope === 'current_filter') {
         if (type) params.action = [type]
         if (ip) params.ip_like = ip
+        if (user) params.user = user
+        const fromTs = dateToTs(dateFrom, false)
+        const toTs = dateToTs(dateTo, true)
+        if (fromTs !== undefined) params.date_from = fromTs
+        if (toTs !== undefined) params.date_to = toTs
       }
       const blob = await operationLogApi.exportBlob(params)
       const filename = formatExportFilename(format)
@@ -488,6 +524,23 @@ export default function OperationLog() {
                   >
                     {t('oplog.exportJsonlAll')}
                   </button>
+                  <button
+                    onClick={() => handleExport('json', 'current_filter')}
+                    disabled={!filterActive}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                      filterActive
+                        ? 'hover:bg-fg/5 text-fg'
+                        : 'text-fg-muted opacity-60 cursor-not-allowed'
+                    }`}
+                  >
+                    {t('oplog.exportJsonCurrent')}
+                  </button>
+                  <button
+                    onClick={() => handleExport('json', 'all')}
+                    className="w-full text-left px-3 py-2 rounded-lg text-sm hover:bg-fg/5 text-fg transition-colors"
+                  >
+                    {t('oplog.exportJsonAll')}
+                  </button>
                 </div>
               </>
             )}
@@ -540,6 +593,42 @@ export default function OperationLog() {
                 icon={<Search size={16} />}
               />
             </div>
+            <div className="flex-1 min-w-[180px]">
+              <Input
+                placeholder={t('operationLog.userFilter')}
+                value={userInput}
+                onChange={(e) => setUserInput(e.target.value)}
+                icon={<Search size={16} />}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-fg-muted shrink-0 whitespace-nowrap">
+                {t('operationLog.dateFrom')}
+              </span>
+              <input
+                type="date"
+                value={dateFrom}
+                onChange={(e) => {
+                  setDateFrom(e.target.value)
+                  setPage(1)
+                }}
+                className="input-base h-10 px-3 rounded-lg text-sm"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-fg-muted shrink-0 whitespace-nowrap">
+                {t('operationLog.dateTo')}
+              </span>
+              <input
+                type="date"
+                value={dateTo}
+                onChange={(e) => {
+                  setDateTo(e.target.value)
+                  setPage(1)
+                }}
+                className="input-base h-10 px-3 rounded-lg text-sm"
+              />
+            </div>
           </div>
         </CardHeader>
         <CardBody className="p-0">
@@ -563,7 +652,7 @@ export default function OperationLog() {
               }
               title={t('operationLog.empty')}
               description={
-                type || ip
+                type || ip || user || dateFrom || dateTo
                   ? t('operationLog.emptyHintFiltered')
                   : t('operationLog.emptyHint')
               }

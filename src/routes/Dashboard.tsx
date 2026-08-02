@@ -1,15 +1,17 @@
 import { useQuery } from '@tanstack/react-query'
-import { HardDrive, Server, Clock, Files, Upload, FileText, FolderOpen, Image, FileCode, File } from 'lucide-react'
+import { HardDrive, Server, Clock, Files, Upload, FileText, FolderOpen, Image, FileCode, File, Activity } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SkeletonDashboard } from '@/components/ui/Skeleton'
 import { EmptyError } from '@/components/ui/EmptyState'
 import { dashboardApi } from '@/api/dashboard'
+import { monitorApi } from '@/api/monitor'
+import { Sparkline } from '@/components/ui/Sparkline'
 import { useFormat, getFileExtension, isImageFile, isTextFile } from '@/lib/format'
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useI18n } from '@/hooks/useI18n'
-import type { FileEntry } from '@shared/types'
+import type { FileEntry, MonitorReport } from '@shared/types'
 
 export default function Dashboard() {
   const { t } = useI18n()
@@ -18,6 +20,13 @@ export default function Dashboard() {
     queryKey: ['dashboard'],
     queryFn: () => dashboardApi.get(),
   })
+
+  const monitorQuery = useQuery({
+    queryKey: ['monitor'],
+    queryFn: () => monitorApi.status(),
+    staleTime: 60 * 1000,
+  })
+  const monitorData: MonitorReport | undefined = monitorQuery.data
 
   if (isLoading) {
     return (
@@ -150,6 +159,74 @@ export default function Dashboard() {
       <Card className="stagger-3">
         <CardHeader className="flex items-center justify-between py-4">
           <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-info/10 text-info flex items-center justify-center">
+              <Activity size={20} />
+            </div>
+            <div>
+              <div className="text-sm font-semibold text-fg">{t('monitor.title')}</div>
+              <div className="text-xs text-fg-subtle">{t('monitor.estimateHint')}</div>
+            </div>
+          </div>
+          {monitorData && (
+            <span className="text-2xs text-fg-subtle">
+              {t('monitor.everyMin', { min: monitorData.config.sample_interval_min })}
+            </span>
+          )}
+        </CardHeader>
+        <CardBody>
+          {monitorQuery.isLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="space-y-2 animate-pulse">
+                  <div className="h-3 w-20 bg-bg-sunken rounded" />
+                  <div className="h-6 w-16 bg-bg-sunken rounded" />
+                  <div className="h-12 bg-bg-sunken rounded" />
+                </div>
+              ))}
+            </div>
+          ) : monitorQuery.isError ? (
+            <EmptyError
+              error={monitorQuery.error instanceof Error ? monitorQuery.error.message : t('common.unknownError')}
+              onRetry={() => monitorQuery.refetch()}
+            />
+          ) : !monitorData || monitorData.history.length === 0 ? (
+            <div className="py-10 text-center">
+              <Activity size={28} className="mx-auto mb-3 text-fg-subtle" />
+              <p className="text-sm text-fg-muted">{t('monitor.noData')}</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
+              <MonitorChart
+                title={t('monitor.diskUsage')}
+                current={`${monitorData.sample ? monitorData.sample.disk_used_pct.toFixed(1) : '—'}%`}
+                threshold={t('monitor.threshold') + ' ' + monitorData.thresholds.disk_threshold_pct + '%'}
+                data={monitorData.history.map((h) => h.disk_used_pct)}
+                color="text-accent"
+                max={100}
+              />
+              <MonitorChart
+                title={t('monitor.inodeUsage')}
+                current={`${monitorData.sample ? monitorData.sample.inode_used_pct.toFixed(1) : '—'}%`}
+                threshold={t('monitor.threshold') + ' ' + monitorData.thresholds.inode_threshold_pct + '%'}
+                data={monitorData.history.map((h) => h.inode_used_pct)}
+                color="text-warning"
+                max={100}
+              />
+              <MonitorChart
+                title={t('monitor.panelTraffic')}
+                current={formatBytes(monitorData.sample ? monitorData.sample.bandwidth_delta : 0)}
+                threshold={t('monitor.estimateHint')}
+                data={monitorData.history.map((h) => h.bandwidth_delta)}
+                color="text-info"
+              />
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card className="stagger-3">
+        <CardHeader className="flex items-center justify-between py-4">
+          <div className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-xl bg-fg/5 text-fg-muted flex items-center justify-center">
               <Clock size={20} />
             </div>
@@ -214,6 +291,33 @@ function InfoRow({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="flex items-center justify-between gap-4">
       <span className="text-fg-muted shrink-0 text-sm">{label}</span>
       <span className="text-fg truncate font-medium">{value}</span>
+    </div>
+  )
+}
+
+function MonitorChart({
+  title,
+  current,
+  threshold,
+  data,
+  color,
+  max,
+}: {
+  title: string
+  current: string
+  threshold: string
+  data: number[]
+  color: string
+  max?: number
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-xs font-medium text-fg-muted">{title}</span>
+        <span className="text-2xs text-fg-subtle">{threshold}</span>
+      </div>
+      <div className="text-lg font-semibold text-fg leading-none">{current}</div>
+      <Sparkline data={data} color={color} max={max} height={44} />
     </div>
   )
 }

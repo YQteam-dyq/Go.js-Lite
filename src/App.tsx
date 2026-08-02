@@ -30,6 +30,9 @@ import SSL from '@/routes/SSL'
 import Ftp from '@/routes/Ftp'
 import Notifications from '@/routes/Notifications'
 import SecurityScan from '@/routes/SecurityScan'
+import Upgrade from '@/routes/Upgrade'
+import ApiTokens from '@/routes/ApiTokens'
+import Deploy from '@/routes/Deploy'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -88,6 +91,9 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/ftp': 'ftp.documentTitle',
   '/notifications': 'notifications.documentTitle',
   '/security-scan': 'securityScan.documentTitle',
+  '/upgrade': 'upgrade.documentTitle',
+  '/api-tokens': 'apiTokens.documentTitle',
+  '/deploy': 'deploy.documentTitle',
   '/404': 'notFound.documentTitle',
 }
 
@@ -153,6 +159,9 @@ export default function App() {
                 <Route path="ftp" element={<Ftp />} />
                 <Route path="notifications" element={<Notifications />} />
                 <Route path="security-scan" element={<SecurityScan />} />
+                <Route path="upgrade" element={<Upgrade />} />
+                <Route path="api-tokens" element={<ApiTokens />} />
+                <Route path="deploy" element={<Deploy />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

@@ -519,9 +519,25 @@ export type NotificationSeverity = 'info'|'success'|'warning'|'critical';
 export interface Notification { id:string; category:NotificationCategory; severity:NotificationSeverity; title_key:string; body_key?:string; body_params?:Record<string,string|number>; payload?:unknown; read_at?:number; created_at:number }
 export type FtpProvider = 'proftpd_authfile' | 'pureftpd_passwd';
 
+export interface FtpDegradationReason {
+  code: string;
+  key: string;
+  severity: 'info' | 'warning' | 'danger';
+}
+
+/** 兼容旧后端返回的 degradation_reasons 条目 */
+export interface FtpLegacyDegradationReason {
+  key: string;
+  message_key: string;
+}
+
 export interface FtpCapabilities {
   available: boolean;
   reason_key?: string;
+  degraded?: boolean;
+  reasons?: FtpDegradationReason[];
+  degradation_reasons?: FtpLegacyDegradationReason[];
+  posix_available?: boolean;
   supported_providers: FtpProvider[];
   active_provider?: FtpProvider | null;
   path?: string;
@@ -570,7 +586,7 @@ export interface FtpAccountUpdateInput extends Partial<FtpAccountCreateInput> {
 }
 export interface AcmeDomainState { domain:string; account_email?:string; staging:boolean; cert_status:'pending'|'valid'|'expiring'|'expired'|'failed'; last_issue_at?:number; next_renew_at?:number; error?:string }
 
-export type AcmeCertStatus = 'pending' | 'valid' | 'invalid' | 'expiring_soon' | 'expired'
+export type AcmeCertStatus = 'pending' | 'valid' | 'invalid' | 'expiring_soon' | 'expired' | 'renew_failed'
 
 export interface AcmeCertificateRecord {
   id: string
@@ -586,6 +602,16 @@ export interface AcmeCertificateRecord {
   issuer_url?: string
   chain_thumbprint?: string
   san_domains?: string[]
+  /** 最近一次自动续期失败的错误（i18n key 或原始文本） */
+  last_renew_error?: string | null
+  /** 最近一次自动续期尝试时间戳（秒） */
+  last_renew_attempt_ts?: number | null
+  /** 最近一次自动续期成功时间戳（秒） */
+  last_renew_ok_ts?: number | null
+  /** 连续自动续期失败次数 */
+  renew_attempts?: number
+  /** 连续失败达到上限后自动暂停自动续期 */
+  auto_paused?: boolean
 }
 
 export interface AcmeCertificatesResponse {
@@ -612,3 +638,182 @@ export type SeverityBadgeVariant = 'accent'|'success'|'warning'|'danger'|'muted'
 export interface SecurityVulnItem { package:string; installed_version:string; fixed_version?:string; severity:'info'|'low'|'moderate'|'high'|'critical'; title:string; url?:string; severityBadgeVariant:SeverityBadgeVariant }
 export interface SecurityScanFrontendResult { available:boolean; reason_key?:string; scanned_at?:number; vulns:SecurityVulnItem[] }
 export interface SecurityScanBackendResult { available:boolean; reason_key?:string; scanned_at?:number; heuristicOnly:boolean; notice_key?:string; vulns:SecurityVulnItem[] }
+
+// ===== v0.5.0 types =====
+
+export interface RemoteArchiveItem {
+  key: string
+  size: number
+  modified: string
+}
+
+export interface BackupRemoteBrowseRequest {
+  dest_id: string
+  prefix?: string
+}
+
+export interface BackupRemoteBrowseResult {
+  items: RemoteArchiveItem[]
+  prefix: string
+}
+
+export interface BackupRemoteDownloadResult {
+  filename: string
+  size: number
+  downloaded: boolean
+}
+
+export interface RecoveryCodeExport {
+  filename: string;
+  content: string;
+  mime: string;
+}
+
+export interface TotpRecoveryViewResult {
+  view_only?: boolean;
+  needs_regenerate?: boolean;
+  legacy?: boolean;
+  download?: boolean;
+  filename?: string;
+  message_key?: string;
+  regenerated?: boolean;
+  recovery_codes?: string[];
+  codes_format?: 'enc' | 'hash_legacy';
+  recovery_codes_count?: number;
+  used_count?: number;
+}
+
+export type ApiTokenScope = 'backup:run' | 'status:read' | 'files:read';
+
+export interface ApiToken {
+  id: string;
+  name: string;
+  scopes: ApiTokenScope[];
+  created_at: number;
+  expires_at?: number | null;
+  last_used_at?: number | null;
+}
+
+export interface ApiTokenCreateInput {
+  name: string;
+  scopes: ApiTokenScope[];
+  expires_at?: number | null;
+}
+
+export interface ApiTokenCreateResult {
+  token: ApiToken;
+  plain_token: string;
+}
+
+export interface TrashItem {
+  id: string;
+  orig_path: string;
+  type: 'file' | 'dir';
+  size: number;
+  deleted_at: number;
+}
+
+export interface TrashListResult {
+  items: TrashItem[];
+  total_size: number;
+  enabled: boolean;
+}
+
+export interface MonitorSample {
+  ts: number;
+  disk_used_pct: number;
+  disk_used: number;
+  disk_total: number;
+  file_count: number;
+  inode_cap: number;
+  inode_used_pct: number;
+  inode_truncated?: boolean;
+  bandwidth_in_day: number;
+  bandwidth_out_day: number;
+  bandwidth_delta: number;
+}
+
+export interface MonitorBandwidthDay {
+  day: string;
+  bytes: number;
+}
+
+export interface MonitorReport {
+  sample: MonitorSample | null;
+  history: MonitorSample[];
+  thresholds: { disk_threshold_pct: number; inode_threshold_pct: number };
+  config: { sample_interval_min: number; inode_cap: number };
+}
+
+export interface WebcronHistoryStats {
+  processed_schedules: number;
+  processed_runs: number;
+  drained_outbox: number;
+  tick_at: number;
+  acme_renewed?: number;
+  acme_skipped?: number;
+  acme_failed?: number;
+  acme_paused?: number;
+}
+
+export interface WebcronHistoryEntry {
+  id: string;
+  tick_at: number;
+  status: 'ok' | 'fail';
+  stats: WebcronHistoryStats;
+}
+
+export interface WebcronHistoryResult {
+  token_set: boolean;
+  webcron_url: string;
+  last_triggered_at: number | null;
+  next_backup_run_at: number | null;
+  cap: number;
+  history: WebcronHistoryEntry[];
+}
+
+export interface UpgradeCheckResult {
+  checked_at: number;
+  current_version: string;
+  latest_version?: string;
+  update_available: boolean;
+  release_name?: string;
+  published_at?: string;
+  asset_url?: string;
+  asset_size?: number;
+  error_key?: string;
+  error_message?: string;
+}
+
+export interface UpgradeProgress {
+  step: 'download' | 'backup' | 'extract' | 'migrate' | 'done' | 'error' | null;
+  message_key: string;
+  message?: string;
+  percent?: number;
+  error?: string;
+  updated_at?: number;
+}
+
+export interface DeployAppInfo {
+  id: string;
+  name: string;
+  name_key: string;
+  description_key: string;
+  version: string;
+  download_url: string;
+  db_required: boolean;
+  sha256?: string;
+  root_dir_in_zip?: string;
+}
+
+export interface DeployRunResult {
+  ok: boolean;
+  app_id: string;
+  target_dir: string;
+  files_extracted?: number;
+  db_configured?: boolean;
+  db_created?: boolean;
+  wp_config_hint?: string;
+  next_step_key: string;
+  message_key?: string;
+}

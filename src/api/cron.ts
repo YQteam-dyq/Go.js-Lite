@@ -1,5 +1,5 @@
 import { apiFetch } from './client'
-import type { CronCapabilities, CronJob, CronListResponse } from '@shared/types'
+import type { CronCapabilities, CronJob, CronListResponse, WebcronHistoryResult } from '@shared/types'
 
 export interface InternalCronTickStats {
   processed_schedules: number
@@ -38,5 +38,9 @@ export const cronApi = {
     return apiFetch<InternalCronRegenerateTokenResponse>('/internal/cron/regenerate-token', {
       method: 'POST',
     })
+  },
+
+  webcronStatus() {
+    return apiFetch<WebcronHistoryResult>('/webcron/status')
   },
 }

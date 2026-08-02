@@ -34,6 +34,7 @@ import { sslApi } from '@/api/ssl'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { truncate } from '@/lib/format'
 import type { SSLInfo, AcmeCapabilities, AcmeCertificateRecord, AcmeCertStatus } from '@shared/types'
 
 export default function SSL() {
@@ -714,6 +715,7 @@ function CertStatusBadge({ status }: { status: AcmeCertStatus }) {
     invalid: { variant: 'muted', label: t('ssl.acme.statusInvalid'), icon: XCircle },
     expiring_soon: { variant: 'warning', label: t('ssl.acme.statusExpiringSoon'), icon: AlertTriangle },
     expired: { variant: 'danger', label: t('ssl.acme.statusExpired'), icon: XCircle },
+    renew_failed: { variant: 'danger', label: t('ssl.acme.renewFailed'), icon: AlertTriangle },
   }
   const cfg = map[status] ?? map.invalid
   const Icon = cfg.icon
@@ -812,6 +814,14 @@ function CertRow({
       </td>
       <td className="px-4 py-3">
         <CertStatusBadge status={record.status_derived} />
+        {record.last_renew_error && (
+          <div
+            className="text-[11px] text-danger mt-1 max-w-[240px] truncate"
+            title={truncate(record.last_renew_error, 120)}
+          >
+            {t('ssl.acme.renewError')}：{truncate(record.last_renew_error, 120)}
+          </div>
+        )}
       </td>
       <td className="px-4 py-3 font-mono text-xs text-fg-muted">
         {formatDate(record.not_before_ts)}
@@ -934,6 +944,11 @@ function CertCard({
         <div className="min-w-0">
           <div className="text-sm font-semibold text-fg truncate">{record.domain}</div>
           <div className="mt-2"><CertStatusBadge status={record.status_derived} /></div>
+          {record.last_renew_error && (
+            <div className="text-[11px] text-danger mt-1 break-all" title={truncate(record.last_renew_error, 120)}>
+              {t('ssl.acme.renewError')}：{truncate(record.last_renew_error, 120)}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-1 shrink-0">
           <Button variant="ghost" size="icon-sm" onClick={handleRenew} loading={renewing} aria-label={t('ssl.acme.renewButton')}>

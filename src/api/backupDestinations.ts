@@ -4,6 +4,8 @@ import type {
   BackupDestinationS3,
   BackupDestinationFtp,
   BackupDestinationSftp,
+  BackupRemoteBrowseResult,
+  BackupRemoteDownloadResult,
 } from '@shared/types'
 
 export interface BackupDestinationsListResponse {
@@ -103,6 +105,20 @@ export const backupDestinationsApi = {
     return apiFetch<BackupDestinationTestResult>('/backup/destinations/test', {
       method: 'POST',
       body: destData,
+    })
+  },
+
+  browse(destId: string) {
+    return apiFetch<BackupRemoteBrowseResult>('/backup/destinations/browse', {
+      method: 'POST',
+      body: { dest_id: destId },
+    })
+  },
+
+  download(destId: string, key: string) {
+    return apiFetch<BackupRemoteDownloadResult>('/backup/destinations/download', {
+      method: 'POST',
+      body: { dest_id: destId, key },
     })
   },
 }

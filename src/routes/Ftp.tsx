@@ -331,6 +331,23 @@ export default function Ftp() {
 
   const hasActiveProvider = !!caps?.active_provider
   const bannerVariant = !caps?.active_provider ? 'warning' : caps?.can_write ? 'success' : 'danger'
+  // 降级原因：优先取新结构 reasons，兼容旧后端 degradation_reasons
+  const degradationReasons = useMemo(() => {
+    if (!caps) return []
+    if (caps.reasons && caps.reasons.length > 0) return caps.reasons
+    return (caps.degradation_reasons ?? []).map((r) => ({
+      code: r.key,
+      key: r.message_key,
+      severity: 'warning' as const,
+    }))
+  }, [caps])
+  const degradeWorst = degradationReasons.some((r) => r.severity === 'danger')
+    ? 'danger'
+    : degradationReasons.some((r) => r.severity === 'warning')
+      ? 'warning'
+      : degradationReasons.length > 0
+        ? 'info'
+        : null
   const strength = useMemo(() => passwordStrength(form.password || ''), [form.password])
   const resetStrength = useMemo(() => passwordStrength(resetPw1), [resetPw1])
 
@@ -451,6 +468,44 @@ export default function Ftp() {
               <p className="text-xs text-fg-muted mt-1 leading-relaxed break-all">
                 {caps?.path} · {t('ftp.fileNotWritable')}
               </p>
+            </div>
+          </CardBody>
+        </Card>
+      )}
+
+      {/* Degradation reasons card */}
+      {caps?.degraded && degradeWorst && (
+        <Card
+          className={
+            degradeWorst === 'danger'
+              ? 'border-danger/30 bg-danger/[0.03]'
+              : degradeWorst === 'warning'
+                ? 'border-warning/30 bg-warning/[0.03]'
+                : 'border-accent/30 bg-accent/[0.03]'
+          }
+        >
+          <CardBody className="flex items-start gap-3">
+            <div
+              className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+                degradeWorst === 'danger'
+                  ? 'bg-danger/10 text-danger'
+                  : degradeWorst === 'warning'
+                    ? 'bg-warning/10 text-warning'
+                    : 'bg-accent/10 text-accent'
+              }`}
+            >
+              {degradeWorst === 'danger' ? <ShieldX size={20} /> : <AlertTriangle size={20} />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-sm font-medium text-fg">{t('ftp.degradeTitle')}</div>
+              <ul className="text-xs text-fg-muted mt-1.5 leading-relaxed space-y-1">
+                {degradationReasons.map((reason) => (
+                  <li key={reason.code || reason.key} className="flex items-start gap-1.5">
+                    <span className="mt-0.5">•</span>
+                    <span className="break-all">{t(reason.key)}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </CardBody>
         </Card>
@@ -747,28 +802,38 @@ export default function Ftp() {
           )}
 
           {activeTab === 'posix' && (
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs font-medium text-fg-muted mb-1.5">{t('ftp.uid')}</label>
-                <Input
-                  type="number"
-                  value={form.uid ?? ''}
-                  onChange={(e) =>
-                    setForm({ ...form, uid: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })
-                  }
-                  placeholder={String(caps?.default_uid ?? 1000)}
-                />
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-fg-muted mb-1.5">{t('ftp.gid')}</label>
-                <Input
-                  type="number"
-                  value={form.gid ?? ''}
-                  onChange={(e) =>
-                    setForm({ ...form, gid: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })
-                  }
-                  placeholder={String(caps?.default_gid ?? 1000)}
-                />
+            <div className="space-y-3">
+              {caps?.posix_available === false && (
+                <div className="p-3 rounded-lg bg-warning/[0.04] border border-warning/25 text-xs text-fg-muted leading-relaxed flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-warning shrink-0 mt-0.5" />
+                  <span>{t('ftp.posixUnavailableHint')}</span>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-fg-muted mb-1.5">{t('ftp.uid')}</label>
+                  <Input
+                    type="number"
+                    value={form.uid ?? ''}
+                    onChange={(e) =>
+                      setForm({ ...form, uid: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })
+                    }
+                    placeholder={String(caps?.default_uid ?? 1000)}
+                    disabled={caps?.posix_available === false}
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-fg-muted mb-1.5">{t('ftp.gid')}</label>
+                  <Input
+                    type="number"
+                    value={form.gid ?? ''}
+                    onChange={(e) =>
+                      setForm({ ...form, gid: e.target.value === '' ? undefined : parseInt(e.target.value, 10) })
+                    }
+                    placeholder={String(caps?.default_gid ?? 1000)}
+                    disabled={caps?.posix_available === false}
+                  />
+                </div>
               </div>
             </div>
           )}

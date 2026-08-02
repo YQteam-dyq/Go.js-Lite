@@ -5,6 +5,7 @@ import type {
   BootstrapData,
   InstallRequest,
   TotpEnrollResponse,
+  TotpRecoveryViewResult,
   TotpStatus,
   UserSettings,
 } from '@shared/types'
@@ -107,13 +108,8 @@ export const authApi = {
     })
   },
 
-  totpRecoveryCodes(adminPassword: string, action: 'view' | 'regenerate' = 'view') {
-    return apiFetch<{
-      recovery_codes?: string[]
-      regenerated?: boolean
-      recovery_codes_count?: number
-      used_count?: number
-    }>('/auth/totp/recovery-codes', {
+  totpRecoveryCodes(adminPassword: string, action: 'view' | 'regenerate' | 'download' = 'view') {
+    return apiFetch<TotpRecoveryViewResult>('/auth/totp/recovery-codes', {
       method: 'POST',
       body: { admin_password: adminPassword, action },
     })

@@ -75,17 +75,19 @@ export const filesApi = {
     })
   },
 
-  deleteFile(path: string): Promise<void> {
-    if (USE_MOCK) return mockApi.deleteFile(path)
-    return apiFetch<void>('/files', {
+  deleteFile(path: string): Promise<{ success: boolean; trashed?: boolean }> {
+    if (USE_MOCK) return mockApi.deleteFile(path).then(() => ({ success: true, trashed: true }))
+    return apiFetch<{ success: boolean; trashed?: boolean }>('/files', {
       method: 'POST',
       body: { action: 'delete', path },
     })
   },
 
-  deleteFiles(paths: string[]): Promise<void> {
-    if (USE_MOCK) return mockApi.deleteFiles(paths)
-    return Promise.all(paths.map((p) => this.deleteFile(p))).then(() => undefined)
+  deleteFiles(paths: string[]): Promise<{ trashed: boolean }> {
+    if (USE_MOCK) return mockApi.deleteFiles(paths).then(() => ({ trashed: true }))
+    return Promise.all(paths.map((p) => this.deleteFile(p))).then((results) => ({
+      trashed: results.some((r) => r.trashed),
+    }))
   },
 
   renameFile(path: string, newName: string): Promise<FileEntry> {

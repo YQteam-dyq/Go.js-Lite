@@ -37,6 +37,7 @@ import { BottomSheet, ActionSheetItem, ActionSheetSeparator } from '@/components
 import { DropdownMenu, MenuItem } from '@/components/ui/DropdownMenu'
 import { UploadProgress, useUploadManager } from '@/components/ui/UploadProgress'
 import { filesApi } from '@/api/files'
+import { TrashModal } from '@/components/trash/TrashModal'
 import { useFormat, getFileExtension, isImageFile, isTextFile } from '@/lib/format'
 import { validateFileName } from '@/lib/validate'
 import type { FileEntry } from '@shared/types'
@@ -91,6 +92,7 @@ export default function FileList() {
     files: FileEntry[]
   }>({ open: false, files: [] })
   const [deleting, setDeleting] = useState(false)
+  const [showTrash, setShowTrash] = useState(false)
 
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null)
   const [actionSheetFile, setActionSheetFile] = useState<FileEntry | null>(null)
@@ -355,14 +357,14 @@ export default function FileList() {
     setDeleting(true)
     try {
       const paths = deleteConfirm.files.map((f) => f.path)
-      await filesApi.deleteFiles(paths)
+      const result = await filesApi.deleteFiles(paths)
 
       setExitingIds(new Set(paths))
       setTimeout(() => {
         setExitingIds(new Set())
       }, 250)
 
-      toast({ type: 'success', title: t('files.deleteSuccess') })
+      toast({ type: 'success', title: result.trashed ? t('trash.trashed') : t('files.deleteSuccess') })
       setDeleteConfirm({ open: false, files: [] })
       clearSelection()
       invalidateFiles()
@@ -682,6 +684,11 @@ export default function FileList() {
             </button>
           </div>
 
+          <Button variant="secondary" size="sm" onClick={() => setShowTrash(true)}>
+            <Trash2 size={15} />
+            {t('trash.title')}
+          </Button>
+
           <Button variant="secondary" size="icon" onClick={handleUploadClick} aria-label={t('files.upload')}>
             <Upload size={18} />
           </Button>
@@ -932,6 +939,12 @@ export default function FileList() {
         loading={deleting}
         onConfirm={handleDeleteConfirm}
         onCancel={() => setDeleteConfirm({ open: false, files: [] })}
+      />
+
+      <TrashModal
+        open={showTrash}
+        onClose={() => setShowTrash(false)}
+        onChanged={invalidateFiles}
       />
 
       <Modal

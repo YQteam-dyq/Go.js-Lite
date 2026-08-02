@@ -43,6 +43,7 @@ export default function Settings() {
   const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
   const [recoveryModalTitle, setRecoveryModalTitle] = useState('')
   const [recoveryWarning, setRecoveryWarning] = useState(false)
+  const [recoveryFilename, setRecoveryFilename] = useState('gojs-recovery-codes.txt')
 
   const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
   const [passwordPromptType, setPasswordPromptType] = useState<'disable' | 'view' | 'regenerate'>('disable')
@@ -171,16 +172,21 @@ export default function Settings() {
     onSuccess: (data) => {
       if (passwordPromptType === 'regenerate' && data.recovery_codes) {
         setRecoveryCodes(data.recovery_codes)
+        setRecoveryFilename(`gojs-recovery-codes-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.txt`)
         setRecoveryModalTitle(t('totp.recoveryRegenerated'))
         setRecoveryWarning(true)
         setShowRecoveryModal(true)
         toast({ type: 'success', title: t('totp.recoveryRegenerated'), description: t('totp.recoveryCodesShownOnce') })
       } else if (passwordPromptType === 'view') {
-        toast({
-          type: 'info',
-          title: t('totp.viewRecoveryCodes'),
-          description: t('totp.recoveryCodesShownOnce'),
-        })
+        if (data.legacy || data.view_only) {
+          toast({ type: 'warning', title: t('totp.recoveryLegacyNotice') })
+        } else if (data.recovery_codes) {
+          setRecoveryCodes(data.recovery_codes)
+          setRecoveryFilename(data.filename || 'gojs-recovery-codes.txt')
+          setRecoveryModalTitle(t('totp.viewRecoveryCodes'))
+          setRecoveryWarning(false)
+          setShowRecoveryModal(true)
+        }
       }
       queryClient.invalidateQueries({ queryKey: ['totpStatus'] })
       setShowPasswordPrompt(false)
@@ -190,6 +196,21 @@ export default function Settings() {
       toast({ type: 'error', title: t('common.saveFailed'), description: err.message })
     },
   })
+
+  const handleDownloadRecoveryCodes = () => {
+    if (recoveryCodes.length === 0) return
+    const content = recoveryCodes.join('\n') + '\n'
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = recoveryFilename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    toast({ type: 'success', title: t('totp.recoveryDownloaded') })
+  }
 
   const passwordStrength = useMemo(() => {
     if (!newPassword) return { score: 0, label: '', percent: 0 }
@@ -971,6 +992,12 @@ export default function Settings() {
         closeOnBackdrop={false}
         footer={
           <>
+            {recoveryCodes.length > 0 && (
+              <Button variant="secondary" onClick={handleDownloadRecoveryCodes}>
+                <Download size={16} className="mr-1.5" />
+                {t('totp.recoveryDownload')}
+              </Button>
+            )}
             <Button variant="primary" onClick={() => setShowRecoveryModal(false)}>
               {t('common.close')}
             </Button>

@@ -2,20 +2,33 @@ import { apiFetch } from './client'
 import type { OperationLogData, OperationLogAlertRule } from '@shared/types'
 
 export interface ExportParams {
-  format: 'csv' | 'jsonl'
+  format: 'csv' | 'jsonl' | 'json'
   scope: 'current_filter' | 'all'
   action?: string[]
   ip_like?: string
+  user?: string
+  date_from?: number
+  date_to?: number
   from_ts?: number
   to_ts?: number
 }
 
 export const operationLogApi = {
-  list(params?: { type?: string; ip?: string; page?: number }) {
+  list(params?: {
+    type?: string
+    ip?: string
+    user?: string
+    dateFrom?: number
+    dateTo?: number
+    page?: number
+  }) {
     return apiFetch<OperationLogData>('/operation-log', {
       params: {
         type: params?.type,
         ip: params?.ip,
+        user: params?.user,
+        date_from: params?.dateFrom,
+        date_to: params?.dateTo,
         page: params?.page,
       },
     })

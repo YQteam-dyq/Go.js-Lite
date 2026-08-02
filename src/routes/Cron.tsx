@@ -12,6 +12,8 @@ import {
   Clock,
   ChevronDown,
   Terminal,
+  Copy,
+  Check,
 } from 'lucide-react'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -22,7 +24,8 @@ import { Modal, Confirm } from '@/components/ui/Modal'
 import { cronApi } from '@/api/cron'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
-import type { CronJob } from '@shared/types'
+import { useFormat } from '@/lib/format'
+import type { CronJob, WebcronHistoryResult } from '@shared/types'
 
 interface Template {
   key: string
@@ -106,6 +109,26 @@ export default function Cron() {
   const [form, setForm] = useState<EditingJob>({ expression: '', command: '' })
   const [deleteIndex, setDeleteIndex] = useState<number | null>(null)
   const [saving, setSaving] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const fmt = useFormat()
+
+  const { data: webcronData } = useQuery<WebcronHistoryResult>({
+    queryKey: ['webcron-status'],
+    queryFn: () => cronApi.webcronStatus(),
+    refetchInterval: 30_000,
+  })
+
+  const handleCopyWebcronUrl = async () => {
+    if (!webcronData?.webcron_url) return
+    try {
+      await navigator.clipboard.writeText(webcronData.webcron_url)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+      toast({ type: 'success', title: t('webcron.copied') })
+    } catch {
+      toast({ type: 'error', title: t('common.unknownError') })
+    }
+  }
 
   const { data: caps, isLoading: loadingCaps } = useQuery({
     queryKey: ['cron-capabilities'],
@@ -414,6 +437,103 @@ export default function Cron() {
           </CardBody>
         </Card>
       )}
+
+      {/* Webcron 内部任务 */}
+      <Card>
+        <CardHeader className="flex items-center gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Terminal size={16} className="text-fg-muted shrink-0" />
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-fg">{t('webcron.title')}</div>
+              <div className="text-xs text-fg-subtle">{t('webcron.subtitle')}</div>
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          {/* 触发地址 + 复制 */}
+          <div className="rounded-xl border border-border bg-bg-sunken/30 px-4 py-3 space-y-2">
+            <div className="text-xs font-medium text-fg">{t('webcron.webcronUrl')}</div>
+            <div className="flex items-center gap-2">
+              <Input
+                readOnly
+                value={webcronData?.webcron_url || (!webcronData?.token_set ? t('webcron.noToken') : '')}
+                className="text-[11px] font-mono !py-1.5"
+                placeholder="..."
+              />
+              <Button
+                variant="secondary"
+                size="icon-sm"
+                onClick={handleCopyWebcronUrl}
+                disabled={!webcronData?.webcron_url}
+                aria-label={t('webcron.copyUrl')}
+                title={t('webcron.copyUrl')}
+              >
+                {copied ? <Check size={14} className="text-success" /> : <Copy size={14} />}
+              </Button>
+            </div>
+          </div>
+
+          {/* 上次触发 / 下次备份调度 */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-fg-subtle">{t('webcron.lastTriggered')}</div>
+              <div className="text-sm text-fg mt-0.5">
+                {webcronData?.last_triggered_at
+                  ? fmt.formatRelativeTime(webcronData.last_triggered_at)
+                  : t('webcron.neverTriggered')}
+              </div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-fg-subtle">{t('webcron.nextBackupRun')}</div>
+              <div className="text-sm text-fg mt-0.5">
+                {webcronData?.next_backup_run_at
+                  ? (webcronData.next_backup_run_at * 1000 > Date.now()
+                      ? fmt.formatDate(webcronData.next_backup_run_at)
+                      : fmt.formatRelativeTime(webcronData.next_backup_run_at))
+                  : t('webcron.noNextRun')}
+              </div>
+            </div>
+          </div>
+
+          {/* 历史列表 */}
+          <div>
+            <div className="text-xs font-medium text-fg-muted mb-2">{t('webcron.history')}</div>
+            {!webcronData || webcronData.history.length === 0 ? (
+              <div className="p-6 text-center text-sm text-fg-muted rounded-xl border border-border">
+                <Terminal size={24} className="mx-auto mb-2 opacity-50" />
+                <p>{t('webcron.noHistory')}</p>
+              </div>
+            ) : (
+              <ul className="divide-y divide-border rounded-xl border border-border">
+                {webcronData.history.map((e) => (
+                  <li key={e.id} className="px-4 py-3 flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <div className="text-xs text-fg">{fmt.formatDate(e.tick_at)}</div>
+                      <div className="text-[11px] text-fg-subtle mt-1 break-all">
+                        {t('webcron.summarySchedules')} {e.stats?.processed_schedules ?? 0}
+                        {' · '}
+                        {t('webcron.summaryDelivered')} {e.stats?.drained_outbox ?? 0}
+                        {e.stats?.acme_renewed !== undefined && (
+                          <>
+                            {' · '}
+                            {t('webcron.summaryAcme')} {e.stats.acme_renewed}
+                            {e.stats.acme_failed
+                              ? ` (${t('webcron.summaryAcmeFailed')} ${e.stats.acme_failed})`
+                              : ''}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={e.status === 'ok' ? 'success' : 'danger'} className="shrink-0">
+                      {e.status === 'ok' ? t('webcron.statusOk') : t('webcron.statusFail')}
+                    </Badge>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </CardBody>
+      </Card>
 
       {/* 添加 / 编辑模态框 */}
       <Modal

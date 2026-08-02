@@ -19,6 +19,9 @@ import {
   Users,
   Bell,
   ShieldAlert,
+  PackageCheck,
+  KeyRound,
+  Rocket,
 } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { useCapabilities } from '@/hooks/useCapabilities'
@@ -82,6 +85,9 @@ export function Sidebar() {
     { to: '/cron', label: t('nav.cron'), icon: <CalendarClock size={18} />, show: true },
     { to: '/backup', label: t('nav.backup'), icon: <HardDriveDownload size={18} />, show: true },
     { to: '/htaccess', label: t('nav.htaccess'), icon: <FileText size={18} />, show: true },
+    { to: '/upgrade', label: t('nav.upgrade'), icon: <PackageCheck size={18} />, show: true },
+    { to: '/api-tokens', label: t('nav.apiTokens'), icon: <KeyRound size={18} />, show: true },
+    { to: '/deploy', label: t('nav.deploy'), icon: <Rocket size={18} />, show: true },
     { to: '/settings', label: t('nav.settings'), icon: <Settings size={18} />, show: true },
   ]
 
