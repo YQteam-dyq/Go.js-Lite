@@ -23,6 +23,7 @@ export interface Capabilities {
   maxUpload: number
   maxPost: number
   memoryLimit: number
+  ftp?: boolean
 }
 
 export interface BootstrapData {
@@ -375,6 +376,7 @@ export interface AuthCredentials {
   username: string
   password: string
   totp?: string
+  recovery_code?: string
 }
 
 export interface InstallRequest {
@@ -492,3 +494,121 @@ export type ThemeMode = 'light' | 'dark' | 'system'
 export type Language = 'zh' | 'en'
 
 export type Breakpoint = 'mobile' | 'tablet' | 'desktop'
+
+export interface TotpStatus { enabled:boolean; hasSecret:boolean; recoveryCodesCount:number }
+export interface TotpEnrollResponse { secret:string; otpauth_url:string; qr_svg_data_url:string; recovery_codes:string[] }
+export type BackupDestinationType = 's3'|'ftp'|'sftp';
+export interface BackupDestinationBase { id:string; name:string; type:BackupDestinationType; path_prefix?:string; created_at:number }
+export interface BackupDestinationS3 extends BackupDestinationBase { type:'s3'; access_key_enc:string; secret_key_enc:string; endpoint:string; region?:string; bucket:string; sse?:boolean }
+export interface BackupDestinationFtp extends BackupDestinationBase { type:'ftp'; host:string; port:number; username:string; password_enc:string; use_tls?:boolean }
+export interface BackupDestinationSftp extends BackupDestinationBase { type:'sftp'; host:string; port:number; username:string; password_enc?:string; private_key_enc?:string }
+export type BackupDestination = BackupDestinationS3 | BackupDestinationFtp | BackupDestinationSftp;
+export interface RetentionRule { keep_last?:number; keep_daily?:number; keep_weekly?:number; keep_monthly?:number }
+export interface BackupSchedule { id:string; name:string; enabled:boolean; source:{ include_files?:boolean; include_db?:boolean; include_config?:boolean; exclude_dirs?:string[] }; destination_ids:string[]; cron_expr:string; retention:RetentionRule; next_run_at:number; last_run_at?:number; created_at:number }
+export type BackupRunStatus = 'success'|'running'|'failed';
+export interface BackupRunRecord { id:string; schedule_id:string; started_at:number; ended_at?:number; status:BackupRunStatus; bytes_total:number; destination_results:{dest_id:string; ok:boolean; remote_path?:string; error?:string}[]; pruned_count:number }
+export interface OperationLogAlertRule { id:string; name:string; enabled:boolean; when:{ action_in?:string[]; action_not_in?:string[]; ip_not_in_whitelist?:boolean; outside_hours_range?:string; consecutive_fail_login_gt_N?:number }; then:{ channel_ids:string[]; severity:'info'|'warning'|'critical' } }
+export type NotificationChannelType = 'email'|'smtp'|'webhook';
+export interface NotificationChannelBase { id:string; name:string; enabled:boolean; type:NotificationChannelType; created_at:number }
+export interface NotificationChannelMail extends NotificationChannelBase { type:'email'; from_addr?:string; }
+export interface NotificationChannelSmtp extends NotificationChannelBase { type:'smtp'; host:string; port:number; username?:string; password_enc?:string; from_addr:string; use_tls?:boolean }
+export interface NotificationChannelWebhook extends NotificationChannelBase { type:'webhook'; url:string; method?:'POST'|'PUT'; headers_enc?:string }
+export type NotificationChannel = NotificationChannelMail | NotificationChannelSmtp | NotificationChannelWebhook;
+export type NotificationCategory = 'login_anomaly'|'backup'|'ssl'|'security'|'system';
+export type NotificationSeverity = 'info'|'success'|'warning'|'critical';
+export interface Notification { id:string; category:NotificationCategory; severity:NotificationSeverity; title_key:string; body_key?:string; body_params?:Record<string,string|number>; payload?:unknown; read_at?:number; created_at:number }
+export type FtpProvider = 'proftpd_authfile' | 'pureftpd_passwd';
+
+export interface FtpCapabilities {
+  available: boolean;
+  reason_key?: string;
+  supported_providers: FtpProvider[];
+  active_provider?: FtpProvider | null;
+  path?: string;
+  can_write?: boolean;
+  default_uid?: number;
+  default_gid?: number;
+}
+
+export interface FtpAccount {
+  id: string;
+  username: string;
+  home_dir: string;
+  uid?: number;
+  gid?: number;
+  quota_size_mb?: number | null;
+  quota_files?: number | null;
+  upload_bw_kbps?: number | null;
+  download_bw_kbps?: number | null;
+  allow_client_ips?: string;
+  deny_client_ips?: string;
+  enabled: boolean;
+  expires_at_ts?: number | null;
+  created_at: number;
+  last_changed_at: number;
+  last_login_at?: number | null;
+}
+
+export interface FtpAccountCreateInput {
+  username: string;
+  password: string;
+  home_dir: string;
+  uid?: number;
+  gid?: number;
+  quota_size_mb?: number | null;
+  quota_files?: number | null;
+  upload_bw_kbps?: number | null;
+  download_bw_kbps?: number | null;
+  allow_client_ips?: string;
+  deny_client_ips?: string;
+  enabled?: boolean;
+  expires_at_ts?: number | null;
+}
+
+export interface FtpAccountUpdateInput extends Partial<FtpAccountCreateInput> {
+  password_renew?: string;
+}
+export interface AcmeDomainState { domain:string; account_email?:string; staging:boolean; cert_status:'pending'|'valid'|'expiring'|'expired'|'failed'; last_issue_at?:number; next_renew_at?:number; error?:string }
+
+export type AcmeCertStatus = 'pending' | 'valid' | 'invalid' | 'expiring_soon' | 'expired'
+
+export interface AcmeCertificateRecord {
+  id: string
+  domain: string
+  status: AcmeCertStatus
+  not_before_ts: number
+  not_after_ts: number
+  last_ordered_at?: number
+  auto_renew_days_before: number
+  cert_pem_enc?: string
+  fullchain_pem_enc?: string
+  privkey_pem_enc?: string
+  issuer_url?: string
+  chain_thumbprint?: string
+  san_domains?: string[]
+}
+
+export interface AcmeCertificatesResponse {
+  records: Array<Omit<AcmeCertificateRecord, 'privkey_pem_enc'> & {
+    status_derived: AcmeCertStatus
+  }>
+}
+
+export interface AcmeCapabilities {
+  available: boolean
+  acme_extensions_ok: boolean
+  docroot_known: boolean
+  challenges_dir_writable: boolean
+  reason_key?: string
+}
+
+export interface AcmeIssueCertPayload {
+  domain: string
+  email: string
+  accept_tos: boolean
+  ca?: 'letsencrypt' | 'letsencrypt-staging'
+}
+export type SeverityBadgeVariant = 'accent'|'success'|'warning'|'danger'|'muted';
+export interface SecurityVulnItem { package:string; installed_version:string; fixed_version?:string; severity:'info'|'low'|'moderate'|'high'|'critical'; title:string; url?:string; severityBadgeVariant:SeverityBadgeVariant }
+export interface SecurityScanFrontendResult { available:boolean; reason_key?:string; scanned_at?:number; vulns:SecurityVulnItem[] }
+export interface SecurityScanBackendResult { available:boolean; reason_key?:string; scanned_at?:number; heuristicOnly:boolean; notice_key?:string; vulns:SecurityVulnItem[] }

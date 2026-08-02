@@ -1,18 +1,21 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sun, Moon, Monitor, Clock, Lock, Download, RefreshCw, Eye, EyeOff, CheckCircle2, Code2, Server, Palette, Users, ExternalLink, Heart, Shield, Copy, RotateCcw, History } from 'lucide-react'
+import { Sun, Moon, Monitor, Clock, Lock, Download, RefreshCw, Eye, EyeOff, CheckCircle2, Code2, Server, Palette, Users, ExternalLink, Heart, Shield, Copy, RotateCcw, History, KeyRound, QrCode, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
-import { Confirm } from '@/components/ui/Modal'
+import { Confirm, Modal } from '@/components/ui/Modal'
 import { useTheme } from '@/hooks/useTheme'
 import { useAuth } from '@/hooks/useAuth'
 import { useUiStore } from '@/stores/uiStore'
 import { authApi } from '@/api/auth'
 import { toast } from '@/components/ui/Toast'
-import type { ThemeMode, Language } from '@shared/types'
+import type { ThemeMode, Language, TotpEnrollResponse } from '@shared/types'
 import { useI18n } from '@/hooks/useI18n'
+import { NotificationChannelsCard } from '@/components/notifications/NotificationChannelsCard'
+
+type TotpState = 'disabled' | 'enrolling' | 'enabled'
 
 export default function Settings() {
   const { t } = useI18n()
@@ -33,12 +36,34 @@ export default function Settings() {
   const [logRetention, setLogRetention] = useState<number | ''>(500)
   const [logRetentionTouched, setLogRetentionTouched] = useState(false)
 
+  const [totpState, setTotpState] = useState<TotpState>('disabled')
+  const [enrollData, setEnrollData] = useState<TotpEnrollResponse | null>(null)
+  const [confirmCode, setConfirmCode] = useState('')
+  const [showRecoveryModal, setShowRecoveryModal] = useState(false)
+  const [recoveryCodes, setRecoveryCodes] = useState<string[]>([])
+  const [recoveryModalTitle, setRecoveryModalTitle] = useState('')
+  const [recoveryWarning, setRecoveryWarning] = useState(false)
+
+  const [showPasswordPrompt, setShowPasswordPrompt] = useState(false)
+  const [passwordPromptType, setPasswordPromptType] = useState<'disable' | 'view' | 'regenerate'>('disable')
+  const [promptPassword, setPromptPassword] = useState('')
+
   const { data: settings } = useQuery({
     queryKey: ['settings'],
     queryFn: () => authApi.getSettings(),
   })
 
-  // 当后端返回 logRetention 时同步到本地输入框（仅在用户未编辑时）
+  const { data: totpStatus } = useQuery({
+    queryKey: ['totpStatus'],
+    queryFn: () => authApi.totpStatus(),
+  })
+
+  useEffect(() => {
+    if (totpStatus) {
+      setTotpState(totpStatus.enabled ? 'enabled' : 'disabled')
+    }
+  }, [totpStatus])
+
   useEffect(() => {
     if (!logRetentionTouched && typeof settings?.logRetention === 'number') {
       setLogRetention(settings.logRetention)
@@ -92,6 +117,77 @@ export default function Settings() {
     },
     onError: (err: Error) => {
       toast({ type: 'error', title: t('settings.changeFailed'), description: err.message })
+    },
+  })
+
+  const totpEnrollMutation = useMutation({
+    mutationFn: () => authApi.totpEnroll(),
+    onSuccess: (data) => {
+      setEnrollData(data)
+      setRecoveryCodes(data.recovery_codes)
+      setTotpState('enrolling')
+    },
+    onError: (err: Error) => {
+      toast({ type: 'error', title: t('common.saveFailed'), description: err.message })
+    },
+  })
+
+  const totpConfirmMutation = useMutation({
+    mutationFn: (code: string) => authApi.totpConfirm(code),
+    onSuccess: () => {
+      toast({ type: 'success', title: t('totp.enabled') })
+      setTotpState('enabled')
+      setConfirmCode('')
+      setEnrollData(null)
+      setRecoveryModalTitle(t('totp.recoveryCodesShownOnce'))
+      setRecoveryWarning(true)
+      setShowRecoveryModal(true)
+      queryClient.invalidateQueries({ queryKey: ['totpStatus'] })
+    },
+    onError: (err: Error) => {
+      toast({ type: 'error', title: t('totp.codeInvalid'), description: err.message })
+    },
+  })
+
+  const totpDisableMutation = useMutation({
+    mutationFn: (adminPassword: string) => authApi.totpDisable(adminPassword),
+    onSuccess: () => {
+      toast({ type: 'success', title: t('totp.disabled') })
+      setTotpState('disabled')
+      setEnrollData(null)
+      setConfirmCode('')
+      setShowPasswordPrompt(false)
+      setPromptPassword('')
+      queryClient.invalidateQueries({ queryKey: ['totpStatus'] })
+    },
+    onError: (err: Error) => {
+      toast({ type: 'error', title: t('settings.changeFailed'), description: err.message })
+    },
+  })
+
+  const totpRecoveryViewMutation = useMutation({
+    mutationFn: (adminPassword: string) =>
+      authApi.totpRecoveryCodes(adminPassword, passwordPromptType === 'regenerate' ? 'regenerate' : 'view'),
+    onSuccess: (data) => {
+      if (passwordPromptType === 'regenerate' && data.recovery_codes) {
+        setRecoveryCodes(data.recovery_codes)
+        setRecoveryModalTitle(t('totp.recoveryRegenerated'))
+        setRecoveryWarning(true)
+        setShowRecoveryModal(true)
+        toast({ type: 'success', title: t('totp.recoveryRegenerated'), description: t('totp.recoveryCodesShownOnce') })
+      } else if (passwordPromptType === 'view') {
+        toast({
+          type: 'info',
+          title: t('totp.viewRecoveryCodes'),
+          description: t('totp.recoveryCodesShownOnce'),
+        })
+      }
+      queryClient.invalidateQueries({ queryKey: ['totpStatus'] })
+      setShowPasswordPrompt(false)
+      setPromptPassword('')
+    },
+    onError: (err: Error) => {
+      toast({ type: 'error', title: t('common.saveFailed'), description: err.message })
     },
   })
 
@@ -150,6 +246,45 @@ export default function Settings() {
   const handleReset = () => {
     toast({ type: 'info', title: t('settings.resetInProgress') })
     setShowReset(false)
+  }
+
+  const openDisablePrompt = () => {
+    setPasswordPromptType('disable')
+    setPromptPassword('')
+    setShowPasswordPrompt(true)
+  }
+
+  const openViewRecoveryPrompt = () => {
+    setPasswordPromptType('view')
+    setPromptPassword('')
+    setShowPasswordPrompt(true)
+  }
+
+  const openRegeneratePrompt = () => {
+    setPasswordPromptType('regenerate')
+    setPromptPassword('')
+    setShowPasswordPrompt(true)
+  }
+
+  const handlePasswordPromptConfirm = () => {
+    if (!promptPassword) {
+      toast({ type: 'error', title: t('totp.passwordRequired') })
+      return
+    }
+    if (passwordPromptType === 'disable') {
+      totpDisableMutation.mutate(promptPassword)
+    } else {
+      totpRecoveryViewMutation.mutate(promptPassword)
+    }
+  }
+
+  const handleActivate = () => {
+    const code = confirmCode.replace(/\D/g, '')
+    if (code.length !== 6) {
+      toast({ type: 'error', title: t('totp.codeRequired') })
+      return
+    }
+    totpConfirmMutation.mutate(code)
   }
 
   const themeOptions: { value: ThemeMode; label: string; icon: React.ReactNode }[] = [
@@ -479,6 +614,185 @@ export default function Settings() {
       <Card className="stagger-5 card-hover">
         <CardHeader className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-success/10 text-success flex items-center justify-center">
+            <KeyRound size={20} />
+          </div>
+          <div className="flex-1">
+            <div className="text-sm font-semibold text-fg">{t('totp.cardTitle')}</div>
+            <div className="text-xs text-fg-subtle flex items-center gap-2">
+              {totpState === 'enabled' ? (
+                <Badge variant="success">{t('common.enabled')}</Badge>
+              ) : totpState === 'enrolling' ? (
+                <Badge variant="warning">Pending activation</Badge>
+              ) : (
+                <Badge variant="muted">{t('common.disabled')}</Badge>
+              )}
+              {totpStatus?.recoveryCodesCount !== undefined && totpState === 'enabled' && (
+                <span className="text-fg-muted">
+                  · {totpStatus.recoveryCodesCount} {t('totp.viewRecoveryCodes').toLowerCase()}
+                </span>
+              )}
+            </div>
+          </div>
+        </CardHeader>
+        <CardBody className="space-y-4">
+          {totpState === 'disabled' && (
+            <Button
+              variant="primary"
+              className="w-full font-semibold"
+              onClick={() => totpEnrollMutation.mutate()}
+              loading={totpEnrollMutation.isPending}
+            >
+              <Shield size={16} />
+              {t('totp.enable')}
+            </Button>
+          )}
+
+          {totpState === 'enrolling' && enrollData && (
+            <div className="space-y-5">
+              <div className="grid md:grid-cols-1 gap-4">
+                <div className="space-y-2 text-center">
+                  <img
+                    src={enrollData.qr_svg_data_url}
+                    alt="TOTP QR Code"
+                    className="mx-auto rounded-xl border border-border bg-white max-w-[300px] w-full"
+                  />
+                  <p className="text-xs text-fg-muted">{t('totp.qrHint')}</p>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-fg">Secret Key</label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={enrollData.secret}
+                    className="font-mono text-sm tracking-wider text-center"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(enrollData.secret)
+                      toast({ type: 'success', title: t('totp.secretCopied') })
+                    }}
+                  >
+                    <Copy size={16} />
+                  </Button>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    readOnly
+                    value={enrollData.otpauth_url}
+                    className="font-mono text-xs"
+                  />
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => {
+                      navigator.clipboard.writeText(enrollData.otpauth_url)
+                      toast({ type: 'success', title: t('totp.otpauthCopied') })
+                    }}
+                  >
+                    <Copy size={16} />
+                  </Button>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="block text-sm font-medium text-fg">{t('totp.enterCode')}</label>
+                <div className="flex items-end gap-2">
+                  <div className="flex-1">
+                    <Input
+                      type="text"
+                      value={confirmCode}
+                      onChange={(e) => setConfirmCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder={t('login.totpPlaceholder')}
+                      inputMode="numeric"
+                      autoComplete="one-time-code"
+                      maxLength={6}
+                      className="text-center font-mono tracking-widest text-lg"
+                    />
+                  </div>
+                  <Button
+                    variant="primary"
+                    onClick={handleActivate}
+                    loading={totpConfirmMutation.isPending}
+                    disabled={confirmCode.replace(/\D/g, '').length !== 6}
+                  >
+                    <QrCode size={16} />
+                    {t('totp.activate2fa')}
+                  </Button>
+                </div>
+              </div>
+
+              <div className="rounded-lg border border-border/50 bg-bg-sunken/30 p-3 space-y-2">
+                <p className="text-xs font-semibold text-fg flex items-center gap-1.5">
+                  <Lock size={14} className="text-warning" />
+                  {t('totp.recoveryCodesShownOnce')}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  {recoveryCodes.map((code, i) => (
+                    <div
+                      key={i}
+                      className="font-mono text-xs text-center py-1.5 px-2 rounded bg-bg-elevated border border-border/50 text-fg"
+                    >
+                      {code}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <Button
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  setTotpState('disabled')
+                  setEnrollData(null)
+                  setConfirmCode('')
+                }}
+              >
+                <X size={16} />
+                {t('common.cancel')}
+              </Button>
+            </div>
+          )}
+
+          {totpState === 'enabled' && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <Button
+                  variant="secondary"
+                  onClick={openViewRecoveryPrompt}
+                  className="justify-center"
+                >
+                  <Eye size={16} />
+                  {t('totp.viewRecoveryCodes')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={openRegeneratePrompt}
+                  className="justify-center"
+                >
+                  <KeyRound size={16} />
+                  {t('totp.regenerateRecoveryCodes')}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-danger hover:text-danger hover:bg-danger/5 justify-center"
+                  onClick={openDisablePrompt}
+                >
+                  <Lock size={16} />
+                  {t('totp.disable')}
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardBody>
+      </Card>
+
+      <Card className="stagger-6 card-hover">
+        <CardHeader className="flex items-center gap-3">
+          <div className="w-11 h-11 rounded-xl bg-success/10 text-success flex items-center justify-center">
             <Download size={20} />
           </div>
           <div>
@@ -502,7 +816,9 @@ export default function Settings() {
         </CardBody>
       </Card>
 
-      <Card className="stagger-6 card-hover">
+      <NotificationChannelsCard />
+
+      <Card className="stagger-7 card-hover">
         <CardHeader className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-xl bg-fg/5 text-fg-muted flex items-center justify-center">
             <Code2 size={20} />
@@ -604,6 +920,84 @@ export default function Settings() {
         onConfirm={() => regenerateMutation.mutate()}
         onCancel={() => setShowRegenToken(false)}
       />
+
+      <Modal
+        open={showPasswordPrompt}
+        onClose={() => setShowPasswordPrompt(false)}
+        title={t('totp.reenterAdminPassword')}
+        size="sm"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowPasswordPrompt(false)}>
+              {t('common.cancel')}
+            </Button>
+            <Button
+              variant={passwordPromptType === 'disable' ? 'danger' : 'primary'}
+              onClick={handlePasswordPromptConfirm}
+              loading={
+                passwordPromptType === 'disable'
+                  ? totpDisableMutation.isPending
+                  : totpRecoveryViewMutation.isPending
+              }
+            >
+              {t('common.confirm')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-fg-muted">
+            {passwordPromptType === 'disable'
+              ? t('totp.disableConfirm')
+              : passwordPromptType === 'regenerate'
+              ? t('totp.recoveryRegenerated')
+              : t('totp.viewRecoveryCodes')}
+          </p>
+          <Input
+            type="password"
+            value={promptPassword}
+            onChange={(e) => setPromptPassword(e.target.value)}
+            placeholder={t('settings.enterCurrentPassword')}
+            autoComplete="current-password"
+          />
+        </div>
+      </Modal>
+
+      <Modal
+        open={showRecoveryModal}
+        onClose={() => setShowRecoveryModal(false)}
+        title={recoveryModalTitle || t('totp.viewRecoveryCodes')}
+        size="md"
+        closeOnBackdrop={false}
+        footer={
+          <>
+            <Button variant="primary" onClick={() => setShowRecoveryModal(false)}>
+              {t('common.close')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          {recoveryWarning && (
+            <div className="rounded-lg bg-warning/10 border border-warning/30 p-3">
+              <p className="text-sm text-warning flex items-start gap-2">
+                <Shield size={16} className="shrink-0 mt-0.5" />
+                <span>{t('totp.recoveryCodesShownOnce')}</span>
+              </p>
+            </div>
+          )}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {recoveryCodes.map((code, i) => (
+              <div
+                key={i}
+                className="font-mono text-sm text-center py-2 px-3 rounded-lg bg-bg-sunken border border-border/60 text-fg select-all"
+              >
+                {code}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }

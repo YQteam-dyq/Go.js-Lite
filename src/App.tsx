@@ -27,6 +27,9 @@ import OperationLog from '@/routes/OperationLog'
 import Cron from '@/routes/Cron'
 import Backup from '@/routes/Backup'
 import SSL from '@/routes/SSL'
+import Ftp from '@/routes/Ftp'
+import Notifications from '@/routes/Notifications'
+import SecurityScan from '@/routes/SecurityScan'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -82,6 +85,9 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/cron': 'cron.documentTitle',
   '/backup': 'backup.documentTitle',
   '/ssl': 'ssl.documentTitle',
+  '/ftp': 'ftp.documentTitle',
+  '/notifications': 'notifications.documentTitle',
+  '/security-scan': 'securityScan.documentTitle',
   '/404': 'notFound.documentTitle',
 }
 
@@ -144,6 +150,9 @@ export default function App() {
                 <Route path="cron" element={<Cron />} />
                 <Route path="backup" element={<Backup />} />
                 <Route path="ssl" element={<SSL />} />
+                <Route path="ftp" element={<Ftp />} />
+                <Route path="notifications" element={<Notifications />} />
+                <Route path="security-scan" element={<SecurityScan />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

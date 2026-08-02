@@ -82,8 +82,14 @@ export function useAuth() {
     }
   }, [reset])
 
-  const login = useCallback(async (password: string, totp?: string) => {
-    await authApi.login({ username: 'admin', password, totp })
+  const login = useCallback(async (password: string, totp?: string, recoveryCode?: string) => {
+    const creds: { username: string; password: string; totp?: string; recovery_code?: string } = { username: 'admin', password }
+    if (recoveryCode) {
+      creds.recovery_code = recoveryCode
+    } else if (totp) {
+      creds.totp = totp
+    }
+    await authApi.login(creds)
     const data = await authApi.bootstrap()
     setCsrfToken(data.csrfToken)
     useAuthStore.getState().setBootstrap(data)

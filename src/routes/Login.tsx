@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Lock, Sun, Moon, Monitor, Eye, EyeOff, ShieldCheck, ShieldAlert } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
@@ -19,9 +19,11 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [totp, setTotp] = useState('')
   const [showTotp, setShowTotp] = useState(false)
+  const [usingRecoveryCode, setUsingRecoveryCode] = useState(false)
   const [error, setError] = useState('')
   const [shake, setShake] = useState(false)
   const [lockCountdown, setLockCountdown] = useState(0)
+  const totpInputRef = useRef<HTMLInputElement>(null)
   const { login } = useAuth()
   const { theme, setTheme, resolvedTheme } = useTheme()
   const { t } = useI18n()
@@ -56,6 +58,12 @@ export default function Login() {
     }
   }, [installed, authenticated, bootstrapLoading, navigate])
 
+  useEffect(() => {
+    if (showTotp && totpInputRef.current) {
+      totpInputRef.current.focus()
+    }
+  }, [showTotp, usingRecoveryCode])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!password || lockCountdown > 0) return
@@ -63,21 +71,53 @@ export default function Login() {
     setLoading(true)
     setError('')
     try {
-      await login(password, showTotp ? totp : undefined)
+      const totpCode = showTotp && !usingRecoveryCode ? totp : undefined
+      const recoveryCode = showTotp && usingRecoveryCode ? totp : undefined
+      await login(password, totpCode, recoveryCode)
       toast({ type: 'success', title: t('login.success') })
       navigate('/dashboard', { replace: true })
     } catch (err: unknown) {
-      if (err instanceof ApiError && err.code === 'ip_locked') {
-        const retryAfter = err.retryAfter && err.retryAfter > 0 ? err.retryAfter : 900
-        setLockCountdown(retryAfter)
-        setError('')
-        const minutes = Math.ceil(retryAfter / 60)
-        toast({
-          type: 'error',
-          title: t('login.ipLocked'),
-          description: t('login.retryAfter', { minutes }),
-        })
-        return
+      if (err instanceof ApiError) {
+        if (err.code === 'ip_locked') {
+          const retryAfter = err.retryAfter && err.retryAfter > 0 ? err.retryAfter : 900
+          setLockCountdown(retryAfter)
+          setError('')
+          const minutes = Math.ceil(retryAfter / 60)
+          toast({
+            type: 'error',
+            title: t('login.ipLocked'),
+            description: t('login.retryAfter', { minutes }),
+          })
+          return
+        }
+        if (err.code === 'totp_required') {
+          setShowTotp(true)
+          setUsingRecoveryCode(false)
+          setError(t('login.totpRequired'))
+          toast({ type: 'warning', title: t('login.twoFactor'), description: t('login.totpRequired') })
+          return
+        }
+        if (err.code === 'totp_invalid') {
+          setError(t('login.totpInvalid'))
+          setShake(true)
+          setTimeout(() => setShake(false), 500)
+          toast({ type: 'error', title: t('login.totpInvalid') })
+          return
+        }
+        if (err.code === 'recovery_code_invalid') {
+          setError(t('login.recoveryCodeInvalid'))
+          setShake(true)
+          setTimeout(() => setShake(false), 500)
+          toast({ type: 'error', title: t('login.recoveryCodeInvalid') })
+          return
+        }
+        if (err.code === 'recovery_code_already_used') {
+          setError(t('login.recoveryCodeAlreadyUsed'))
+          setShake(true)
+          setTimeout(() => setShake(false), 500)
+          toast({ type: 'error', title: t('login.recoveryCodeAlreadyUsed') })
+          return
+        }
       }
       const msg = err instanceof Error ? err.message : t('login.fail')
       setError(msg)
@@ -96,6 +136,11 @@ export default function Login() {
     if (theme === 'light') setTheme('dark')
     else if (theme === 'dark') setTheme('system')
     else setTheme('light')
+  }
+
+  const toggleRecoveryMode = () => {
+    setUsingRecoveryCode((v) => !v)
+    setTotp('')
   }
 
   if (bootstrapLoading) {
@@ -165,7 +210,7 @@ export default function Login() {
                   autoFocus
                   inputMode="text"
                   autoComplete="current-password"
-                  invalid={!!error}
+                  invalid={!!error && !showTotp}
                   className={`transition-all duration-200 ${error ? 'animate-pulse' : ''}`}
                 />
                 <button
@@ -181,18 +226,38 @@ export default function Login() {
 
             {showTotp && (
               <div className="space-y-2 animate-fade-in-up">
-                <label className="block text-sm font-medium text-fg">
-                  {t('login.totpLabel')}
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="block text-sm font-medium text-fg">
+                    {usingRecoveryCode ? t('login.recoveryCodeLabel') : t('login.totpLabel')}
+                  </label>
+                  <button
+                    type="button"
+                    onClick={toggleRecoveryMode}
+                    className="text-xs text-accent hover:text-accent/80 hover:underline transition-colors"
+                  >
+                    {usingRecoveryCode ? t('login.useTotpCode') : t('login.useRecoveryCode')}
+                  </button>
+                </div>
                 <Input
+                  ref={totpInputRef}
                   type="text"
                   value={totp}
-                  onChange={(e) => setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder={t('login.totpPlaceholder')}
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  className="text-center font-mono tracking-widest text-lg"
+                  onChange={(e) => {
+                    if (usingRecoveryCode) {
+                      setTotp(e.target.value.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 19))
+                    } else {
+                      setTotp(e.target.value.replace(/\D/g, '').slice(0, 6))
+                    }
+                    if (error) setError('')
+                  }}
+                  placeholder={usingRecoveryCode ? t('login.recoveryCodePlaceholder') : t('login.totpPlaceholder')}
+                  inputMode={usingRecoveryCode ? 'text' : 'numeric'}
+                  autoComplete={usingRecoveryCode ? 'off' : 'one-time-code'}
+                  maxLength={usingRecoveryCode ? 19 : 6}
+                  className={usingRecoveryCode
+                    ? 'font-mono text-sm tracking-wide text-center'
+                    : 'text-center font-mono tracking-widest text-lg'}
+                  invalid={!!error}
                 />
               </div>
             )}

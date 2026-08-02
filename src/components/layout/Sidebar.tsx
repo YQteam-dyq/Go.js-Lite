@@ -16,6 +16,9 @@ import {
   ChevronRight,
   CalendarClock,
   Shield,
+  Users,
+  Bell,
+  ShieldAlert,
 } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { useCapabilities } from '@/hooks/useCapabilities'
@@ -69,9 +72,12 @@ export function Sidebar() {
       icon: <HardDrive size={18} />,
       show: caps.disk,
     },
+    { to: '/ftp', label: t('nav.ftp'), icon: <Users />, show: caps.ftp ?? true },
     { to: '/error-log', label: t('nav.errorLog'), icon: <Bug size={18} />, show: true },
     { to: '/operation-log', label: t('nav.operationLog'), icon: <History size={18} />, show: true },
+    { to: '/notifications', label: t('nav.notifications'), icon: <Bell size={18} />, show: true },
     { to: '/env-check', label: t('nav.envCheck'), icon: <ClipboardCheck size={18} />, show: true },
+    { to: '/security-scan', label: t('nav.securityScan'), icon: <ShieldAlert size={18} />, show: true },
     { to: '/ssl', label: t('nav.ssl'), icon: <Shield size={18} />, show: true },
     { to: '/cron', label: t('nav.cron'), icon: <CalendarClock size={18} />, show: true },
     { to: '/backup', label: t('nav.backup'), icon: <HardDriveDownload size={18} />, show: true },

@@ -3,6 +3,27 @@
 > Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > Project language policy: this file is **English only** starting from v0.3.1; Chinese is no longer maintained here.
 
+## [0.4.0] - 2026-08-02
+
+### Added
+- FTP account management: create / edit / delete FTP accounts with POSIX home-directory, quota, bandwidth and IP allow/deny restrictions; test login, sync from system users, and JSON export.
+- Notification center: email / SMTP / webhook channels with a one-click test sender, an in-panel inbox (read / unread / delete / clear), and a live summary badge in the top bar.
+- Alert rules: watch site file changes, SSL expiry, disk usage, backup success/failure and more; deliver alerts to notification channels.
+- Security scan: heuristic vulnerability scan of the panel and site files, with capability-based availability and bilingual explanations.
+- Backup destinations: remote storage for backups via S3, FTP and SFTP (access keys / passwords / private keys stored AES-encrypted).
+- Backup schedules: recurring automated backups with retention, run now, and per-run history (list / detail).
+- Two-factor authentication (TOTP): enroll / confirm / disable 2FA with recovery codes, integrated into the Settings page.
+- ACME SSL: issue, renew, auto-renew and delete Let's Encrypt certificates with PEM download (uses webcron for unattended renewal).
+- Internal web cron: `webcron.php` token-guarded endpoint that drives scheduled backups, ACME renewal and notification delivery without OS crontab.
+- `SECURITY.md` and a GitHub vulnerability-report issue template.
+
+### Fixed
+- TypeScript strict-mode errors across the new modules (`secscan`, `notifications`, `Ftp`, `Backup`, `OperationLog`, `SecurityScan`, `shared/types`) — cumulative 40+ fixes, `tsc --noEmit` clean.
+- i18n: removed duplicate top-level namespaces and `remoteBackup.tabDestinations` duplicate keys in `zh.ts` / `en.ts`; `useI18n` now exposes `language` instead of the non-existent `locale`.
+
+### Breaking Changes
+- None. `.gojs/` config stays compatible; upgrade by overwriting the `gojs/` folder.
+
 ## [0.3.1] - 2026-07-31
 
 ### Fixed

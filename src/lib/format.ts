@@ -90,6 +90,21 @@ export function formatNumber(n: number, lang = 'zh'): string {
   return n.toLocaleString(getLocale(lang))
 }
 
+export function formatDuration(seconds: number): string {
+  if (!isFinite(seconds) || seconds < 0) return '-'
+  const s = Math.floor(seconds)
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  const rs = s % 60
+  if (m < 60) return `${m}m ${rs}s`
+  const h = Math.floor(m / 60)
+  const rm = m % 60
+  if (h < 24) return `${h}h ${rm}m`
+  const d = Math.floor(h / 24)
+  const rh = h % 24
+  return `${d}d ${rh}h`
+}
+
 export function useFormat() {
   const language = useUiStore((s) => s.language)
   const { t } = useI18n()
@@ -99,6 +114,7 @@ export function useFormat() {
     formatDateShort: (ts: number) => formatDateShort(ts, language),
     formatRelativeTime: (ts: number) => formatRelativeTime(ts, language, t),
     formatNumber: (n: number) => formatNumber(n, language),
+    formatDuration: (s: number) => formatDuration(s),
     formatBytes,
   }
 }

@@ -4,6 +4,8 @@ import type {
   AuthCredentials,
   BootstrapData,
   InstallRequest,
+  TotpEnrollResponse,
+  TotpStatus,
   UserSettings,
 } from '@shared/types'
 
@@ -78,6 +80,42 @@ export const authApi = {
   resetPanel() {
     return apiFetch<{ success: boolean }>('/settings/reset', {
       method: 'POST',
+    })
+  },
+
+  totpStatus() {
+    return apiFetch<TotpStatus>('/auth/totp/status')
+  },
+
+  totpEnroll() {
+    return apiFetch<TotpEnrollResponse>('/auth/totp/enroll', {
+      method: 'POST',
+    })
+  },
+
+  totpConfirm(code: string) {
+    return apiFetch<{ success: boolean }>('/auth/totp/confirm', {
+      method: 'POST',
+      body: { code },
+    })
+  },
+
+  totpDisable(adminPassword: string) {
+    return apiFetch<{ success: boolean }>('/auth/totp/disable', {
+      method: 'POST',
+      body: { admin_password: adminPassword },
+    })
+  },
+
+  totpRecoveryCodes(adminPassword: string, action: 'view' | 'regenerate' = 'view') {
+    return apiFetch<{
+      recovery_codes?: string[]
+      regenerated?: boolean
+      recovery_codes_count?: number
+      used_count?: number
+    }>('/auth/totp/recovery-codes', {
+      method: 'POST',
+      body: { admin_password: adminPassword, action },
     })
   },
 }

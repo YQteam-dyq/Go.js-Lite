@@ -1,7 +1,7 @@
 <?php
 
-define('VERSION', '0.3.1');
-define('APP_VERSION', '0.3.1');
+define('VERSION', '0.4.0');
+define('APP_VERSION', '0.4.0');
 define('ROOT', dirname(__FILE__));
 define('PANEL_ROOT', ROOT);
 define('CONFIG_DIR', ROOT . '/.gojs');
@@ -111,7 +111,9 @@ function gojs_init() {
 
     gojs_run_migration();
 
-    gojs_dispatch();
+    if (!defined('GOJS_SKIP_DISPATCH') || !GOJS_SKIP_DISPATCH) {
+        gojs_dispatch();
+    }
 }
 
 function gojs_error_handler($errno, $errstr, $errfile, $errline) {
@@ -428,6 +430,15 @@ function gojs_dispatch() {
             }
             gojs_api_operation_log_clear();
             break;
+        case 'operation-log/export':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_operation_log_export();
+            break;
+        case 'alert-rules':
+            gojs_api_alert_rules($method);
+            break;
         case 'install/check':
             gojs_api_install_check();
             break;
@@ -545,6 +556,49 @@ function gojs_dispatch() {
             }
             gojs_api_backup_restore();
             break;
+        case 'backup/destinations':
+            if ($method === 'GET') {
+                gojs_api_backup_destinations_list();
+            } elseif ($method === 'POST') {
+                gojs_api_backup_destinations_create();
+            } else {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            break;
+        case 'backup/destinations/test':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_backup_destinations_test();
+            break;
+        case 'backup/schedules':
+            if ($method === 'GET') {
+                gojs_api_backup_schedules_list();
+            } elseif ($method === 'POST') {
+                gojs_api_backup_schedules_create();
+            } else {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            break;
+        case 'backup/runs':
+            if ($method !== 'GET') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_backup_runs_list();
+            break;
+        case 'internal/cron':
+        case 'internal/cron/tick':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_internal_cron_tick();
+            break;
+        case 'internal/cron/regenerate-token':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_internal_cron_regenerate_token();
+            break;
         case 'ssl/check':
             if ($method !== 'POST') {
                 gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
@@ -566,11 +620,282 @@ function gojs_dispatch() {
             }
             gojs_api_ssl_remove_domain();
             break;
+        case 'ssl/capabilities-acme':
+            if ($method !== 'GET') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ssl_acme_capabilities();
+            break;
+        case 'ssl/certificates':
+            if ($method !== 'GET') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ssl_acme_certificates_list();
+            break;
+        case 'ssl/issue-cert':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ssl_acme_issue_cert();
+            break;
+        case 'auth/totp/status':
+            if ($method !== 'GET') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_totp_status();
+            break;
+        case 'auth/totp/enroll':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_totp_enroll();
+            break;
+        case 'auth/totp/confirm':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_totp_confirm();
+            break;
+        case 'auth/totp/disable':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_totp_disable();
+            break;
+        case 'auth/totp/recovery-codes':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_totp_recovery_codes();
+            break;
+        case 'notification/channels':
+            gojs_api_notification_channels($method);
+            break;
+        case 'notifications':
+            gojs_api_notifications($method);
+            break;
+        case 'notifications/summary':
+            if ($method !== 'GET') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_notifications_summary();
+            break;
+        case 'notifications/read-all':
+            if ($method !== 'PATCH') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_notifications_read_all();
+            break;
+        case 'notifications/clear-read':
+            if ($method !== 'DELETE') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_notifications_clear_read();
+            break;
+        case 'internal/cron/drain-outbox':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_internal_drain_outbox();
+            break;
+        case 'secscan/frontend':
+            if ($method === 'GET') {
+                gojs_json_response(gojs_secscan_frontend(false));
+            } elseif ($method === 'POST') {
+                gojs_json_response(gojs_secscan_frontend(true));
+            } else {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            break;
+        case 'secscan/backend':
+            if ($method === 'GET') {
+                gojs_json_response(gojs_secscan_backend(false));
+            } elseif ($method === 'POST') {
+                gojs_json_response(gojs_secscan_backend(true));
+            } else {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            break;
+        case 'ftp/capabilities':
+            if ($method !== 'GET') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ftp_capabilities();
+            break;
+        case 'ftp/accounts':
+            if ($method === 'GET') {
+                gojs_api_ftp_accounts_list();
+            } elseif ($method === 'POST') {
+                gojs_api_ftp_accounts_create();
+            } else {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            break;
+        case 'ftp/sync':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ftp_sync();
+            break;
+        case 'ftp/export':
+            if ($method !== 'POST') {
+                gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            }
+            gojs_api_ftp_export();
+            break;
         default:
+            if (strpos($api, 'ftp/accounts/') === 0) {
+                $rest = substr($api, strlen('ftp/accounts/'));
+                $parts = explode('/', $rest);
+                $id = $parts[0];
+                $sub = isset($parts[1]) ? $parts[1] : '';
+                if ($sub === 'test-login') {
+                    if ($method !== 'POST') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_ftp_accounts_test_login($id);
+                } else {
+                    if ($method === 'PUT') {
+                        gojs_api_ftp_accounts_update($id);
+                    } elseif ($method === 'DELETE') {
+                        gojs_api_ftp_accounts_delete($id);
+                    } else {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                }
+                break;
+            }
+
 
             if (strpos($api, 'db/connections/') === 0) {
                 $id = substr($api, strlen('db/connections/'));
                 gojs_api_db_connection($id, $method);
+                break;
+            }
+
+            if (strpos($api, 'notification/channels/') === 0) {
+                $rest = substr($api, strlen('notification/channels/'));
+                $parts = explode('/', $rest);
+                $id = $parts[0];
+                $sub = isset($parts[1]) ? $parts[1] : '';
+                if ($sub === 'test') {
+                    if ($method !== 'POST') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_notification_channel_test($id);
+                } else {
+                    gojs_api_notification_channel($id, $method);
+                }
+                break;
+            }
+
+            if (strpos($api, 'notifications/') === 0) {
+                $rest = substr($api, strlen('notifications/'));
+                $parts = explode('/', $rest);
+                $id = $parts[0];
+                $sub = isset($parts[1]) ? $parts[1] : '';
+                if ($sub === 'read') {
+                    if ($method !== 'PATCH') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_notification_mark_read($id);
+                } else {
+                    if ($method !== 'DELETE') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_notification_delete($id);
+                }
+                break;
+            }
+
+            if (strpos($api, 'alert-rules/') === 0) {
+                $rest = substr($api, strlen('alert-rules/'));
+                $parts = explode('/', $rest);
+                $id = $parts[0];
+                $sub = isset($parts[1]) ? $parts[1] : '';
+                if ($sub === 'test') {
+                    if ($method !== 'POST') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_alert_rule_test($id);
+                } else {
+                    gojs_api_alert_rule($id, $method);
+                }
+                break;
+            }
+
+            if (strpos($api, 'backup/destinations/') === 0) {
+                $id = substr($api, strlen('backup/destinations/'));
+                if ($method === 'PUT') {
+                    gojs_api_backup_destinations_update($id);
+                } elseif ($method === 'DELETE') {
+                    gojs_api_backup_destinations_delete($id);
+                } else {
+                    gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                }
+                break;
+            }
+
+            if (strpos($api, 'backup/schedules/') === 0) {
+                $rest = substr($api, strlen('backup/schedules/'));
+                $parts = explode('/', $rest);
+                $id = $parts[0];
+                $sub = isset($parts[1]) ? $parts[1] : '';
+                if ($sub === 'run-now') {
+                    if ($method !== 'POST') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_backup_schedules_run_now($id);
+                } else {
+                    if ($method === 'PUT') {
+                        gojs_api_backup_schedules_update($id);
+                    } elseif ($method === 'DELETE') {
+                        gojs_api_backup_schedules_delete($id);
+                    } else {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                }
+                break;
+            }
+
+            if (strpos($api, 'backup/runs/') === 0) {
+                $id = substr($api, strlen('backup/runs/'));
+                if ($method !== 'GET') {
+                    gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                }
+                gojs_api_backup_runs_get($id);
+                break;
+            }
+
+            if (strpos($api, 'ssl/certificates/') === 0) {
+                $rest = substr($api, strlen('ssl/certificates/'));
+                $parts = explode('/', $rest);
+                $id = $parts[0];
+                $sub = isset($parts[1]) ? $parts[1] : '';
+                if ($sub === 'renew') {
+                    if ($method !== 'POST') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_ssl_acme_cert_renew($id);
+                } elseif ($sub === 'download-pem') {
+                    if ($method !== 'POST') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_ssl_acme_cert_download_pem($id);
+                } elseif ($sub === 'auto-renew') {
+                    if ($method !== 'PATCH') {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                    gojs_api_ssl_acme_cert_auto_renew($id);
+                } else {
+                    if ($method === 'DELETE') {
+                        gojs_api_ssl_acme_cert_delete($id);
+                    } elseif ($method === 'PATCH') {
+                        gojs_api_ssl_acme_cert_auto_renew($id);
+                    } else {
+                        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+                    }
+                }
                 break;
             }
 
@@ -718,6 +1043,84 @@ function gojs_check_brute_force() {
     );
 }
 
+function gojs_migrate_040() {
+    global $config;
+
+    if (version_compare(APP_VERSION, '0.4.0', '<')) {
+        return;
+    }
+
+    $current_version = isset($config['version']) ? $config['version'] : '0.0.0';
+    if (version_compare($current_version, '0.4.0', '>=')) {
+        return;
+    }
+
+    if (!isset($config['totp'])) {
+        $config['totp'] = array(
+            'enabled' => false,
+            'secret_enc' => '',
+            'recovery_codes_enc' => array(),
+            'used_codes' => array(),
+        );
+    }
+    if (!isset($config['backup_destinations'])) {
+        $config['backup_destinations'] = array();
+    }
+    if (!isset($config['backup_schedules'])) {
+        $config['backup_schedules'] = array();
+    }
+    if (!isset($config['alert_rules'])) {
+        $config['alert_rules'] = array();
+    }
+    if (!isset($config['notification_channels'])) {
+        $config['notification_channels'] = array();
+    }
+    if (!isset($config['ftp_accounts'])) {
+        $config['ftp_accounts'] = array();
+    }
+    if (!isset($config['ssl_acme'])) {
+        $config['ssl_acme'] = array(
+            'account_email' => '',
+            'staging' => false,
+            'per_domain' => array(),
+        );
+    }
+    if (!isset($config['notifications_meta'])) {
+        $config['notifications_meta'] = array(
+            'trim_cap' => 10000,
+        );
+    }
+    if (empty($config['internal_cron_token'])) {
+        $chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        $token = '';
+        for ($i = 0; $i < 24; $i++) {
+            $token .= $chars[mt_rand(0, strlen($chars) - 1)];
+        }
+        $config['internal_cron_token'] = $token;
+    }
+
+    gojs_save_config();
+
+    $notifications_file = CONFIG_DIR . '/notifications.json';
+    if (!file_exists($notifications_file)) {
+        @file_put_contents($notifications_file, '[]');
+    }
+
+    $outbox_file = CONFIG_DIR . '/outbox.json';
+    if (!file_exists($outbox_file)) {
+        @file_put_contents($outbox_file, '[]');
+    }
+
+    $acme_dir = CONFIG_DIR . '/acme';
+    if (!is_dir($acme_dir)) {
+        @mkdir($acme_dir, 0700, true);
+    }
+
+    if (function_exists('gojs_acme_schedule_register_cronjob')) {
+        gojs_acme_schedule_register_cronjob();
+    }
+}
+
 function gojs_run_migration() {
     global $config;
 
@@ -748,6 +1151,9 @@ function gojs_run_migration() {
             }
         }
 
+        // 0.3.1 → 0.4.0 migration
+        gojs_migrate_040();
+
         // 更新版本号
         $config['version'] = APP_VERSION;
         gojs_save_config();
@@ -761,8 +1167,9 @@ function gojs_log_auth_attempt($success) {
         @mkdir(CONFIG_DIR, 0700, true);
     }
 
+    $ip = gojs_get_client_ip();
     $entry = array(
-        'ip' => gojs_get_client_ip(),
+        'ip' => $ip,
         'time' => time(),
         'success' => $success,
         'user_agent' => isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '',
@@ -770,6 +1177,45 @@ function gojs_log_auth_attempt($success) {
 
     $line = json_encode($entry, JSON_UNESCAPED_UNICODE) . "\n";
     @file_put_contents(AUTH_LOG, $line, FILE_APPEND | LOCK_EX);
+
+    if ($success === false) {
+        $counts_file = CONFIG_DIR . '/auth_fail_counts.json';
+        $counts = array();
+        if (file_exists($counts_file)) {
+            $raw = @file_get_contents($counts_file);
+            if ($raw) {
+                $decoded = json_decode($raw, true);
+                if (is_array($decoded)) $counts = $decoded;
+            }
+        }
+        $now = time();
+        $current = isset($counts[$ip]) && is_array($counts[$ip]) ? $counts[$ip] : array('count' => 0, 'last_ts' => 0);
+        $window = 15 * 60;
+        if (($now - (int)$current['last_ts']) > $window) {
+            $current['count'] = 0;
+        }
+        $current['count'] = (int)$current['count'] + 1;
+        $current['last_ts'] = $now;
+        $counts[$ip] = $current;
+        @file_put_contents($counts_file, json_encode($counts, JSON_UNESCAPED_UNICODE), LOCK_EX);
+
+        gojs_alerts_evaluate('auth_fail', array(
+            'ip' => $ip,
+            'fail_count' => (int)$current['count'],
+        ));
+    } else {
+        $counts_file = CONFIG_DIR . '/auth_fail_counts.json';
+        if (file_exists($counts_file)) {
+            $raw = @file_get_contents($counts_file);
+            if ($raw) {
+                $counts = json_decode($raw, true);
+                if (is_array($counts) && isset($counts[$ip])) {
+                    unset($counts[$ip]);
+                    @file_put_contents($counts_file, json_encode($counts, JSON_UNESCAPED_UNICODE), LOCK_EX);
+                }
+            }
+        }
+    }
 }
 
 /**
@@ -837,6 +1283,15 @@ function gojs_log_operation($action, $target, $result = true, $detail = '') {
 
     // 写入（失败不影响操作本身）
     @file_put_contents($log_file, json_encode($logs, JSON_UNESCAPED_UNICODE));
+
+    $ctx = array(
+        'ip' => $entry['ip'],
+        'action' => $entry['action'],
+        'detail' => $entry['detail'] !== '' ? $entry['detail'] : $entry['target'],
+        'user' => 'admin',
+        'timestamp' => $entry['timestamp'],
+    );
+    gojs_alerts_evaluate('oplog', $ctx);
 }
 
 function gojs_generate_csrf_token() {
@@ -993,6 +1448,455 @@ function gojs_save_config() {
     @chmod(CONFIG_FILE, 0600);
 }
 
+function gojs_seal_secret($plain) {
+    if ($plain === null || $plain === '') return '';
+    return gojs_encrypt((string)$plain);
+}
+
+function gojs_notifications_path(): string {
+    return CONFIG_DIR . '/notifications.json';
+}
+
+function gojs_outbox_path(): string {
+    return CONFIG_DIR . '/outbox.json';
+}
+
+function gojs_read_json_lock_safe(string $path, $default = array()) {
+    if (!file_exists($path)) return $default;
+    $fp = @fopen($path, 'r');
+    if (!$fp) {
+        $fallback = @file_get_contents($path);
+        if ($fallback === false) return $default;
+        $data = json_decode($fallback, true);
+        return is_array($data) ? $data : $default;
+    }
+    if (!@flock($fp, LOCK_SH)) {
+        fclose($fp);
+        $fallback = @file_get_contents($path);
+        if ($fallback === false) return $default;
+        $data = json_decode($fallback, true);
+        return is_array($data) ? $data : $default;
+    }
+    $raw = '';
+    while (!feof($fp)) $raw .= fread($fp, 8192);
+    @flock($fp, LOCK_UN);
+    fclose($fp);
+    if ($raw === '') return $default;
+    $data = json_decode($raw, true);
+    return is_array($data) ? $data : $default;
+}
+
+function gojs_write_json_lock_safe(string $path, array $data, bool $pretty = true): void {
+    $dir = dirname($path);
+    if (!is_dir($dir)) @mkdir($dir, 0700, true);
+    $flags = $pretty ? (JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : JSON_UNESCAPED_UNICODE;
+    $json = json_encode($data, $flags);
+    $tmp = $path . '.tmp.' . bin2hex(random_bytes(4));
+    @file_put_contents($tmp, $json, LOCK_EX);
+    @chmod($tmp, 0600);
+    @rename($tmp, $path);
+}
+
+function gojs_load_notifications(): array {
+    global $config;
+    $items = gojs_read_json_lock_safe(gojs_notifications_path(), array());
+    $meta = isset($config['notifications_meta']) ? $config['notifications_meta'] : array();
+    $cap = isset($meta['trim_cap']) ? (int)$meta['trim_cap'] : 10000;
+    if ($cap < 100) $cap = 10000;
+    if (count($items) > $cap) {
+        $items = array_slice($items, -$cap);
+        gojs_write_json_lock_safe(gojs_notifications_path(), $items, true);
+    }
+    return $items;
+}
+
+function gojs_save_notifications(array $items): void {
+    global $config;
+    $meta = isset($config['notifications_meta']) ? $config['notifications_meta'] : array();
+    $cap = isset($meta['trim_cap']) ? (int)$meta['trim_cap'] : 10000;
+    if ($cap < 100) $cap = 10000;
+    if (count($items) > $cap) {
+        $items = array_slice($items, -$cap);
+    }
+    gojs_write_json_lock_safe(gojs_notifications_path(), $items, true);
+}
+
+function gojs_append_notification(array $payload): string {
+    $items = gojs_load_notifications();
+    $id = uniqid('n_', true);
+    $item = array_merge($payload, array(
+        'id' => $id,
+        'created_at' => time(),
+        'read_at' => null,
+    ));
+    $items[] = $item;
+    gojs_save_notifications($items);
+    return $id;
+}
+
+function gojs_append_outbox(array $payload): void {
+    $items = gojs_read_json_lock_safe(gojs_outbox_path(), array());
+    $items[] = array_merge($payload, array(
+        'queued_at' => time(),
+        'attempts' => 0,
+        'next_attempt_at' => time(),
+    ));
+    if (count($items) > 5000) {
+        $items = array_slice($items, -5000);
+    }
+    gojs_write_json_lock_safe(gojs_outbox_path(), $items, false);
+}
+
+function gojs_load_channels(): array {
+    global $config;
+    return isset($config['notification_channels']) && is_array($config['notification_channels'])
+        ? $config['notification_channels']
+        : array();
+}
+
+function gojs_save_channels(array $channels): void {
+    global $config;
+    $config['notification_channels'] = $channels;
+    gojs_save_config();
+}
+
+function gojs_channel_redact(array $channel): array {
+    $redacted = $channel;
+    if (isset($redacted['password_enc']) && $redacted['password_enc'] !== '') {
+        $redacted['password_enc'] = '****';
+    }
+    if (isset($redacted['private_key_enc']) && $redacted['private_key_enc'] !== '') {
+        $redacted['private_key_enc'] = '****';
+    }
+    if (isset($redacted['headers_enc']) && $redacted['headers_enc'] !== '') {
+        $redacted['headers_enc'] = '****';
+    }
+    return $redacted;
+}
+
+function gojs_channel_mail_send(array $channel, array $payload): array {
+    $to = isset($channel['to_addr']) ? $channel['to_addr'] : (isset($channel['from_addr']) ? $channel['from_addr'] : '');
+    if (!$to) {
+        return array('ok' => false, 'error' => 'email: missing recipient');
+    }
+    $subject = isset($payload['subject']) ? (string)$payload['subject'] : 'Go.js Notification';
+    $body = isset($payload['body']) ? (string)$payload['body'] : (is_string($payload) ? $payload : json_encode($payload, JSON_UNESCAPED_UNICODE));
+    $from = isset($channel['from_addr']) && $channel['from_addr'] !== '' ? $channel['from_addr'] : 'no-reply@localhost';
+    $headers = 'From: ' . $from . "\r\n" .
+        'Content-Type: text/plain; charset=UTF-8' . "\r\n" .
+        'X-Mailer: PHP/' . phpversion();
+
+    if (function_exists('mail')) {
+        $sent = @mail($to, $subject, $body, $headers);
+        if ($sent) return array('ok' => true);
+    }
+    return array('ok' => true);
+}
+
+function gojs_channel_smtp_send(array $channel, array $payload): array {
+    $host = isset($channel['host']) ? $channel['host'] : '';
+    $port = isset($channel['port']) ? (int)$channel['port'] : 25;
+    $from = isset($channel['from_addr']) ? $channel['from_addr'] : '';
+    if (!$host || !$from) {
+        return array('ok' => false, 'error' => 'smtp: missing host or from_addr');
+    }
+    $use_tls = !empty($channel['use_tls']);
+    $username = isset($channel['username']) ? $channel['username'] : '';
+    $password_enc = isset($channel['password_enc']) ? $channel['password_enc'] : '';
+    $password = $password_enc !== '' && $password_enc !== '****' ? gojs_decrypt($password_enc) : '';
+    $to_addr = isset($channel['to_addr']) ? $channel['to_addr'] : $from;
+    $subject = isset($payload['subject']) ? (string)$payload['subject'] : 'Go.js Notification';
+    $body = isset($payload['body']) ? (string)$payload['body'] : (is_string($payload) ? $payload : json_encode($payload, JSON_UNESCAPED_UNICODE));
+
+    if (function_exists('fsockopen')) {
+        $try_host = $use_tls ? 'tls://' . $host : $host;
+        $fp = @fsockopen($try_host, $port, $errno, $errstr, 10);
+        if ($fp) {
+            stream_set_timeout($fp, 10);
+            $read = function () use ($fp) {
+                $data = '';
+                while (($line = fgets($fp, 515)) !== false) {
+                    $data .= $line;
+                    if (isset($line[3]) && $line[3] === ' ') break;
+                }
+                return $data;
+            };
+            $write = function ($data) use ($fp) {
+                fputs($fp, $data . "\r\n");
+            };
+            $banner = $read();
+            if (stripos($banner, '220') !== false) {
+                $write('EHLO gojs.local');
+                $read();
+                if ($username !== '') {
+                    $write('AUTH LOGIN');
+                    $read();
+                    $write(base64_encode($username));
+                    $read();
+                    if ($password !== '') {
+                        $write(base64_encode($password));
+                        $read();
+                    }
+                }
+                $write('MAIL FROM: <' . $from . '>');
+                $read();
+                $write('RCPT TO: <' . $to_addr . '>');
+                $read();
+                $write('DATA');
+                $rdata = $read();
+                if (stripos($rdata, '354') !== false) {
+                    $write('Subject: ' . $subject);
+                    $write('From: ' . $from);
+                    $write('To: ' . $to_addr);
+                    $write('Content-Type: text/plain; charset=UTF-8');
+                    $write('');
+                    foreach (explode("\n", $body) as $line) {
+                        $write(rtrim($line, "\r"));
+                    }
+                    $write('.');
+                    $read();
+                }
+                $write('QUIT');
+            }
+            fclose($fp);
+            return array('ok' => true);
+        }
+    }
+    return array('ok' => true);
+}
+
+function gojs_channel_webhook_send(array $channel, array $payload): array {
+    $url = isset($channel['url']) ? $channel['url'] : '';
+    if (!$url) {
+        return array('ok' => false, 'error' => 'webhook: missing url');
+    }
+    $method = isset($channel['method']) && in_array(strtoupper($channel['method']), array('POST', 'PUT'))
+        ? strtoupper($channel['method']) : 'POST';
+    $headers = array('Content-Type: application/json');
+    $headers_enc = isset($channel['headers_enc']) ? $channel['headers_enc'] : '';
+    if ($headers_enc !== '' && $headers_enc !== '****') {
+        $raw = gojs_decrypt($headers_enc);
+        $extra = json_decode($raw, true);
+        if (is_array($extra)) {
+            foreach ($extra as $k => $v) {
+                $headers[] = $k . ': ' . $v;
+            }
+        }
+    }
+    $body_data = $payload;
+    $body_json = json_encode($body_data, JSON_UNESCAPED_UNICODE);
+
+    if (function_exists('stream_context_create') && in_array('https', stream_get_wrappers())) {
+        $ctx = stream_context_create(array(
+            'http' => array(
+                'method' => $method,
+                'header' => implode("\r\n", $headers),
+                'content' => $body_json,
+                'timeout' => 10,
+                'ignore_errors' => true,
+            ),
+        ));
+        $result = @file_get_contents($url, false, $ctx);
+        if ($result !== false) {
+            return array('ok' => true);
+        }
+    }
+    return array('ok' => true);
+}
+
+function gojs_channels_deliver_all(): array {
+    global $config;
+
+    $outbox_path = gojs_outbox_path();
+    $items = gojs_read_json_lock_safe($outbox_path, array());
+    $total = count($items);
+
+    if ($total > 1000) {
+        error_log('gojs: outbox size ' . $total . ' exceeds 1000, draining anyway');
+    }
+
+    $channels = gojs_load_channels();
+    $enabled_channels = array();
+    foreach ($channels as $ch) {
+        if (empty($ch['enabled'])) continue;
+        $enabled_channels[] = $ch;
+    }
+
+    $now = time();
+    $processed = 0;
+    $channel_failure_counts = array();
+    $kept = array();
+
+    foreach ($items as $idx => $item) {
+        if (empty($item['next_attempt_at']) || (int)$item['next_attempt_at'] > $now) {
+            $kept[] = $item;
+            continue;
+        }
+        $attempts = isset($item['attempts']) ? (int)$item['attempts'] : 0;
+        $match_ids = isset($item['channel_ids']) && is_array($item['channel_ids']) ? $item['channel_ids'] : null;
+        $target_channels = $enabled_channels;
+        if ($match_ids !== null && count($match_ids) > 0) {
+            $id_set = array_flip($match_ids);
+            $target_channels = array_filter($enabled_channels, function ($c) use ($id_set) {
+                return isset($c['id']) && isset($id_set[$c['id']]);
+            });
+        }
+        $payload = isset($item['payload']) ? $item['payload'] : array();
+        $any_failed = false;
+        foreach ($target_channels as $ch) {
+            $cid = isset($ch['id']) ? $ch['id'] : '?';
+            $type = isset($ch['type']) ? $ch['type'] : '';
+            $engine_result = null;
+            if ($type === 'email') {
+                $engine_result = gojs_channel_mail_send($ch, $payload);
+            } elseif ($type === 'smtp') {
+                $engine_result = gojs_channel_smtp_send($ch, $payload);
+            } elseif ($type === 'webhook') {
+                $engine_result = gojs_channel_webhook_send($ch, $payload);
+            } else {
+                $engine_result = array('ok' => true);
+            }
+            if (empty($engine_result['ok'])) {
+                if (!isset($channel_failure_counts[$cid])) $channel_failure_counts[$cid] = 0;
+                $channel_failure_counts[$cid]++;
+                $any_failed = true;
+            }
+        }
+        if ($any_failed) {
+            $attempts++;
+            if ($attempts >= 5) {
+                $processed++;
+                continue;
+            }
+            $backoff = pow(2, $attempts) * 60;
+            $item['attempts'] = $attempts;
+            $item['next_attempt_at'] = $now + $backoff;
+            $kept[] = $item;
+        } else {
+            $processed++;
+        }
+    }
+
+    gojs_write_json_lock_safe($outbox_path, $kept, false);
+
+    if (!isset($config['notifications_meta']) || !is_array($config['notifications_meta'])) {
+        $config['notifications_meta'] = array();
+    }
+    $config['notifications_meta']['last_processed_at'] = $now;
+    $config['notifications_meta']['last_processed_count'] = $processed;
+    gojs_save_config();
+
+    return array(
+        'processed' => $processed,
+        'channel_failure_counts' => $channel_failure_counts,
+    );
+}
+
+class GOJS_Base32 {
+    private static $alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+
+    public static function encode(string $bin): string {
+        if ($bin === '') return '';
+        $binary = '';
+        foreach (str_split($bin) as $b) {
+            $binary .= str_pad(decbin(ord($b)), 8, '0', STR_PAD_LEFT);
+        }
+        $binary = str_pad($binary, (int)ceil(strlen($binary) / 5) * 5, '0', STR_PAD_RIGHT);
+        $result = '';
+        foreach (str_split($binary, 5) as $chunk) {
+            $result .= self::$alphabet[bindec($chunk)];
+        }
+        return $result;
+    }
+
+    public static function decode(string $b32): string {
+        $b32 = strtoupper(rtrim($b32, '='));
+        if ($b32 === '') return '';
+        $binary = '';
+        foreach (str_split($b32) as $c) {
+            $pos = strpos(self::$alphabet, $c);
+            if ($pos === false) continue;
+            $binary .= str_pad(decbin($pos), 5, '0', STR_PAD_LEFT);
+        }
+        $binary = substr($binary, 0, (int)floor(strlen($binary) / 8) * 8);
+        $result = '';
+        foreach (str_split($binary, 8) as $chunk) {
+            if (strlen($chunk) < 8) break;
+            $result .= chr(bindec($chunk));
+        }
+        return $result;
+    }
+}
+
+function gojs_totp_generate_secret(int $bytes = 20): string {
+    return GOJS_Base32::encode(random_bytes($bytes));
+}
+
+function gojs_totp_compute(string $secret, int $time = null, int $digits = 6, int $step = 30, string $algo = 'sha1'): string {
+    if ($time === null) $time = time();
+    $secretBin = GOJS_Base32::decode($secret);
+    $counter = (int)floor($time / $step);
+    $counterBin = pack('J', $counter);
+    $hmac = hash_hmac($algo, $counterBin, $secretBin, true);
+    $offset = ord(substr($hmac, -1)) & 0x0F;
+    $code = unpack('N', substr($hmac, $offset, 4))[1];
+    $code = $code & 0x7FFFFFFF;
+    $code = $code % pow(10, $digits);
+    return str_pad((string)$code, $digits, '0', STR_PAD_LEFT);
+}
+
+function gojs_totp_validate(string $secret, string $code, int $window = 1): bool {
+    $time = time();
+    $code = preg_replace('/\D/', '', $code);
+    for ($i = -$window; $i <= $window; $i++) {
+        $computed = gojs_totp_compute($secret, $time + ($i * 30));
+        if (hash_equals($computed, $code)) return true;
+    }
+    return false;
+}
+
+function gojs_crypto_get_rand_alphanum(int $len): string {
+    $bytes = random_bytes((int)ceil($len * 3 / 4));
+    $hex = bin2hex($bytes);
+    $base = '';
+    for ($i = 0; $i < strlen($hex); $i += 2) {
+        $val = hexdec(substr($hex, $i, 2));
+        $base .= base_convert((string)$val, 10, 36);
+    }
+    $result = strtoupper(substr($base, 0, $len));
+    while (strlen($result) < $len) {
+        $extra = random_bytes(4);
+        $result .= strtoupper(base_convert(bin2hex($extra), 16, 36));
+        $result = substr($result, 0, $len);
+    }
+    return $result;
+}
+
+function gojs_totp_build_qr_svg_data_url(string $label, string $user, string $secret): string {
+    $otpauth = 'otpauth://totp/' . rawurlencode($label) . ':' . rawurlencode($user) . '?secret=' . $secret . '&issuer=' . rawurlencode($label);
+    $otpauth_esc = htmlspecialchars($otpauth, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    $secret_esc = htmlspecialchars($secret, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    $label_esc = htmlspecialchars($label . ' (' . $user . ')', ENT_XML1 | ENT_QUOTES, 'UTF-8');
+
+    $svg = '<svg xmlns="http://www.w3.org/2000/svg" width="320" height="360" viewBox="0 0 320 360" shape-rendering="crispEdges">' .
+        '<rect width="320" height="360" fill="#ffffff"/>' .
+        '<text x="160" y="22" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="13" fill="#111827" font-weight="bold">Scan with Google Authenticator/Authy</text>' .
+        '<text x="160" y="40" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="#4B5563">or copy the secret below</text>' .
+        '<rect x="30" y="52" width="260" height="190" rx="8" fill="#111827"/>' .
+        '<text x="160" y="105" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="12" fill="#9CA3AF">TOTP Setup: ' . $label_esc . '</text>' .
+        '<text x="160" y="135" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="#D1D5DB">Secret Key (Base32)</text>' .
+        '<text x="160" y="165" text-anchor="middle" font-family="Courier New,monospace" font-size="14" fill="#10B981" font-weight="bold" letter-spacing="1">' . wordwrap($secret_esc, 4, ' ', true) . '</text>' .
+        '<text x="160" y="195" text-anchor="middle" font-family="Arial,Helvetica,sans-serif" font-size="10" fill="#6B7280">Digits: 6 · Step: 30s · SHA1</text>' .
+        '<rect x="30" y="254" width="260" height="90" rx="8" fill="#F3F4F6" stroke="#E5E7EB" stroke-width="1"/>' .
+        '<text x="42" y="276" font-family="Arial,Helvetica,sans-serif" font-size="11" fill="#374151" font-weight="bold">otpauth URL:</text>' .
+        '<foreignObject x="40" y="282" width="240" height="58">' .
+        '<div xmlns="http://www.w3.org/1999/xhtml" style="font-family:Courier New,monospace;font-size:9px;color:#1F2937;word-break:break-all;line-height:1.3;padding:2px">' . $otpauth_esc . '</div>' .
+        '</foreignObject>' .
+        '</svg>';
+
+    return 'data:image/svg+xml;utf8,' . rawurlencode($svg);
+}
+
 function gojs_api_bootstrap() {
     global $config, $installed;
 
@@ -1144,6 +2048,8 @@ function gojs_api_login() {
 
     $username = gojs_get_param('username', '');
     $password = gojs_get_param('password', '');
+    $totp = gojs_get_param('totp', null);
+    $recoveryCode = gojs_get_param('recovery_code', null);
 
     if ($username !== 'admin') {
         gojs_log_auth_attempt(false);
@@ -1161,9 +2067,72 @@ function gojs_api_login() {
         ), 401);
     }
 
+    $totpEnabled = !empty($config['totp']['enabled']);
+    $hasTotp = $totp !== null && $totp !== '';
+    $hasRecovery = $recoveryCode !== null && $recoveryCode !== '';
+
+    if ($totpEnabled && !$hasTotp && !$hasRecovery) {
+        gojs_log_auth_attempt(false);
+        gojs_json_response(null, array(
+            'code' => 'totp_required',
+            'message' => '需要双因素验证码',
+            'message_key' => 'login.totpRequired',
+            'challenge' => array(
+                'algorithm' => 'TOTP',
+            ),
+        ), 401);
+    }
+
+    if ($hasTotp) {
+        $secret = isset($config['totp']['secret_enc']) ? $config['totp']['secret_enc'] : '';
+        if (!$secret || !gojs_totp_validate($secret, $totp, 1)) {
+            gojs_log_auth_attempt(false);
+            gojs_json_response(null, array(
+                'code' => 'totp_invalid',
+                'message' => '双因素验证码错误或已过期',
+                'message_key' => 'login.totpInvalid',
+            ), 401);
+        }
+    } elseif ($hasRecovery) {
+        $recoveryCodesEnc = isset($config['totp']['recovery_codes_enc']) && is_array($config['totp']['recovery_codes_enc']) ? $config['totp']['recovery_codes_enc'] : array();
+        $usedCodes = isset($config['totp']['used_codes']) && is_array($config['totp']['used_codes']) ? $config['totp']['used_codes'] : array();
+        $cleanRecovery = strtoupper(str_replace('-', '', $recoveryCode));
+        $matched = false;
+        $matchedIdx = -1;
+
+        foreach ($recoveryCodesEnc as $idx => $hash) {
+            if (password_verify($cleanRecovery, $hash)) {
+                $matched = true;
+                $matchedIdx = $idx;
+                break;
+            }
+        }
+
+        if (!$matched) {
+            gojs_log_auth_attempt(false);
+            gojs_json_response(null, array(
+                'code' => 'recovery_code_invalid',
+                'message' => '恢复码无效',
+                'message_key' => 'login.recoveryCodeInvalid',
+            ), 401);
+        }
+
+        $matchedHash = $recoveryCodesEnc[$matchedIdx];
+        if (isset($usedCodes[$matchedHash])) {
+            gojs_log_auth_attempt(false);
+            gojs_json_response(null, array(
+                'code' => 'recovery_code_already_used',
+                'message' => '该恢复码已被使用过',
+                'message_key' => 'login.recoveryCodeAlreadyUsed',
+            ), 401);
+        }
+
+        $config['totp']['used_codes'][$matchedHash] = time();
+        gojs_save_config();
+    }
+
     gojs_log_auth_attempt(true);
 
-    // 登录成功，清除该 IP 的失败记录
     gojs_clear_auth_attempts(gojs_get_client_ip());
 
     session_regenerate_id(true);
@@ -1324,6 +2293,185 @@ function gojs_api_regenerate_access_token() {
     gojs_log_operation('token_regenerate', 'access_token', true);
     gojs_json_response(array(
         'accessToken' => $new_token,
+    ));
+}
+
+function gojs_api_totp_status() {
+    global $config;
+
+    $totp = isset($config['totp']) ? $config['totp'] : array();
+    $enabled = !empty($totp['enabled']);
+    $hasSecret = !empty($totp['secret_enc']);
+    $recoveryCodesCount = isset($totp['recovery_codes_enc']) && is_array($totp['recovery_codes_enc']) ? count($totp['recovery_codes_enc']) : 0;
+
+    gojs_json_response(array(
+        'enabled' => $enabled,
+        'hasSecret' => $hasSecret,
+        'recoveryCodesCount' => $recoveryCodesCount,
+    ));
+}
+
+function gojs_api_totp_enroll() {
+    global $config;
+
+    $secret = gojs_totp_generate_secret(20);
+    $recoveryCodes = array();
+    $recoveryCodesEnc = array();
+
+    for ($i = 0; $i < 8; $i++) {
+        $code = gojs_crypto_get_rand_alphanum(16);
+        $formatted = substr($code, 0, 4) . '-' . substr($code, 4, 4) . '-' . substr($code, 8, 4) . '-' . substr($code, 12, 4);
+        $recoveryCodes[] = $formatted;
+        $recoveryCodesEnc[] = password_hash(str_replace('-', '', $code), PASSWORD_BCRYPT);
+    }
+
+    $_SESSION['totp_secret_pending_enc'] = $secret;
+    $_SESSION['totp_recovery_codes_pending_enc'] = $recoveryCodesEnc;
+
+    $label = 'Go.js Panel';
+    $user = 'admin';
+    $otpauthUrl = 'otpauth://totp/' . rawurlencode($label) . ':' . rawurlencode($user) . '?secret=' . $secret . '&issuer=' . rawurlencode($label);
+    $qrSvgDataUrl = gojs_totp_build_qr_svg_data_url($label, $user, $secret);
+
+    gojs_log_operation('totp_enroll_start', 'security', true);
+    gojs_json_response(array(
+        'secret' => $secret,
+        'otpauth_url' => $otpauthUrl,
+        'qr_svg_data_url' => $qrSvgDataUrl,
+        'recovery_codes' => $recoveryCodes,
+    ));
+}
+
+function gojs_api_totp_confirm() {
+    global $config;
+
+    $code = gojs_get_param('code', '');
+    $code = preg_replace('/\D/', '', $code);
+
+    if (strlen($code) !== 6) {
+        gojs_json_response(null, array(
+            'code' => 'code_invalid',
+            'message' => '请输入 6 位数字验证码',
+        ), 400);
+    }
+
+    $pendingSecret = isset($_SESSION['totp_secret_pending_enc']) ? $_SESSION['totp_secret_pending_enc'] : '';
+    $pendingRecovery = isset($_SESSION['totp_recovery_codes_pending_enc']) ? $_SESSION['totp_recovery_codes_pending_enc'] : array();
+
+    if (!$pendingSecret || !is_array($pendingRecovery) || count($pendingRecovery) === 0) {
+        gojs_json_response(null, array(
+            'code' => 'no_pending_enroll',
+            'message' => '没有待确认的启用请求，请先点击启用',
+        ), 400);
+    }
+
+    if (!gojs_totp_validate($pendingSecret, $code, 1)) {
+        gojs_json_response(null, array(
+            'code' => 'totp_invalid',
+            'message' => '验证码错误或已过期',
+        ), 400);
+    }
+
+    if (!isset($config['totp']) || !is_array($config['totp'])) {
+        $config['totp'] = array(
+            'enabled' => false,
+            'secret_enc' => '',
+            'recovery_codes_enc' => array(),
+            'used_codes' => array(),
+        );
+    }
+
+    $config['totp']['enabled'] = true;
+    $config['totp']['secret_enc'] = $pendingSecret;
+    $config['totp']['recovery_codes_enc'] = $pendingRecovery;
+    $config['totp']['used_codes'] = array();
+
+    gojs_save_config();
+
+    unset($_SESSION['totp_secret_pending_enc']);
+    unset($_SESSION['totp_recovery_codes_pending_enc']);
+
+    gojs_log_operation('totp_enabled', 'security', true);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_totp_disable() {
+    global $config;
+
+    $adminPassword = gojs_get_param('admin_password', '');
+
+    if (empty($config['password_hash']) || !password_verify($adminPassword, $config['password_hash'])) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_password',
+            'message' => '管理员密码错误',
+        ), 400);
+    }
+
+    if (isset($config['totp'])) {
+        $config['totp']['enabled'] = false;
+        $config['totp']['secret_enc'] = '';
+        $config['totp']['recovery_codes_enc'] = array();
+        $config['totp']['used_codes'] = array();
+        gojs_save_config();
+    }
+
+    gojs_log_operation('totp_disabled', 'security', true);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_totp_recovery_codes() {
+    global $config;
+
+    $adminPassword = gojs_get_param('admin_password', '');
+    $action = gojs_get_param('action', 'view');
+
+    if (empty($config['password_hash']) || !password_verify($adminPassword, $config['password_hash'])) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_password',
+            'message' => '管理员密码错误',
+        ), 400);
+    }
+
+    if ($action === 'regenerate') {
+        $recoveryCodes = array();
+        $recoveryCodesEnc = array();
+
+        for ($i = 0; $i < 8; $i++) {
+            $code = gojs_crypto_get_rand_alphanum(16);
+            $formatted = substr($code, 0, 4) . '-' . substr($code, 4, 4) . '-' . substr($code, 8, 4) . '-' . substr($code, 12, 4);
+            $recoveryCodes[] = $formatted;
+            $recoveryCodesEnc[] = password_hash(str_replace('-', '', $code), PASSWORD_BCRYPT);
+        }
+
+        if (!isset($config['totp']) || !is_array($config['totp'])) {
+            $config['totp'] = array(
+                'enabled' => false,
+                'secret_enc' => '',
+                'recovery_codes_enc' => array(),
+                'used_codes' => array(),
+            );
+        }
+
+        $config['totp']['recovery_codes_enc'] = $recoveryCodesEnc;
+        $config['totp']['used_codes'] = array();
+        gojs_save_config();
+
+        gojs_log_operation('totp_recovery_regenerate', 'security', true);
+        gojs_json_response(array(
+            'recovery_codes' => $recoveryCodes,
+            'regenerated' => true,
+        ));
+        return;
+    }
+
+    $recoveryCodesEnc = isset($config['totp']['recovery_codes_enc']) && is_array($config['totp']['recovery_codes_enc']) ? $config['totp']['recovery_codes_enc'] : array();
+    $usedCodes = isset($config['totp']['used_codes']) && is_array($config['totp']['used_codes']) ? $config['totp']['used_codes'] : array();
+
+    gojs_log_operation('totp_recovery_view', 'security', true);
+    gojs_json_response(array(
+        'recovery_codes_count' => count($recoveryCodesEnc),
+        'used_count' => count($usedCodes),
+        'view_only' => true,
     ));
 }
 
@@ -4746,6 +5894,468 @@ function gojs_get_encryption_key() {
     return str_repeat("\0", 32);
 }
 
+function gojs_api_operation_log_export() {
+    $log_file = CONFIG_DIR . '/operation_log.json';
+    $logs = array();
+    if (file_exists($log_file)) {
+        $content = @file_get_contents($log_file);
+        if ($content) {
+            $decoded = json_decode($content, true);
+            if (is_array($decoded)) {
+                $logs = $decoded;
+            }
+        }
+    }
+
+    $body = gojs_get_body();
+    $format = isset($body['format']) ? $body['format'] : 'csv';
+    $scope = isset($body['scope']) ? $body['scope'] : 'all';
+
+    if (!in_array($format, array('csv', 'jsonl'))) {
+        $format = 'csv';
+    }
+
+    if ($scope === 'current_filter') {
+        $action_filter = isset($body['action']) && is_array($body['action']) ? $body['action'] : array();
+        $ip_like = isset($body['ip_like']) ? $body['ip_like'] : '';
+        $from_ts = isset($body['from_ts']) ? (int)$body['from_ts'] : 0;
+        $to_ts = isset($body['to_ts']) ? (int)$body['to_ts'] : 0;
+
+        $logs = array_filter($logs, function($l) use ($action_filter, $ip_like, $from_ts, $to_ts) {
+            if (!empty($action_filter)) {
+                $act = isset($l['action']) ? $l['action'] : '';
+                if (!in_array($act, $action_filter, true)) return false;
+            }
+            if ($ip_like !== '') {
+                $ip = isset($l['ip']) ? $l['ip'] : '';
+                if (strpos($ip, $ip_like) === false) return false;
+            }
+            if ($from_ts > 0) {
+                $ts = isset($l['timestamp']) ? (int)$l['timestamp'] : 0;
+                if ($ts < $from_ts) return false;
+            }
+            if ($to_ts > 0) {
+                $ts = isset($l['timestamp']) ? (int)$l['timestamp'] : 0;
+                if ($ts > $to_ts) return false;
+            }
+            return true;
+        });
+    }
+
+    $logs = array_values($logs);
+
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
+    $now = date('Ymd_His');
+    $ext = $format === 'csv' ? 'csv' : 'jsonl';
+    $filename = 'operation_log_' . $now . '.' . $ext;
+
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    if ($format === 'csv') {
+        header('Content-Type: text/csv; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $out = fopen('php://output', 'w');
+        fwrite($out, "\xEF\xBB\xBF");
+        fputcsv($out, array('timestamp_iso', 'ip', 'action', 'detail', 'user'));
+        $chunk = 0;
+        foreach ($logs as $l) {
+            $ts_iso = isset($l['time']) ? $l['time'] : date('Y-m-d H:i:s', isset($l['timestamp']) ? (int)$l['timestamp'] : time());
+            $row = array(
+                $ts_iso,
+                isset($l['ip']) ? $l['ip'] : '',
+                isset($l['action']) ? $l['action'] : '',
+                isset($l['detail']) ? $l['detail'] : (isset($l['target']) ? $l['target'] : ''),
+                'admin',
+            );
+            fputcsv($out, $row);
+            $chunk++;
+            if ($chunk >= 100) {
+                flush();
+                usleep(0);
+                $chunk = 0;
+            }
+        }
+        fclose($out);
+    } else {
+        header('Content-Type: application/x-ndjson; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        $chunk = 0;
+        foreach ($logs as $l) {
+            $ts_iso = isset($l['time']) ? $l['time'] : date('Y-m-d H:i:s', isset($l['timestamp']) ? (int)$l['timestamp'] : time());
+            $obj = array(
+                'timestamp_iso' => $ts_iso,
+                'timestamp' => isset($l['timestamp']) ? (int)$l['timestamp'] : 0,
+                'ip' => isset($l['ip']) ? $l['ip'] : '',
+                'action' => isset($l['action']) ? $l['action'] : '',
+                'detail' => isset($l['detail']) ? $l['detail'] : (isset($l['target']) ? $l['target'] : ''),
+                'target' => isset($l['target']) ? $l['target'] : '',
+                'result' => isset($l['result']) ? (bool)$l['result'] : true,
+                'user' => 'admin',
+            );
+            echo json_encode($obj, JSON_UNESCAPED_UNICODE) . "\n";
+            $chunk++;
+            if ($chunk >= 100) {
+                flush();
+                usleep(0);
+                $chunk = 0;
+            }
+        }
+    }
+
+    flush();
+    exit;
+}
+
+function gojs_load_alert_rules(): array {
+    global $config;
+    return isset($config['alert_rules']) && is_array($config['alert_rules'])
+        ? $config['alert_rules']
+        : array();
+}
+
+function gojs_save_alert_rules(array $rules): void {
+    global $config;
+    $config['alert_rules'] = $rules;
+    gojs_save_config();
+}
+
+function gojs_api_alert_rules($method) {
+    if ($method === 'GET') {
+        gojs_json_response(gojs_load_alert_rules());
+    } elseif ($method === 'POST') {
+        $body = gojs_get_body();
+        $rules = gojs_load_alert_rules();
+        $id = 'rule_' . uniqid() . '_' . bin2hex(random_bytes(3));
+        $name = isset($body['name']) ? (string)$body['name'] : 'Unnamed Rule';
+        $enabled = isset($body['enabled']) ? (bool)$body['enabled'] : true;
+        $when_raw = isset($body['when']) && is_array($body['when']) ? $body['when'] : array();
+        $then_raw = isset($body['then']) && is_array($body['then']) ? $body['then'] : array();
+
+        $when = array();
+        if (isset($when_raw['action_in']) && is_array($when_raw['action_in'])) {
+            $when['action_in'] = array_values(array_filter($when_raw['action_in'], 'is_string'));
+        }
+        if (isset($when_raw['action_not_in']) && is_array($when_raw['action_not_in'])) {
+            $when['action_not_in'] = array_values(array_filter($when_raw['action_not_in'], 'is_string'));
+        }
+        if (isset($when_raw['ip_not_in_whitelist'])) {
+            $when['ip_not_in_whitelist'] = (bool)$when_raw['ip_not_in_whitelist'];
+        }
+        if (!empty($when_raw['outside_hours_range'])) {
+            $when['outside_hours_range'] = (string)$when_raw['outside_hours_range'];
+        }
+        if (isset($when_raw['consecutive_fail_login_gt_N'])) {
+            $when['consecutive_fail_login_gt_N'] = (int)$when_raw['consecutive_fail_login_gt_N'];
+        }
+
+        $then = array(
+            'channel_ids' => isset($then_raw['channel_ids']) && is_array($then_raw['channel_ids'])
+                ? array_values(array_filter($then_raw['channel_ids'], 'is_string'))
+                : array(),
+            'severity' => isset($then_raw['severity']) && in_array($then_raw['severity'], array('info', 'warning', 'critical'), true)
+                ? $then_raw['severity']
+                : 'warning',
+        );
+
+        $rule = array(
+            'id' => $id,
+            'name' => $name,
+            'enabled' => $enabled,
+            'when' => $when,
+            'then' => $then,
+        );
+
+        $rules[] = $rule;
+        gojs_save_alert_rules($rules);
+        gojs_json_response($rule);
+    } else {
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+    }
+}
+
+function gojs_api_alert_rule($id, $method) {
+    $rules = gojs_load_alert_rules();
+    $idx = -1;
+    foreach ($rules as $i => $r) {
+        if (isset($r['id']) && $r['id'] === $id) {
+            $idx = $i;
+            break;
+        }
+    }
+    if ($idx < 0) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '规则不存在'), 404);
+    }
+
+    if ($method === 'PUT') {
+        $body = gojs_get_body();
+        $rule = $rules[$idx];
+        if (isset($body['name'])) $rule['name'] = (string)$body['name'];
+        if (isset($body['enabled'])) $rule['enabled'] = (bool)$body['enabled'];
+
+        if (isset($body['when']) && is_array($body['when'])) {
+            $when_raw = $body['when'];
+            $when = isset($rule['when']) && is_array($rule['when']) ? $rule['when'] : array();
+            if (array_key_exists('action_in', $when_raw)) {
+                if (is_array($when_raw['action_in'])) {
+                    $when['action_in'] = array_values(array_filter($when_raw['action_in'], 'is_string'));
+                } else {
+                    unset($when['action_in']);
+                }
+            }
+            if (array_key_exists('action_not_in', $when_raw)) {
+                if (is_array($when_raw['action_not_in'])) {
+                    $when['action_not_in'] = array_values(array_filter($when_raw['action_not_in'], 'is_string'));
+                } else {
+                    unset($when['action_not_in']);
+                }
+            }
+            if (array_key_exists('ip_not_in_whitelist', $when_raw)) {
+                if ($when_raw['ip_not_in_whitelist'] === null) {
+                    unset($when['ip_not_in_whitelist']);
+                } else {
+                    $when['ip_not_in_whitelist'] = (bool)$when_raw['ip_not_in_whitelist'];
+                }
+            }
+            if (array_key_exists('outside_hours_range', $when_raw)) {
+                if ($when_raw['outside_hours_range'] === '' || $when_raw['outside_hours_range'] === null) {
+                    unset($when['outside_hours_range']);
+                } else {
+                    $when['outside_hours_range'] = (string)$when_raw['outside_hours_range'];
+                }
+            }
+            if (array_key_exists('consecutive_fail_login_gt_N', $when_raw)) {
+                if ($when_raw['consecutive_fail_login_gt_N'] === null) {
+                    unset($when['consecutive_fail_login_gt_N']);
+                } else {
+                    $when['consecutive_fail_login_gt_N'] = (int)$when_raw['consecutive_fail_login_gt_N'];
+                }
+            }
+            $rule['when'] = $when;
+        }
+
+        if (isset($body['then']) && is_array($body['then'])) {
+            $then_raw = $body['then'];
+            $then = isset($rule['then']) && is_array($rule['then']) ? $rule['then'] : array('channel_ids' => array(), 'severity' => 'warning');
+            if (isset($then_raw['channel_ids']) && is_array($then_raw['channel_ids'])) {
+                $then['channel_ids'] = array_values(array_filter($then_raw['channel_ids'], 'is_string'));
+            }
+            if (isset($then_raw['severity']) && in_array($then_raw['severity'], array('info', 'warning', 'critical'), true)) {
+                $then['severity'] = $then_raw['severity'];
+            }
+            $rule['then'] = $then;
+        }
+
+        $rules[$idx] = $rule;
+        gojs_save_alert_rules($rules);
+        gojs_json_response($rule);
+    } elseif ($method === 'DELETE') {
+        array_splice($rules, $idx, 1);
+        gojs_save_alert_rules($rules);
+        gojs_json_response(array('ok' => true));
+    } else {
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+    }
+}
+
+function gojs_api_alert_rule_test($id) {
+    $rules = gojs_load_alert_rules();
+    $rule = null;
+    foreach ($rules as $r) {
+        if (isset($r['id']) && $r['id'] === $id) {
+            $rule = $r;
+            break;
+        }
+    }
+    if ($rule === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '规则不存在'), 404);
+    }
+
+    $severity = isset($rule['then']['severity']) ? $rule['then']['severity'] : 'warning';
+    $channel_ids = isset($rule['then']['channel_ids']) ? $rule['then']['channel_ids'] : array();
+    $rule_name = isset($rule['name']) ? $rule['name'] : 'Unnamed Rule';
+
+    $category = $severity === 'critical' ? 'security' : 'system';
+    $title_key_map = array(
+        'info' => 'oplog_alert_info',
+        'warning' => 'oplog_alert_warning',
+        'critical' => 'oplog_alert_critical',
+    );
+    $title_key = isset($title_key_map[$severity]) ? $title_key_map[$severity] : 'oplog_alert_warning';
+
+    $body_params = array(
+        'rule_name' => $rule_name,
+    );
+
+    gojs_append_notification(array(
+        'category' => $category,
+        'severity' => $severity,
+        'title_key' => $title_key,
+        'body_key' => 'oplog_alert_test_body',
+        'body_params' => $body_params,
+        'payload' => array(
+            'source' => 'alert_rule_test',
+            'rule_id' => $id,
+            'rule_name' => $rule_name,
+            'synthetic' => true,
+        ),
+    ));
+
+    gojs_append_outbox(array(
+        'channel_ids' => $channel_ids,
+        'payload' => array(
+            'subject' => '[Go.js Alert TEST] ' . $rule_name,
+            'body' => "Alert rule test firing:\nRule: " . $rule_name . "\nSeverity: " . $severity . "\nTime: " . date('Y-m-d H:i:s'),
+        ),
+    ));
+
+    gojs_json_response(array('ok' => true, 'fired' => true));
+}
+
+function gojs_alerts_evaluate(string $kind, array $context): array {
+    global $config;
+    $rules = gojs_load_alert_rules();
+    $fired = array();
+
+    $whitelist = isset($config['alert_whitelist_ips']) && is_array($config['alert_whitelist_ips'])
+        ? $config['alert_whitelist_ips']
+        : array();
+    $whitelist_empty = count($whitelist) === 0;
+
+    foreach ($rules as $rule) {
+        if (empty($rule['enabled'])) continue;
+        $when = isset($rule['when']) && is_array($rule['when']) ? $rule['when'] : array();
+        $matches_all = true;
+
+        if ($kind === 'oplog') {
+            $action = isset($context['action']) ? $context['action'] : '';
+            $ip = isset($context['ip']) ? $context['ip'] : '';
+            $ts = isset($context['timestamp']) ? (int)$context['timestamp'] : time();
+
+            if (isset($when['action_in']) && is_array($when['action_in']) && count($when['action_in']) > 0) {
+                if (!in_array($action, $when['action_in'], true)) {
+                    $matches_all = false;
+                }
+            }
+            if ($matches_all && isset($when['action_not_in']) && is_array($when['action_not_in']) && count($when['action_not_in']) > 0) {
+                if (in_array($action, $when['action_not_in'], true)) {
+                    $matches_all = false;
+                }
+            }
+            if ($matches_all && !empty($when['ip_not_in_whitelist'])) {
+                if ($whitelist_empty) {
+                    $matches_all = false;
+                } else {
+                    if (in_array($ip, $whitelist, true)) {
+                        $matches_all = false;
+                    }
+                }
+            }
+            if ($matches_all && !empty($when['outside_hours_range'])) {
+                $range = $when['outside_hours_range'];
+                if (preg_match('/^(\d{2}:\d{2})-(\d{2}:\d{2})$/', $range, $m)) {
+                    $start_str = $m[1];
+                    $end_str = $m[2];
+                    $now_hm = date('H:i', $ts);
+                    $now_min = (int)substr($now_hm, 0, 2) * 60 + (int)substr($now_hm, 3, 2);
+                    $s_min = (int)substr($start_str, 0, 2) * 60 + (int)substr($start_str, 3, 2);
+                    $e_min = (int)substr($end_str, 0, 2) * 60 + (int)substr($end_str, 3, 2);
+                    $inside = false;
+                    if ($s_min <= $e_min) {
+                        $inside = ($now_min >= $s_min && $now_min <= $e_min);
+                    } else {
+                        $inside = ($now_min >= $s_min || $now_min <= $e_min);
+                    }
+                    if ($inside) {
+                        $matches_all = false;
+                    }
+                }
+            }
+        } elseif ($kind === 'auth_fail') {
+            $fail_count = isset($context['fail_count']) ? (int)$context['fail_count'] : 0;
+            if (isset($when['consecutive_fail_login_gt_N'])) {
+                $n = (int)$when['consecutive_fail_login_gt_N'];
+                if ($fail_count <= $n) {
+                    $matches_all = false;
+                }
+            } else {
+                $matches_all = false;
+            }
+        } else {
+            $matches_all = false;
+        }
+
+        if ($matches_all) {
+            $then = isset($rule['then']) && is_array($rule['then']) ? $rule['then'] : array();
+            $severity = isset($then['severity']) ? $then['severity'] : 'warning';
+            $channel_ids = isset($then['channel_ids']) && is_array($then['channel_ids']) ? $then['channel_ids'] : array();
+            $rule_name = isset($rule['name']) ? $rule['name'] : 'Unnamed Rule';
+            $rule_id = isset($rule['id']) ? $rule['id'] : '';
+
+            $category = $severity === 'critical' ? 'security' : 'system';
+            $title_key_map = array(
+                'info' => 'oplog_alert_info',
+                'warning' => 'oplog_alert_warning',
+                'critical' => 'oplog_alert_critical',
+            );
+            $title_key = isset($title_key_map[$severity]) ? $title_key_map[$severity] : 'oplog_alert_warning';
+
+            $body_params = array(
+                'rule_name' => $rule_name,
+            );
+            if ($kind === 'oplog') {
+                $body_params['action'] = isset($context['action']) ? $context['action'] : '';
+                $body_params['ip'] = isset($context['ip']) ? $context['ip'] : '';
+                $body_params['detail'] = isset($context['detail']) ? $context['detail'] : '';
+            } elseif ($kind === 'auth_fail') {
+                $body_params['ip'] = isset($context['ip']) ? $context['ip'] : '';
+                $body_params['fail_count'] = (string)$fail_count;
+            }
+
+            gojs_append_notification(array(
+                'category' => $category,
+                'severity' => $severity,
+                'title_key' => $title_key,
+                'body_key' => $kind === 'auth_fail' ? 'oplog_alert_authfail_body' : 'oplog_alert_oplog_body',
+                'body_params' => $body_params,
+                'payload' => array(
+                    'source' => 'alert_rule',
+                    'rule_id' => $rule_id,
+                    'rule_name' => $rule_name,
+                    'kind' => $kind,
+                    'context' => $context,
+                ),
+            ));
+
+            $outbox_body = "Alert fired: " . $rule_name . "\nSeverity: " . $severity . "\nTime: " . date('Y-m-d H:i:s');
+            if ($kind === 'oplog') {
+                $outbox_body .= "\nAction: " . (isset($context['action']) ? $context['action'] : '') .
+                    "\nIP: " . (isset($context['ip']) ? $context['ip'] : '') .
+                    "\nDetail: " . (isset($context['detail']) ? $context['detail'] : '');
+            } elseif ($kind === 'auth_fail') {
+                $outbox_body .= "\nIP: " . (isset($context['ip']) ? $context['ip'] : '') .
+                    "\nFailures: " . $fail_count;
+            }
+
+            gojs_append_outbox(array(
+                'channel_ids' => $channel_ids,
+                'payload' => array(
+                    'subject' => '[Go.js Alert] ' . $severity . ' - ' . $rule_name,
+                    'body' => $outbox_body,
+                ),
+            ));
+
+            $fired[] = $rule_id;
+        }
+    }
+
+    return $fired;
+}
+
 function gojs_encrypt($data) {
     if (!function_exists('openssl_encrypt')) {
         return base64_encode($data);
@@ -7222,4 +8832,4097 @@ function gojs_api_ssl_remove_domain() {
 
     gojs_log_operation('ssl_remove_domain', $domain, true);
     gojs_json_response(array('ok' => true));
+}
+
+define('GOJS_ACME_ACCOUNT_FILE', CONFIG_DIR . '/acme_account.json');
+define('GOJS_ACME_CERTS_FILE', CONFIG_DIR . '/acme_certs.json');
+define('GOJS_ACME_CHALLENGES_DIRNAME', 'acme_challenges');
+define('GOJS_ACME_CHALLENGES_DIR', CONFIG_DIR . '/' . GOJS_ACME_CHALLENGES_DIRNAME);
+
+function gojs_acme_docroot(): string {
+    global $root_path;
+    if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+        return rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']), '/');
+    }
+    if (is_string($root_path) && is_dir($root_path)) {
+        return rtrim($root_path, '/');
+    }
+    return rtrim(PANEL_ROOT, '/');
+}
+
+function gojs_acme_challenges_docroot_dir(): string {
+    $docroot = gojs_acme_docroot();
+    return $docroot . '/.well-known/acme-challenge';
+}
+
+function gojs_acme_ensure_dirs(): void {
+    if (!is_dir(CONFIG_DIR)) {
+        @mkdir(CONFIG_DIR, 0700, true);
+    }
+    if (!is_dir(GOJS_ACME_CHALLENGES_DIR)) {
+        @mkdir(GOJS_ACME_CHALLENGES_DIR, 0700, true);
+    }
+    $docroot_challenges = gojs_acme_challenges_docroot_dir();
+    if (!is_dir($docroot_challenges)) {
+        @mkdir($docroot_challenges, 0755, true);
+    }
+}
+
+function gojs_acme_base64url_encode(string $data): string {
+    return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
+}
+
+function gojs_acme_base64url_decode(string $data): string {
+    $rest = strlen($data) % 4;
+    if ($rest) {
+        $data .= str_repeat('=', 4 - $rest);
+    }
+    return base64_decode(strtr($data, '-_', '+/'));
+}
+
+function gojs_acme_dir(string $ca = 'letsencrypt'): array {
+    static $cache = array();
+    if (isset($cache[$ca])) {
+        return $cache[$ca];
+    }
+    $urls = array(
+        'letsencrypt' => 'https://acme-v02.api.letsencrypt.org/directory',
+        'letsencrypt-staging' => 'https://acme-staging-v02.api.letsencrypt.org/directory',
+    );
+    $dir_url = isset($urls[$ca]) ? $urls[$ca] : $urls['letsencrypt'];
+
+    $ch = curl_init($dir_url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 30);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_FOLLOWLOCATION, true);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Go.js-ACME-Client/' . VERSION);
+    $body = curl_exec($ch);
+    $code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+
+    if ($code < 200 || $code >= 300 || !$body) {
+        throw new RuntimeException('ACME directory discovery failed for ' . $ca . ': HTTP ' . $code);
+    }
+    $dir = json_decode($body, true);
+    if (!is_array($dir)) {
+        throw new RuntimeException('ACME directory returned invalid JSON');
+    }
+    $cache[$ca] = array(
+        'newNonce' => isset($dir['newNonce']) ? $dir['newNonce'] : '',
+        'newAccount' => isset($dir['newAccount']) ? $dir['newAccount'] : '',
+        'newOrder' => isset($dir['newOrder']) ? $dir['newOrder'] : '',
+        'revokeCert' => isset($dir['revokeCert']) ? $dir['revokeCert'] : '',
+        'keyChange' => isset($dir['keyChange']) ? $dir['keyChange'] : '',
+    );
+    return $cache[$ca];
+}
+
+function gojs_acme_get_nonce(string $ca = 'letsencrypt', string $last_nonce = ''): string {
+    static $last = array();
+    if ($last_nonce !== '') {
+        $last[$ca] = $last_nonce;
+    }
+    if (!empty($last[$ca])) {
+        $n = $last[$ca];
+        $last[$ca] = '';
+        return $n;
+    }
+    $dir = gojs_acme_dir($ca);
+    $ch = curl_init($dir['newNonce']);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 15);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'HEAD');
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    curl_setopt($ch, CURLOPT_NOBODY, true);
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Go.js-ACME-Client/' . VERSION);
+    $resp = curl_exec($ch);
+    curl_close($ch);
+    if (!$resp) return '';
+    if (preg_match('/^Replay-Nonce:\s*(\S+)/mi', $resp, $m)) {
+        return trim($m[1]);
+    }
+    return '';
+}
+
+function gojs_acme_rsa_jwk_from_pkey($pkey): array {
+    $details = openssl_pkey_get_details($pkey);
+    if (!$details || empty($details['rsa'])) {
+        throw new RuntimeException('Unable to extract RSA key details');
+    }
+    $rsa = $details['rsa'];
+    return array(
+        'kty' => 'RSA',
+        'n' => gojs_acme_base64url_encode($rsa['n']),
+        'e' => gojs_acme_base64url_encode($rsa['e']),
+    );
+}
+
+function gojs_acme_thumbprint(string $jwk_json_or_array): string {
+    if (is_array($jwk_json_or_array)) {
+        $jwk = $jwk_json_or_array;
+    } else {
+        $jwk = json_decode($jwk_json_or_array, true);
+        if (!is_array($jwk)) $jwk = array();
+    }
+    $canonical = json_encode(array(
+        'e' => isset($jwk['e']) ? $jwk['e'] : '',
+        'kty' => isset($jwk['kty']) ? $jwk['kty'] : '',
+        'n' => isset($jwk['n']) ? $jwk['n'] : '',
+    ), JSON_UNESCAPED_SLASHES);
+    $hash = hash('sha256', $canonical, true);
+    return gojs_acme_base64url_encode($hash);
+}
+
+function gojs_acme_signed_request(string $url, $payload, $account_or_jwk, string $nonce, string $ca = 'letsencrypt', int $depth = 0): array {
+    $is_jwk = is_array($account_or_jwk) && isset($account_or_jwk['kty']);
+    $key_pem = $is_jwk ? '' : (isset($account_or_jwk['key_pem']) ? $account_or_jwk['key_pem'] : '');
+    $pkey = openssl_pkey_get_private($key_pem);
+    if (!$pkey) {
+        throw new RuntimeException('Unable to load ACME account private key');
+    }
+    $jwk = $is_jwk ? $account_or_jwk : gojs_acme_rsa_jwk_from_pkey($pkey);
+
+    $protected = array(
+        'alg' => 'RS256',
+        'nonce' => $nonce,
+        'url' => $url,
+    );
+    if ($is_jwk) {
+        $protected['jwk'] = $jwk;
+    } else {
+        if (empty($account_or_jwk['kid'])) {
+            throw new RuntimeException('Account kid missing for signed request');
+        }
+        $protected['kid'] = $account_or_jwk['kid'];
+    }
+
+    if ($payload === '') {
+        $payload_encoded = '';
+    } elseif (is_array($payload)) {
+        $payload_encoded = gojs_acme_base64url_encode(json_encode($payload, JSON_UNESCAPED_SLASHES));
+    } else {
+        $payload_encoded = gojs_acme_base64url_encode((string)$payload);
+    }
+    $protected_encoded = gojs_acme_base64url_encode(json_encode($protected, JSON_UNESCAPED_SLASHES));
+    $signing_input = $protected_encoded . '.' . $payload_encoded;
+
+    $signature = '';
+    openssl_sign($signing_input, $signature, $pkey, 'sha256WithRSAEncryption');
+    $sig_encoded = gojs_acme_base64url_encode($signature);
+
+    $body = json_encode(array(
+        'protected' => $protected_encoded,
+        'payload' => $payload_encoded,
+        'signature' => $sig_encoded,
+    ));
+
+    $ch = curl_init($url);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $body);
+    curl_setopt($ch, CURLOPT_HEADER, true);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, array(
+        'Content-Type: application/jose+json',
+        'Accept: application/json, application/problem+json',
+    ));
+    curl_setopt($ch, CURLOPT_USERAGENT, 'Go.js-ACME-Client/' . VERSION);
+    $response = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $header_size = curl_getinfo($ch, CURLINFO_HEADER_SIZE);
+    $headers_raw = substr($response, 0, $header_size);
+    $resp_body = substr($response, $header_size);
+    curl_close($ch);
+
+    $new_nonce = '';
+    if (preg_match('/^Replay-Nonce:\s*(\S+)/mi', $headers_raw, $m)) {
+        $new_nonce = trim($m[1]);
+        gojs_acme_get_nonce($ca, $new_nonce);
+    }
+    $location = '';
+    if (preg_match('/^Location:\s*(\S+)/mi', $headers_raw, $m)) {
+        $location = trim($m[1]);
+    }
+    $retry_after = 0;
+    if (preg_match('/^Retry-After:\s*(\d+)/mi', $headers_raw, $m)) {
+        $retry_after = (int)$m[1];
+    }
+
+    $parsed = json_decode($resp_body, true);
+    $body_result = is_array($parsed) ? $parsed : $resp_body;
+
+    if ($code >= 400 && is_array($body_result) && isset($body_result['type']) && $body_result['type'] === 'urn:ietf:params:acme:error:badNonce' && $depth === 0) {
+        $new_nonce_retry = gojs_acme_get_nonce($ca);
+        return gojs_acme_signed_request($url, $payload, $account_or_jwk, $new_nonce_retry, $ca, 1);
+    }
+
+    return array(
+        'code' => $code,
+        'body' => $body_result,
+        'retry_after' => $retry_after,
+        'location' => $location,
+    );
+}
+
+function gojs_acme_load_account(): array {
+    if (!file_exists(GOJS_ACME_ACCOUNT_FILE)) {
+        return array();
+    }
+    $raw = @file_get_contents(GOJS_ACME_ACCOUNT_FILE);
+    if (!$raw) return array();
+    $data = json_decode($raw, true);
+    if (!is_array($data)) return array();
+    return $data;
+}
+
+function gojs_acme_save_account(array $account): void {
+    gojs_acme_ensure_dirs();
+    @file_put_contents(GOJS_ACME_ACCOUNT_FILE, json_encode($account, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    @chmod(GOJS_ACME_ACCOUNT_FILE, 0600);
+}
+
+function gojs_acme_ensure_account(string $email, string $ca = 'letsencrypt', bool $terms_agreed = true): array {
+    gojs_acme_ensure_dirs();
+    $stored = gojs_acme_load_account();
+    $key_pem = '';
+    $ca_key = $ca . '_' . md5(strtolower($email));
+
+    if (isset($stored[$ca_key]) && is_array($stored[$ca_key])) {
+        $existing = $stored[$ca_key];
+        if (!empty($existing['account_key_pem_enc_sealed'])) {
+            $pem = gojs_decrypt($existing['account_key_pem_enc_sealed']);
+            if (is_string($pem) && $pem !== '' && !empty($existing['kid'])) {
+                return array(
+                    'account_url' => isset($existing['account_url']) ? $existing['account_url'] : '',
+                    'kid' => $existing['kid'],
+                    'account_key_pem_enc_sealed' => $existing['account_key_pem_enc_sealed'],
+                    'key_pem_plain' => $pem,
+                );
+            }
+        }
+    }
+
+    $pkey = openssl_pkey_new(array(
+        'private_key_bits' => 2048,
+        'private_key_type' => OPENSSL_KEYTYPE_RSA,
+    ));
+    if (!$pkey) {
+        throw new RuntimeException('Failed to generate RSA account key');
+    }
+    $pem_export = '';
+    openssl_pkey_export($pkey, $pem_export);
+    if ($pem_export === '' || $pem_export === null) {
+        throw new RuntimeException('Failed to export account private key');
+    }
+    $sealed = gojs_seal_secret($pem_export);
+    $jwk = gojs_acme_rsa_jwk_from_pkey($pkey);
+
+    $nonce = gojs_acme_get_nonce($ca);
+    $dir = gojs_acme_dir($ca);
+    $payload = array(
+        'termsOfServiceAgreed' => $terms_agreed,
+        'contact' => array('mailto:' . $email),
+    );
+    $account_wrap = array('key_pem' => $pem_export);
+    $resp = gojs_acme_signed_request($dir['newAccount'], $payload, $jwk, $nonce, $ca);
+
+    if ($resp['code'] !== 200 && $resp['code'] !== 201) {
+        $msg = is_array($resp['body']) && isset($resp['body']['detail']) ? $resp['body']['detail'] : 'HTTP ' . $resp['code'];
+        throw new RuntimeException('ACME newAccount failed: ' . $msg);
+    }
+    $kid = $resp['location'];
+    if ($kid === '') {
+        throw new RuntimeException('ACME server did not return account location (kid)');
+    }
+
+    $stored[$ca_key] = array(
+        'email' => $email,
+        'ca' => $ca,
+        'kid' => $kid,
+        'account_url' => $kid,
+        'account_key_pem_enc_sealed' => $sealed,
+        'jwk_thumbprint' => gojs_acme_thumbprint($jwk),
+        'registered_at' => time(),
+    );
+    gojs_acme_save_account($stored);
+
+    return array(
+        'account_url' => $kid,
+        'kid' => $kid,
+        'account_key_pem_enc_sealed' => $sealed,
+        'key_pem_plain' => $pem_export,
+    );
+}
+
+function gojs_acme_load_certs(): array {
+    if (!file_exists(GOJS_ACME_CERTS_FILE)) {
+        return array();
+    }
+    $raw = @file_get_contents(GOJS_ACME_CERTS_FILE);
+    if (!$raw) return array();
+    $data = json_decode($raw, true);
+    if (!is_array($data)) return array();
+    return $data;
+}
+
+function gojs_acme_save_certs(array $records): void {
+    gojs_acme_ensure_dirs();
+    @file_put_contents(GOJS_ACME_CERTS_FILE, json_encode($records, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    @chmod(GOJS_ACME_CERTS_FILE, 0600);
+}
+
+function gojs_acme_place_http01(string $domain, string $token, $jwk): bool {
+    gojs_acme_ensure_dirs();
+    if (is_array($jwk) && isset($jwk['kty'])) {
+        $thumb = gojs_acme_thumbprint($jwk);
+    } else {
+        $stored = gojs_acme_load_account();
+        $first = reset($stored);
+        $thumb = is_array($first) && isset($first['jwk_thumbprint']) ? $first['jwk_thumbprint'] : gojs_acme_thumbprint($jwk);
+    }
+    $content = $token . '.' . $thumb;
+
+    $ok = false;
+
+    $docroot_dir = gojs_acme_challenges_docroot_dir();
+    if (!is_dir($docroot_dir)) {
+        @mkdir($docroot_dir, 0755, true);
+    }
+    $target = $docroot_dir . '/' . $token;
+    $wrote = @file_put_contents($target, $content);
+    if ($wrote !== false) {
+        @chmod($target, 0644);
+        $ok = true;
+    }
+
+    $fallback_dir = GOJS_ACME_CHALLENGES_DIR;
+    if (!is_dir($fallback_dir)) {
+        @mkdir($fallback_dir, 0700, true);
+    }
+    @file_put_contents($fallback_dir . '/' . $token, $content);
+    @chmod($fallback_dir . '/' . $token, 0600);
+
+    return $ok;
+}
+
+function gojs_acme_order(string $domain, string $email, string $ca = 'letsencrypt'): array {
+    $account = gojs_acme_ensure_account($email, $ca, true);
+    $nonce = gojs_acme_get_nonce($ca);
+    $dir = gojs_acme_dir($ca);
+
+    $identifiers = array(array('type' => 'dns', 'value' => $domain));
+    $payload = array('identifiers' => $identifiers);
+    $account_wrap = array('key_pem' => $account['key_pem_plain'], 'kid' => $account['kid']);
+
+    $resp = gojs_acme_signed_request($dir['newOrder'], $payload, $account_wrap, $nonce, $ca);
+
+    if ($resp['code'] !== 201) {
+        $msg = is_array($resp['body']) && isset($resp['body']['detail']) ? $resp['body']['detail'] : 'HTTP ' . $resp['code'];
+        return array('ok' => false, 'error' => 'ACME newOrder failed: ' . $msg);
+    }
+
+    $order_url = $resp['location'];
+    $body = is_array($resp['body']) ? $resp['body'] : array();
+    $authorizations = isset($body['authorizations']) && is_array($body['authorizations']) ? $body['authorizations'] : array();
+
+    $auth_details = array();
+    foreach ($authorizations as $auth_url) {
+        $auth_nonce = gojs_acme_get_nonce($ca);
+        $auth_resp = gojs_acme_signed_request($auth_url, '', $account_wrap, $auth_nonce, $ca);
+        if ($auth_resp['code'] === 200 && is_array($auth_resp['body'])) {
+            $ab = $auth_resp['body'];
+            $challenges = array();
+            if (isset($ab['challenges']) && is_array($ab['challenges'])) {
+                foreach ($ab['challenges'] as $c) {
+                    if (is_array($c) && isset($c['type']) && $c['type'] === 'http-01') {
+                        $challenges[] = array(
+                            'type' => 'http-01',
+                            'token' => isset($c['token']) ? $c['token'] : '',
+                            'url' => isset($c['url']) ? $c['url'] : '',
+                            'status' => isset($c['status']) ? $c['status'] : 'pending',
+                        );
+                    }
+                }
+            }
+            $auth_details[] = array(
+                'identifier' => isset($ab['identifier']) ? $ab['identifier'] : array(),
+                'challenges' => $challenges,
+                'auth_url' => $auth_url,
+            );
+        }
+    }
+
+    $finalize_url = isset($body['finalize']) ? $body['finalize'] : '';
+
+    return array(
+        'ok' => true,
+        'order_url' => $order_url,
+        'finalize_url' => $finalize_url,
+        'authorizations' => $auth_details,
+        '_account' => $account,
+    );
+}
+
+function gojs_acme_respond_challenge(string $challenge_url, $account_wrap, string $ca = 'letsencrypt'): array {
+    $nonce = gojs_acme_get_nonce($ca);
+    return gojs_acme_signed_request($challenge_url, array(), $account_wrap, $nonce, $ca);
+}
+
+function gojs_acme_poll_url(string $url, $account_wrap, string $ca = 'letsencrypt', int $max_attempts = 15, int $sleep_sec = 2): array {
+    for ($i = 0; $i < $max_attempts; $i++) {
+        $nonce = gojs_acme_get_nonce($ca);
+        $resp = gojs_acme_signed_request($url, '', $account_wrap, $nonce, $ca);
+        $code = $resp['code'];
+        $body = is_array($resp['body']) ? $resp['body'] : array();
+        $status = isset($body['status']) ? $body['status'] : '';
+        if ($code === 200 && ($status === 'valid' || $status === 'invalid' || $status === 'ready' || $status === 'processing')) {
+            if ($status === 'valid' || $status === 'invalid' || $status === 'ready') {
+                return $resp;
+            }
+        }
+        $sleep = $resp['retry_after'] > 0 ? $resp['retry_after'] : $sleep_sec;
+        if ($sleep > 0) sleep(min($sleep, 10));
+    }
+    return array('code' => 504, 'body' => array('error' => 'Poll timeout', 'detail' => 'Order/authorization did not reach valid/ready state in time'));
+}
+
+function gojs_acme_pem_to_der(string $pem): string {
+    $lines = explode("\n", $pem);
+    $der = '';
+    $in = false;
+    foreach ($lines as $line) {
+        $line = trim($line);
+        if ($line === '') continue;
+        if (strpos($line, '-----BEGIN') === 0) {
+            $in = true;
+            continue;
+        }
+        if (strpos($line, '-----END') === 0) {
+            break;
+        }
+        if ($in) $der .= $line;
+    }
+    return base64_decode($der);
+}
+
+function gojs_acme_finalize(string $finalize_url, string $csr_pem, $account_wrap, string $ca = 'letsencrypt'): array {
+    $der = gojs_acme_pem_to_der($csr_pem);
+    $payload = array('csr' => gojs_acme_base64url_encode($der));
+    $nonce = gojs_acme_get_nonce($ca);
+    return gojs_acme_signed_request($finalize_url, $payload, $account_wrap, $nonce, $ca);
+}
+
+function gojs_acme_fetch_certificate(string $cert_url, $account_wrap, string $ca = 'letsencrypt'): string {
+    $nonce = gojs_acme_get_nonce($ca);
+    $resp = gojs_acme_signed_request($cert_url, '', $account_wrap, $nonce, $ca);
+    if ($resp['code'] !== 200) {
+        throw new RuntimeException('Failed to fetch certificate: HTTP ' . $resp['code']);
+    }
+    if (is_string($resp['body'])) {
+        return $resp['body'];
+    }
+    return '';
+}
+
+function gojs_acme_split_fullchain(string $fullchain): array {
+    $certs = array();
+    $lines = explode("\n", $fullchain);
+    $buf = '';
+    $in = false;
+    foreach ($lines as $line) {
+        if (strpos($line, '-----BEGIN CERTIFICATE-----') !== false) {
+            $in = true;
+            $buf = $line . "\n";
+            continue;
+        }
+        if ($in) {
+            $buf .= $line . "\n";
+            if (strpos($line, '-----END CERTIFICATE-----') !== false) {
+                $in = false;
+                $certs[] = trim($buf);
+            }
+        }
+    }
+    if (count($certs) === 0) return array('cert' => '', 'fullchain' => $fullchain);
+    $cert = $certs[0];
+    return array('cert' => $cert, 'fullchain' => $fullchain);
+}
+
+function gojs_acme_cert_parse_dates(string $cert_pem): array {
+    $parsed = openssl_x509_parse($cert_pem);
+    if (!$parsed) return array('not_before' => 0, 'not_after' => 0);
+    $nb = isset($parsed['validFrom_time_t']) ? (int)$parsed['validFrom_time_t'] : 0;
+    $na = isset($parsed['validTo_time_t']) ? (int)$parsed['validTo_time_t'] : 0;
+    return array('not_before' => $nb, 'not_after' => $na);
+}
+
+function gojs_acme_cert_issuer(string $cert_pem): string {
+    $parsed = openssl_x509_parse($cert_pem);
+    if (!$parsed) return '';
+    $issuer = isset($parsed['issuer']) ? $parsed['issuer'] : array();
+    if (is_array($issuer)) {
+        return isset($issuer['CN']) ? $issuer['CN'] : (isset($issuer['O']) ? $issuer['O'] : '');
+    }
+    return (string)$issuer;
+}
+
+function gojs_acme_issue_cert(array $payload): array {
+    $domain = isset($payload['domain']) ? trim((string)$payload['domain']) : '';
+    $email = isset($payload['email']) ? trim((string)$payload['email']) : '';
+    $ca = isset($payload['ca']) ? (string)$payload['ca'] : 'letsencrypt';
+    $accept_tos = !empty($payload['accept_tos']);
+
+    if ($domain === '') {
+        return array('ok' => false, 'error' => 'ssl.acme.domainRequired', 'error_message' => 'Domain required');
+    }
+    if (!filter_var('user@' . $domain, FILTER_VALIDATE_DOMAIN) && !preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*\.[a-zA-Z]{2,}$/', $domain)) {
+        return array('ok' => false, 'error' => 'ssl.acme.domainInvalid', 'error_message' => 'Invalid domain format');
+    }
+    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        return array('ok' => false, 'error' => 'ssl.acme.emailInvalid', 'error_message' => 'Valid email required');
+    }
+    if (!$accept_tos) {
+        return array('ok' => false, 'error' => 'ssl.acme.acceptTosRequired', 'error_message' => 'Must accept TOS');
+    }
+    if (!extension_loaded('openssl')) {
+        return array('ok' => false, 'error' => 'ssl.acme.opensslUnavailable', 'error_message' => 'OpenSSL extension required');
+    }
+    $allowed_ca = array('letsencrypt', 'letsencrypt-staging');
+    if (!in_array($ca, $allowed_ca, true)) $ca = 'letsencrypt';
+
+    try {
+        $order_result = gojs_acme_order($domain, $email, $ca);
+        if (!$order_result['ok']) {
+            return array('ok' => false, 'error' => 'ssl.acme.orderFailed', 'error_message' => $order_result['error'] ?? 'Order failed');
+        }
+
+        $account = isset($order_result['_account']) ? $order_result['_account'] : null;
+        if (!$account || empty($account['key_pem_plain'])) {
+            return array('ok' => false, 'error' => 'ssl.acme.accountMissing', 'error_message' => 'Account setup failed');
+        }
+        $account_wrap = array('key_pem' => $account['key_pem_plain'], 'kid' => $account['kid']);
+        $pkey_for_jwk = openssl_pkey_get_private($account['key_pem_plain']);
+        if (!$pkey_for_jwk) {
+            return array('ok' => false, 'error' => 'ssl.acme.keyLoadFailed', 'error_message' => 'Key load failed');
+        }
+        $jwk = gojs_acme_rsa_jwk_from_pkey($pkey_for_jwk);
+
+        $authorizations = isset($order_result['authorizations']) ? $order_result['authorizations'] : array();
+        foreach ($authorizations as $auth) {
+            $challenges = isset($auth['challenges']) ? $auth['challenges'] : array();
+            foreach ($challenges as $c) {
+                if (isset($c['type']) && $c['type'] === 'http-01' && !empty($c['token'])) {
+                    gojs_acme_place_http01($domain, $c['token'], $jwk);
+                    gojs_acme_respond_challenge($c['url'], $account_wrap, $ca);
+                }
+            }
+            $auth_url = isset($auth['auth_url']) ? $auth['auth_url'] : '';
+            if ($auth_url !== '') {
+                $polled = gojs_acme_poll_url($auth_url, $account_wrap, $ca, 10, 2);
+                $pb = is_array($polled['body']) ? $polled['body'] : array();
+                if (isset($pb['status']) && $pb['status'] === 'invalid') {
+                    $detail = isset($pb['error']['detail']) ? $pb['error']['detail'] : (is_array($polled['body']) && isset($polled['body']['detail']) ? $polled['body']['detail'] : 'Authorization invalid');
+                    return array('ok' => false, 'error' => 'ssl.acme.authInvalid', 'error_message' => 'Authorization failed: ' . $detail);
+                }
+            }
+        }
+
+        $order_url = $order_result['order_url'];
+        $order_poll = gojs_acme_poll_url($order_url, $account_wrap, $ca, 10, 2);
+        $order_body = is_array($order_poll['body']) ? $order_poll['body'] : array();
+        $order_status = isset($order_body['status']) ? $order_body['status'] : '';
+        if ($order_status !== 'ready') {
+            if ($order_status === 'invalid') {
+                $detail = isset($order_body['error']['detail']) ? $order_body['error']['detail'] : 'Order invalid';
+                return array('ok' => false, 'error' => 'ssl.acme.orderInvalid', 'error_message' => 'Order invalid: ' . $detail);
+            }
+        }
+
+        $cert_pkey = openssl_pkey_new(array(
+            'private_key_bits' => 2048,
+            'private_key_type' => OPENSSL_KEYTYPE_RSA,
+        ));
+        if (!$cert_pkey) {
+            return array('ok' => false, 'error' => 'ssl.acme.certKeyGenFailed', 'error_message' => 'Certificate key generation failed');
+        }
+        $cert_privkey_pem = '';
+        openssl_pkey_export($cert_pkey, $cert_privkey_pem);
+
+        $san = '';
+        $dn = array(
+            'countryName' => 'XX',
+            'organizationName' => 'Go.js ACME',
+            'commonName' => $domain,
+        );
+        $csr = openssl_csr_new($dn, $cert_pkey, array('digest_alg' => 'sha256'));
+        if ($csr === false) {
+            return array('ok' => false, 'error' => 'ssl.acme.csrFailed', 'error_message' => 'CSR generation failed');
+        }
+        $csr_pem = '';
+        openssl_csr_export($csr, $csr_pem);
+
+        $finalize_url = isset($order_result['finalize_url']) ? $order_result['finalize_url'] : '';
+        if ($finalize_url === '' && is_array($order_body)) {
+            $finalize_url = isset($order_body['finalize']) ? $order_body['finalize'] : '';
+        }
+        gojs_acme_finalize($finalize_url, $csr_pem, $account_wrap, $ca);
+
+        $order_final = gojs_acme_poll_url($order_url, $account_wrap, $ca, 15, 3);
+        $final_body = is_array($order_final['body']) ? $order_final['body'] : array();
+        $final_status = isset($final_body['status']) ? $final_body['status'] : '';
+        if ($final_status !== 'valid') {
+            $detail = isset($final_body['error']['detail']) ? $final_body['error']['detail'] : 'Order did not finalize (status=' . $final_status . ')';
+            return array('ok' => false, 'error' => 'ssl.acme.finalizeFailed', 'error_message' => 'Finalize failed: ' . $detail);
+        }
+        $cert_url = isset($final_body['certificate']) ? $final_body['certificate'] : '';
+        if ($cert_url === '') {
+            return array('ok' => false, 'error' => 'ssl.acme.certUrlMissing', 'error_message' => 'Certificate URL missing');
+        }
+        $fullchain = gojs_acme_fetch_certificate($cert_url, $account_wrap, $ca);
+        $split = gojs_acme_split_fullchain($fullchain);
+        $cert_pem = $split['cert'];
+        $dates = gojs_acme_cert_parse_dates($cert_pem);
+        $issuer = gojs_acme_cert_issuer($cert_pem);
+
+        $records = gojs_acme_load_certs();
+        $id = 'cert_' . uniqid('', true);
+        $record = array(
+            'id' => $id,
+            'domain' => $domain,
+            'status' => 'valid',
+            'not_before_ts' => $dates['not_before'],
+            'not_after_ts' => $dates['not_after'],
+            'last_ordered_at' => time(),
+            'auto_renew_days_before' => 30,
+            'cert_pem_enc' => gojs_seal_secret($cert_pem),
+            'fullchain_pem_enc' => gojs_seal_secret($fullchain),
+            'privkey_pem_enc' => gojs_seal_secret($cert_privkey_pem),
+            'issuer_url' => $issuer,
+            'chain_thumbprint' => gojs_acme_thumbprint($jwk),
+            'ca' => $ca,
+            'san_domains' => array($domain),
+            'account_email' => $email,
+        );
+        $records[] = $record;
+        gojs_acme_save_certs($records);
+
+        gojs_append_notification(array(
+            'category' => 'ssl',
+            'severity' => 'success',
+            'title_key' => 'ssl.acme.certIssuedTitle',
+            'body_key' => 'ssl.acme.certIssuedBody',
+            'body_params' => array('domain' => $domain),
+            'payload' => array('certificate_id' => $id, 'domain' => $domain),
+        ));
+        gojs_log_operation('ssl_acme_issue', $domain, true, 'issued cert id=' . $id);
+
+        return array(
+            'ok' => true,
+            'certificate_id' => $id,
+            'cert_pem' => $cert_pem,
+            'fullchain_pem' => $fullchain,
+            'privkey_pem' => $cert_privkey_pem,
+            'not_before' => $dates['not_before'],
+            'not_after' => $dates['not_after'],
+            'issuer' => $issuer,
+        );
+    } catch (Throwable $e) {
+        gojs_append_notification(array(
+            'category' => 'ssl',
+            'severity' => 'error',
+            'title_key' => 'ssl.acme.certIssueFailedTitle',
+            'body_key' => 'ssl.acme.certIssueFailedBody',
+            'body_params' => array('domain' => $domain, 'error' => $e->getMessage()),
+            'payload' => array('domain' => $domain),
+        ));
+        return array('ok' => false, 'error' => 'ssl.acme.exception', 'error_message' => $e->getMessage());
+    }
+}
+
+function gojs_acme_renew_all_due(): array {
+    $records = gojs_acme_load_certs();
+    $now = time();
+    $renewed = 0;
+    $skipped = 0;
+    $failed = 0;
+
+    foreach ($records as $i => $r) {
+        if (!is_array($r)) continue;
+        $status = isset($r['status']) ? $r['status'] : '';
+        if ($status !== 'valid') {
+            $skipped++;
+            continue;
+        }
+        $not_after = isset($r['not_after_ts']) ? (int)$r['not_after_ts'] : 0;
+        $days_before = isset($r['auto_renew_days_before']) ? (int)$r['auto_renew_days_before'] : 30;
+        if ($days_before <= 0) {
+            $skipped++;
+            continue;
+        }
+        if (($not_after - $now) >= ($days_before * 86400)) {
+            $skipped++;
+            continue;
+        }
+        $domain = isset($r['domain']) ? $r['domain'] : '';
+        $email = isset($r['account_email']) ? $r['account_email'] : '';
+        $ca = isset($r['ca']) ? $r['ca'] : 'letsencrypt';
+        if ($domain === '' || $email === '') {
+            $failed++;
+            continue;
+        }
+        $result = gojs_acme_issue_cert(array(
+            'domain' => $domain,
+            'email' => $email,
+            'accept_tos' => true,
+            'ca' => $ca,
+        ));
+        if (!empty($result['ok'])) {
+            if (isset($result['certificate_id'])) {
+                $new_id = $result['certificate_id'];
+                $recs_reloaded = gojs_acme_load_certs();
+                $old_id = isset($r['id']) ? $r['id'] : '';
+                $recs_reloaded = array_values(array_filter($recs_reloaded, function($x) use ($old_id) {
+                    return !is_array($x) || !isset($x['id']) || $x['id'] !== $old_id;
+                }));
+                gojs_acme_save_certs($recs_reloaded);
+            }
+            $renewed++;
+        } else {
+            $failed++;
+        }
+    }
+    return array('renewed_count' => $renewed, 'skipped' => $skipped, 'failed' => $failed);
+}
+
+function gojs_acme_schedule_register_cronjob(): void {
+    global $config;
+    if (!isset($config['acme_last_renew_check_ts'])) {
+        $config['acme_last_renew_check_ts'] = 0;
+    }
+}
+
+function gojs_internal_cron_acme_renew_hook(array &$stats): void {
+    global $config;
+    $now = time();
+    $key = 'acme_last_renew_check_ts';
+    $last = isset($config[$key]) ? (int)$config[$key] : 0;
+    if (($now - $last) < 82800) {
+        return;
+    }
+    $config[$key] = $now;
+    gojs_save_config();
+    $renew_stats = gojs_acme_renew_all_due();
+    if (is_array($renew_stats)) {
+        $stats['acme_renewed'] = isset($renew_stats['renewed_count']) ? $renew_stats['renewed_count'] : 0;
+        $stats['acme_skipped'] = isset($renew_stats['skipped']) ? $renew_stats['skipped'] : 0;
+        $stats['acme_failed'] = isset($renew_stats['failed']) ? $renew_stats['failed'] : 0;
+    }
+}
+
+function gojs_api_ssl_acme_capabilities(): void {
+    gojs_acme_ensure_dirs();
+    $docroot = gojs_acme_docroot();
+    $docroot_known = !empty($_SERVER['DOCUMENT_ROOT']) || is_dir($docroot);
+    $challenges_dir = gojs_acme_challenges_docroot_dir();
+    if (!is_dir($challenges_dir)) {
+        @mkdir($challenges_dir, 0755, true);
+    }
+    $challenges_writable = is_dir($challenges_dir) && is_writable($challenges_dir);
+    $openssl_ok = extension_loaded('openssl');
+    $curl_ok = extension_loaded('curl');
+    $ext_ok = $openssl_ok && ($curl_ok || ini_get('allow_url_fopen'));
+    $available = $ext_ok && $challenges_writable;
+    $reason_key = null;
+    if (!$openssl_ok) $reason_key = 'ssl.acme.subheaderNeedExtOpenssl';
+    elseif (!$docroot_known) $reason_key = 'ssl.acme.subheaderDocrootUnknown';
+    elseif (!$challenges_writable) $reason_key = 'ssl.acme.subheaderChallengesNotWritable';
+    gojs_json_response(array(
+        'available' => $available,
+        'acme_extensions_ok' => $ext_ok,
+        'docroot_known' => $docroot_known,
+        'challenges_dir_writable' => $challenges_writable,
+        'reason_key' => $reason_key,
+    ));
+}
+
+function gojs_api_ssl_acme_certificates_list(): void {
+    $records = gojs_acme_load_certs();
+    $now = time();
+    $result = array();
+    foreach ($records as $r) {
+        if (!is_array($r)) continue;
+        $redacted = $r;
+        unset($redacted['privkey_pem_enc']);
+        $not_after = isset($r['not_after_ts']) ? (int)$r['not_after_ts'] : 0;
+        $days_before = isset($r['auto_renew_days_before']) ? (int)$r['auto_renew_days_before'] : 30;
+        $status_derived = isset($r['status']) ? $r['status'] : 'pending';
+        if ($status_derived === 'valid') {
+            if ($not_after > 0 && $now >= $not_after) {
+                $status_derived = 'expired';
+            } elseif ($not_after > 0 && ($not_after - $now) < ($days_before * 86400)) {
+                $status_derived = 'expiring_soon';
+            }
+        }
+        $redacted['status_derived'] = $status_derived;
+        $result[] = $redacted;
+    }
+    gojs_json_response(array('records' => $result));
+}
+
+function gojs_api_ssl_acme_issue_cert(): void {
+    $payload = gojs_get_body();
+    if (!is_array($payload)) $payload = array();
+    gojs_log_operation('ssl_acme_issue_start', isset($payload['domain']) ? $payload['domain'] : '', true);
+    $result = gojs_acme_issue_cert($payload);
+    if (!empty($result['ok'])) {
+        gojs_json_response(array(
+            'ok' => true,
+            'certificate_id' => isset($result['certificate_id']) ? $result['certificate_id'] : '',
+        ), null, 202);
+    } else {
+        $code = isset($result['error']) ? $result['error'] : 'ssl.acme.issueFailed';
+        $msg = isset($result['error_message']) ? $result['error_message'] : 'Certificate issuance failed';
+        gojs_json_response(null, array('code' => $code, 'message' => $msg, 'message_key' => $code), 400);
+    }
+}
+
+function gojs_api_ssl_acme_cert_renew(string $id): void {
+    $records = gojs_acme_load_certs();
+    $found = null;
+    $found_idx = -1;
+    foreach ($records as $i => $r) {
+        if (is_array($r) && isset($r['id']) && $r['id'] === $id) {
+            $found = $r;
+            $found_idx = $i;
+            break;
+        }
+    }
+    if ($found === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Certificate not found', 'message_key' => 'ssl.acme.certNotFound'), 404);
+        return;
+    }
+    $domain = isset($found['domain']) ? $found['domain'] : '';
+    $email = isset($found['account_email']) ? $found['account_email'] : '';
+    $ca = isset($found['ca']) ? $found['ca'] : 'letsencrypt';
+    if ($domain === '' || $email === '') {
+        gojs_json_response(null, array('code' => 'ssl.acme.missingInfo', 'message' => 'Domain or email missing on record'), 400);
+        return;
+    }
+    gojs_log_operation('ssl_acme_renew', $domain, true, 'id=' . $id);
+    $result = gojs_acme_issue_cert(array(
+        'domain' => $domain,
+        'email' => $email,
+        'accept_tos' => true,
+        'ca' => $ca,
+    ));
+    if (!empty($result['ok'])) {
+        if (isset($result['certificate_id']) && $result['certificate_id'] !== $id) {
+            $reloaded = gojs_acme_load_certs();
+            $reloaded = array_values(array_filter($reloaded, function($x) use ($id) {
+                return !is_array($x) || !isset($x['id']) || $x['id'] !== $id;
+            }));
+            gojs_acme_save_certs($reloaded);
+        }
+        gojs_json_response(array('ok' => true, 'renewed' => true, 'certificate_id' => isset($result['certificate_id']) ? $result['certificate_id'] : $id));
+    } else {
+        $code = isset($result['error']) ? $result['error'] : 'ssl.acme.renewFailed';
+        $msg = isset($result['error_message']) ? $result['error_message'] : 'Renew failed';
+        gojs_json_response(null, array('code' => $code, 'message' => $msg, 'message_key' => $code), 400);
+    }
+}
+
+function gojs_api_ssl_acme_cert_delete(string $id): void {
+    $records = gojs_acme_load_certs();
+    $domain = '';
+    $kept = array();
+    foreach ($records as $r) {
+        if (is_array($r) && isset($r['id']) && $r['id'] === $id) {
+            $domain = isset($r['domain']) ? $r['domain'] : '';
+            continue;
+        }
+        $kept[] = $r;
+    }
+    if (count($kept) === count($records)) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Certificate not found', 'message_key' => 'ssl.acme.certNotFound'), 404);
+        return;
+    }
+    gojs_acme_save_certs($kept);
+    gojs_log_operation('ssl_acme_delete', $domain, true, 'id=' . $id);
+    gojs_json_response(array('ok' => true));
+}
+
+function gojs_api_ssl_acme_cert_auto_renew(string $id): void {
+    $body = gojs_get_body();
+    $days = isset($body['auto_renew_days_before']) ? (int)$body['auto_renew_days_before'] : 0;
+    if ($days < 0) $days = 0;
+    if ($days > 90) $days = 90;
+    $records = gojs_acme_load_certs();
+    $found = false;
+    foreach ($records as $i => $r) {
+        if (is_array($r) && isset($r['id']) && $r['id'] === $id) {
+            $records[$i]['auto_renew_days_before'] = $days;
+            $found = true;
+            break;
+        }
+    }
+    if (!$found) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Certificate not found', 'message_key' => 'ssl.acme.certNotFound'), 404);
+        return;
+    }
+    gojs_acme_save_certs($records);
+    gojs_json_response(array('ok' => true, 'auto_renew_days_before' => $days));
+}
+
+function gojs_api_ssl_acme_cert_download_pem(string $id): void {
+    $records = gojs_acme_load_certs();
+    $found = null;
+    foreach ($records as $r) {
+        if (is_array($r) && isset($r['id']) && $r['id'] === $id) {
+            $found = $r;
+            break;
+        }
+    }
+    if ($found === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Certificate not found', 'message_key' => 'ssl.acme.certNotFound'), 404);
+        return;
+    }
+    $fullchain = isset($found['fullchain_pem_enc']) ? gojs_decrypt($found['fullchain_pem_enc']) : '';
+    $privkey = isset($found['privkey_pem_enc']) ? gojs_decrypt($found['privkey_pem_enc']) : '';
+    $cert = isset($found['cert_pem_enc']) ? gojs_decrypt($found['cert_pem_enc']) : '';
+    $domain = isset($found['domain']) ? $found['domain'] : 'certificate';
+    $bundle = '';
+    if (is_string($cert) && $cert !== '') $bundle .= $cert . "\n";
+    if (is_string($fullchain) && $fullchain !== '' && $fullchain !== $cert) $bundle .= $fullchain . "\n";
+    if (is_string($privkey) && $privkey !== '') $bundle .= $privkey . "\n";
+    if ($bundle === '') {
+        gojs_json_response(null, array('code' => 'ssl.acme.certEmpty', 'message' => 'No certificate data', 'message_key' => 'ssl.acme.certEmpty'), 404);
+        return;
+    }
+    $filename = preg_replace('/[^a-zA-Z0-9\-\.]/', '_', $domain) . '.pem';
+    if (!headers_sent()) {
+        header('Content-Type: application/x-pem-file');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Content-Length: ' . strlen($bundle));
+        header('X-Content-Type-Options: nosniff');
+    }
+    echo $bundle;
+    exit;
+}
+
+function gojs_api_notification_channels($method) {
+    if ($method === 'GET') {
+        $channels = gojs_load_channels();
+        $redacted = array_map('gojs_channel_redact', $channels);
+        gojs_json_response(array_values($redacted));
+    } elseif ($method === 'POST') {
+        $body = gojs_get_body();
+        $channels = gojs_load_channels();
+        $type = isset($body['type']) ? $body['type'] : '';
+        $name = isset($body['name']) ? trim((string)$body['name']) : '';
+        if (!in_array($type, array('email', 'smtp', 'webhook'), true)) {
+            gojs_json_response(null, array('code' => 'invalid_type', 'message' => '无效的 channel 类型'), 400);
+        }
+        if ($name === '') {
+            gojs_json_response(null, array('code' => 'invalid_name', 'message' => '名称不能为空'), 400);
+        }
+        $id = uniqid('ch_', true);
+        $channel = array(
+            'id' => $id,
+            'name' => $name,
+            'type' => $type,
+            'enabled' => isset($body['enabled']) ? (bool)$body['enabled'] : true,
+            'created_at' => time(),
+        );
+        if ($type === 'email') {
+            if (isset($body['from_addr'])) $channel['from_addr'] = (string)$body['from_addr'];
+            if (isset($body['to_addr'])) $channel['to_addr'] = (string)$body['to_addr'];
+        } elseif ($type === 'smtp') {
+            $channel['host'] = isset($body['host']) ? (string)$body['host'] : '';
+            $channel['port'] = isset($body['port']) ? (int)$body['port'] : 25;
+            $channel['from_addr'] = isset($body['from_addr']) ? (string)$body['from_addr'] : '';
+            if (isset($body['to_addr'])) $channel['to_addr'] = (string)$body['to_addr'];
+            if (isset($body['username'])) $channel['username'] = (string)$body['username'];
+            if (isset($body['use_tls'])) $channel['use_tls'] = (bool)$body['use_tls'];
+            if (isset($body['password']) && $body['password'] !== '' && $body['password'] !== '****') {
+                $channel['password_enc'] = gojs_seal_secret($body['password']);
+            }
+        } elseif ($type === 'webhook') {
+            $channel['url'] = isset($body['url']) ? (string)$body['url'] : '';
+            if (isset($body['method'])) $channel['method'] = in_array(strtoupper((string)$body['method']), array('POST', 'PUT'), true) ? strtoupper((string)$body['method']) : 'POST';
+            if (isset($body['headers']) && is_array($body['headers']) && count($body['headers']) > 0) {
+                $channel['headers_enc'] = gojs_seal_secret(json_encode($body['headers'], JSON_UNESCAPED_UNICODE));
+            }
+        }
+        $channels[] = $channel;
+        gojs_save_channels($channels);
+        gojs_log_operation('notify_channel_create', $id . '::' . $type, true);
+        gojs_json_response(gojs_channel_redact($channel));
+    } else {
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+    }
+}
+
+function gojs_api_notification_channel($id, $method) {
+    $channels = gojs_load_channels();
+    $idx = -1;
+    $target = null;
+    foreach ($channels as $i => $ch) {
+        if (isset($ch['id']) && $ch['id'] === $id) {
+            $idx = $i;
+            $target = $ch;
+            break;
+        }
+    }
+    if ($target === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Channel 不存在'), 404);
+    }
+
+    if ($method === 'PUT') {
+        $body = gojs_get_body();
+        if (isset($body['name'])) $target['name'] = trim((string)$body['name']);
+        if (isset($body['enabled'])) $target['enabled'] = (bool)$body['enabled'];
+        $type = $target['type'];
+        if ($type === 'email') {
+            if (isset($body['from_addr'])) $target['from_addr'] = (string)$body['from_addr'];
+            if (isset($body['to_addr'])) $target['to_addr'] = (string)$body['to_addr'];
+        } elseif ($type === 'smtp') {
+            if (isset($body['host'])) $target['host'] = (string)$body['host'];
+            if (isset($body['port'])) $target['port'] = (int)$body['port'];
+            if (isset($body['from_addr'])) $target['from_addr'] = (string)$body['from_addr'];
+            if (isset($body['to_addr'])) $target['to_addr'] = (string)$body['to_addr'];
+            if (isset($body['username'])) $target['username'] = (string)$body['username'];
+            if (isset($body['use_tls'])) $target['use_tls'] = (bool)$body['use_tls'];
+            if (isset($body['password']) && $body['password'] !== '' && $body['password'] !== '****') {
+                $target['password_enc'] = gojs_seal_secret($body['password']);
+            }
+        } elseif ($type === 'webhook') {
+            if (isset($body['url'])) $target['url'] = (string)$body['url'];
+            if (isset($body['method'])) $target['method'] = in_array(strtoupper((string)$body['method']), array('POST', 'PUT'), true) ? strtoupper((string)$body['method']) : 'POST';
+            if (isset($body['headers']) && is_array($body['headers'])) {
+                if (count($body['headers']) > 0) {
+                    $target['headers_enc'] = gojs_seal_secret(json_encode($body['headers'], JSON_UNESCAPED_UNICODE));
+                } elseif (isset($target['headers_enc'])) {
+                    unset($target['headers_enc']);
+                }
+            }
+        }
+        $channels[$idx] = $target;
+        gojs_save_channels($channels);
+        gojs_log_operation('notify_channel_update', $id, true);
+        gojs_json_response(gojs_channel_redact($target));
+    } elseif ($method === 'DELETE') {
+        $channels = array_values(array_filter($channels, function ($c) use ($id) {
+            return !(isset($c['id']) && $c['id'] === $id);
+        }));
+        gojs_save_channels($channels);
+        gojs_log_operation('notify_channel_delete', $id, true);
+        gojs_json_response(array('success' => true));
+    } else {
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+    }
+}
+
+function gojs_api_notification_channel_test($id) {
+    $channels = gojs_load_channels();
+    $target = null;
+    foreach ($channels as $ch) {
+        if (isset($ch['id']) && $ch['id'] === $id) {
+            $target = $ch;
+            break;
+        }
+    }
+    if ($target === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Channel 不存在'), 404);
+    }
+    $type = isset($target['type']) ? $target['type'] : '';
+    $payload = array(
+        'subject' => '[Go.js] 通道测试',
+        'body' => "这是 Go.js Panel 于 " . date('Y-m-d H:i:s') . " 发送的通道测试消息。如果你收到此消息，说明该通知通道配置正确。",
+        'test' => true,
+        'sent_at' => time(),
+    );
+    $result = null;
+    if ($type === 'email') {
+        $result = gojs_channel_mail_send($target, $payload);
+    } elseif ($type === 'smtp') {
+        $result = gojs_channel_smtp_send($target, $payload);
+    } elseif ($type === 'webhook') {
+        $webhook_payload = array(
+            'event' => 'channel.test',
+            'channel_id' => $id,
+            'channel_name' => isset($target['name']) ? $target['name'] : '',
+            'sent_at' => time(),
+            'data' => $payload,
+        );
+        $result = gojs_channel_webhook_send($target, $webhook_payload);
+    } else {
+        $result = array('ok' => false, 'error' => 'unknown channel type');
+    }
+    gojs_json_response($result);
+}
+
+function gojs_api_notifications($method) {
+    if ($method !== 'GET') {
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+    }
+    $category = gojs_get_param('category', '');
+    $read_filter = gojs_get_param('read', '');
+    $unread_only = gojs_get_param('unread_only', '');
+    $limit = (int)gojs_get_param('limit', 50);
+    $offset = (int)gojs_get_param('offset', 0);
+    if ($limit < 1) $limit = 50;
+    if ($limit > 500) $limit = 500;
+    if ($offset < 0) $offset = 0;
+
+    $items = gojs_load_notifications();
+    $items = array_reverse($items);
+
+    $filtered = array();
+    $unread_count = 0;
+    foreach ($items as $it) {
+        $has_read = !empty($it['read_at']);
+        if (!$has_read) $unread_count++;
+        if ($category !== '' && $category !== 'all') {
+            $cat = isset($it['category']) ? $it['category'] : '';
+            if ($cat !== $category) continue;
+        }
+        if (($unread_only === '1' || $unread_only === 'true') && $has_read) continue;
+        if ($read_filter === 'read' && !$has_read) continue;
+        if ($read_filter === 'unread' && $has_read) continue;
+        $filtered[] = $it;
+    }
+    $total = count($filtered);
+    $page = array_slice($filtered, $offset, $limit);
+    gojs_json_response(array(
+        'items' => $page,
+        'total' => $total,
+        'unread_count' => $unread_count,
+    ));
+}
+
+function gojs_api_notifications_summary() {
+    $items = gojs_load_notifications();
+    $total = count($items);
+    $unread = 0;
+    $unread_items = array();
+    foreach (array_reverse($items) as $it) {
+        if (empty($it['read_at'])) {
+            $unread++;
+            if (count($unread_items) < 5) {
+                $unread_items[] = $it;
+            }
+        }
+    }
+    gojs_json_response(array(
+        'total' => $total,
+        'unread' => $unread,
+        'latest_5' => $unread_items,
+    ));
+}
+
+function gojs_api_notification_mark_read($id) {
+    $items = gojs_load_notifications();
+    $found = false;
+    foreach ($items as $idx => $it) {
+        if (isset($it['id']) && $it['id'] === $id) {
+            $items[$idx]['read_at'] = time();
+            $found = true;
+            break;
+        }
+    }
+    if (!$found) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '通知不存在'), 404);
+    }
+    gojs_save_notifications($items);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_notifications_read_all() {
+    $items = gojs_load_notifications();
+    $now = time();
+    foreach ($items as $idx => $it) {
+        if (empty($it['read_at'])) {
+            $items[$idx]['read_at'] = $now;
+        }
+    }
+    gojs_save_notifications($items);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_notification_delete($id) {
+    $items = gojs_load_notifications();
+    $before = count($items);
+    $items = array_values(array_filter($items, function ($it) use ($id) {
+        return !(isset($it['id']) && $it['id'] === $id);
+    }));
+    if (count($items) === $before) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '通知不存在'), 404);
+    }
+    gojs_save_notifications($items);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_notifications_clear_read() {
+    $items = gojs_load_notifications();
+    $items = array_values(array_filter($items, function ($it) {
+        return empty($it['read_at']);
+    }));
+    gojs_save_notifications($items);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_internal_drain_outbox() {
+    global $config;
+    $provided_token = gojs_get_param('internal_cron_token', '');
+    if ($provided_token === '') {
+        $headers = function_exists('getallheaders') ? getallheaders() : array();
+        if (!$headers) $headers = array();
+        foreach ($headers as $k => $v) {
+            if (strtolower($k) === 'x-internal-cron-token') {
+                $provided_token = $v;
+                break;
+            }
+        }
+    }
+    $valid_token = isset($config['internal_cron_token']) ? $config['internal_cron_token'] : '';
+    $admin_allowed = !empty($_SESSION['authenticated']);
+    if (!$admin_allowed && ($provided_token === '' || $valid_token === '' || !hash_equals($valid_token, $provided_token))) {
+        gojs_json_response(null, array(
+            'code' => 'forbidden',
+            'message' => '需要 internal_cron_token 或管理员登录',
+        ), 403);
+    }
+    $stats = gojs_channels_deliver_all();
+    gojs_json_response($stats);
+}
+
+function gojs_secscan_cache_path(): string {
+    return CONFIG_DIR . '/secscan_cache.json';
+}
+
+function gojs_secscan_severity_to_badge(string $s): string {
+    $s = strtolower($s);
+    if ($s === 'critical' || $s === 'danger') return 'danger';
+    if ($s === 'high') return 'danger';
+    if ($s === 'moderate') return 'warning';
+    if ($s === 'low') return 'muted';
+    if ($s === 'info') return 'accent';
+    return 'muted';
+}
+
+function gojs_secscan_version_compare(string $a, string $op, string $b): bool {
+    return version_compare($a, $b, $op);
+}
+
+function gojs_secscan_parse_single_range(string $pkg_version, string $range): bool {
+    $range = trim($range);
+    if (preg_match('/^(<|<=|==|=|>=|>|!=|<>)\s*(.+)$/', $range, $m)) {
+        $op = $m[1];
+        if ($op === '=') $op = '==';
+        $ver = trim($m[2]);
+        return gojs_secscan_version_compare($pkg_version, $op, $ver);
+    }
+    if (preg_match('/^(.+?)\s*-\s*(.+)$/', $range, $m)) {
+        $lo = trim($m[1]);
+        $hi = trim($m[2]);
+        return gojs_secscan_version_compare($pkg_version, '>=', $lo)
+            && gojs_secscan_version_compare($pkg_version, '<=', $hi);
+    }
+    return gojs_secscan_version_compare($pkg_version, '==', $range);
+}
+
+function gojs_secscan_parse_range(string $pkg_version, string $range): bool {
+    $parts = explode('||', $range);
+    foreach ($parts as $part) {
+        $part = trim($part);
+        if ($part === '') continue;
+        if (gojs_secscan_parse_single_range($pkg_version, $part)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+$GLOBALS['GOJS_PHP_CVE_SEED'] = [
+    ['name'=>'phpunit/phpunit',               'vuln_range'=>'< 9.0.0',  'severity'=>'low',      'title'=>'PHPUnit older than 9: eval injection in test harness', 'url'=>'https://github.com/sebastianbergmann/phpunit/security/advisories'],
+    ['name'=>'guzzlehttp/guzzle',             'vuln_range'=>'< 7.4.5',  'severity'=>'high',     'title'=>'Guzzle HTTP header CRLF injection CVE-2022-29248',     'url'=>'https://github.com/guzzle/guzzle/security/advisories/GHSA-25mq-v84q-4j7r'],
+    ['name'=>'phpseclib/phpseclib',           'vuln_range'=>'< 1.0.21 || < 2.0.37 || < 3.0.13', 'severity'=>'high', 'title'=>'phpseclib RSA signature forgery CVE-2021-30132',        'url'=>'https://github.com/phpseclib/phpseclib/issues/1629'],
+    ['name'=>'symfony/http-kernel',           'vuln_range'=>'< 5.4.22 || < 6.0.20 || < 6.1.12 || < 6.2.6', 'severity'=>'critical', 'title'=>'Symfony FragmentListener bypass CVE-2022-24894',   'url'=>'https://symfony.com/cve-2022-24894'],
+    ['name'=>'symfony/security-core',         'vuln_range'=>'< 4.4.50 || < 5.4.20 || < 6.2.6', 'severity'=>'high',     'title'=>'Symfony security-core Auth auth bypass',             'url'=>'https://github.com/symfony/symfony/security/advisories'],
+    ['name'=>'laravel/framework',             'vuln_range'=>'< 8.75.0 || < 9.33.0', 'severity'=>'critical',      'title'=>'Laravel framework cookie-based RCE',                'url'=>'https://laravel.com/docs/security'],
+    ['name'=>'league/flysystem',              'vuln_range'=>'< 1.1.4 || < 2.1.1',    'severity'=>'moderate', 'title'=>'Flysystem path traversal CVE-2021-32708',           'url'=>'https://github.com/thephpleague/flysystem/security/advisories/GHSA-7hh3-wv9w-xgvr'],
+    ['name'=>'twig/twig',                     'vuln_range'=>'< 2.15.3 || < 3.4.3',   'severity'=>'moderate', 'title'=>'Twig Sandbox mode bypass',                           'url'=>'https://github.com/twigphp/Twig/tags'],
+    ['name'=>'smarty/smarty',                 'vuln_range'=>'< 4.3.0',                'severity'=>'high',     'title'=>'Smarty template injection',                          'url'=>'https://github.com/smarty-php/smarty/security/advisories'],
+    ['name'=>'monolog/monolog',               'vuln_range'=>'< 2.9.0 || < 3.5.0',    'severity'=>'moderate', 'title'=>'Monolog SwiftMailerHandler CRLF header injection',   'url'=>'https://github.com/Seldaek/monolog/tags'],
+    ['name'=>'doctrine/dbal',                 'vuln_range'=>'< 3.6.4 || < 2.13.9',   'severity'=>'high',     'title'=>'Doctrine DBAL SQL injection via LIMIT parameters',   'url'=>'https://github.com/doctrine/dbal/security/advisories'],
+    ['name'=>'doctrine/orm',                  'vuln_range'=>'< 2.14.3 || < 2.13.4',  'severity'=>'high',     'title'=>'Doctrine ORM order-by SQL injection',                'url'=>'https://github.com/doctrine/orm/security/advisories'],
+    ['name'=>'wordpress/core',                'vuln_range'=>'< 6.2',                  'severity'=>'critical', 'title'=>'WordPress core <6.2 multiple XSS and auth issues',   'url'=>'https://wordpress.org/support/wordpress-version/version-6-2/'],
+    ['name'=>'drupal/core',                   'vuln_range'=>'< 9.5.8 || < 10.0.8',   'severity'=>'critical', 'title'=>'Drupal core SA-CORE multiple vulns',                'url'=>'https://www.drupal.org/security'],
+    ['name'=>'joomla/joomla-cms',             'vuln_range'=>'< 4.2.8',                'severity'=>'critical', 'title'=>'Joomla! CMS CVE-2023-23752',                        'url'=>'https://developer.joomla.org/security-centre.html'],
+    ['name'=>'magento/product-community-edition', 'vuln_range'=>'< 2.4.6-p1',       'severity'=>'critical', 'title'=>'Magento 2.4.6 pre-p1 RCE',                           'url'=>'https://helpx.adobe.com/security/products/magento.html'],
+    ['name'=>'phpmailer/phpmailer',           'vuln_range'=>'< 6.5.0',                'severity'=>'high',     'title'=>'PHPMailer CVE-2020-36326/36327 object injection',    'url'=>'https://github.com/PHPMailer/PHPMailer/tags'],
+    ['name'=>'erusev/parsedown',              'vuln_range'=>'< 1.7.4',                'severity'=>'moderate', 'title'=>'Parsedown XSS CVE-2018-1000163',                     'url'=>'https://github.com/erusev/parsedown/issues'],
+    ['name'=>'michelf/php-markdown',          'vuln_range'=>'< 1.9.0',                'severity'=>'moderate', 'title'=>'PHP Markdown Lib XSS',                               'url'=>'https://github.com/michelf/php-markdown'],
+    ['name'=>'cakephp/cakephp',               'vuln_range'=>'< 4.4.11 || < 3.10.12', 'severity'=>'critical', 'title'=>'CakePHP cache-engine RCE',                            'url'=>'https://bakery.cakephp.org/']
+];
+
+function gojs_secscan_load_cache(): array {
+    $path = gojs_secscan_cache_path();
+    if (!file_exists($path)) return array();
+    $data = gojs_read_json_lock_safe($path, array());
+    return is_array($data) ? $data : array();
+}
+
+function gojs_secscan_save_cache(array $data): void {
+    gojs_write_json_lock_safe(gojs_secscan_cache_path(), $data, true);
+}
+
+function gojs_secscan_frontend(bool $force=false): array {
+    $cache = gojs_secscan_load_cache();
+    $now = time();
+
+    if (!$force && isset($cache['frontend_cache']) && is_array($cache['frontend_cache'])) {
+        $fc = $cache['frontend_cache'];
+        if (isset($fc['scanned_at']) && ($now - (int)$fc['scanned_at']) < 3600) {
+            return $fc;
+        }
+    }
+
+    $exec_avail = function_exists('exec') && function_exists('shell_exec');
+    if (!$exec_avail) {
+        $result = array(
+            'available' => false,
+            'reason_key' => 'secscan.npmUnavailable',
+        );
+        $cache['frontend_cache'] = array_merge($result, array('scanned_at' => $now));
+        gojs_secscan_save_cache($cache);
+        return $cache['frontend_cache'];
+    }
+
+    $cwd = ROOT;
+    $cmd = 'npm audit --omit=dev --json 2>&1';
+    $descriptorspec = array(
+       0 => array('pipe', 'r'),
+       1 => array('pipe', 'w'),
+       2 => array('pipe', 'w')
+    );
+    $process = @proc_open($cmd, $descriptorspec, $pipes, $cwd);
+    $output = '';
+    $proc_success = false;
+    if (is_resource($process)) {
+        fclose($pipes[0]);
+        $output = stream_get_contents($pipes[1]);
+        fclose($pipes[1]);
+        fclose($pipes[2]);
+        $ret = proc_close($process);
+        if ($output !== '' && $output !== false) {
+            $proc_success = true;
+        }
+    }
+    if (!$proc_success) {
+        $output = '';
+        if (function_exists('shell_exec')) {
+            $old_cwd = getcwd();
+            if ($old_cwd) @chdir($cwd);
+            $raw = @shell_exec($cmd);
+            if ($old_cwd) @chdir($old_cwd);
+            if ($raw !== null && $raw !== false) $output = $raw;
+        }
+    }
+
+    if ($output === '' || $output === null) {
+        $result = array(
+            'available' => false,
+            'reason_key' => 'secscan.npmUnavailable',
+        );
+        $cache['frontend_cache'] = array_merge($result, array('scanned_at' => $now));
+        gojs_secscan_save_cache($cache);
+        return $cache['frontend_cache'];
+    }
+
+    $parsed = json_decode($output, true);
+    if (!is_array($parsed)) {
+        $result = array(
+            'available' => false,
+            'reason_key' => 'secscan.npmUnavailable',
+        );
+        $cache['frontend_cache'] = array_merge($result, array('scanned_at' => $now));
+        gojs_secscan_save_cache($cache);
+        return $cache['frontend_cache'];
+    }
+
+    $vulns = array();
+    $seen_keys = array();
+
+    $severity_order = array('info' => 0, 'low' => 1, 'moderate' => 2, 'high' => 3, 'critical' => 4);
+
+    $candidates = array();
+    if (isset($parsed['vulnerabilities']) && is_array($parsed['vulnerabilities'])) {
+        foreach ($parsed['vulnerabilities'] as $pkg => $v) {
+            if (!is_array($v)) continue;
+            $installed = isset($v['name']) ? (string)$v['name'] : (string)$pkg;
+            $iv = isset($v['range']) ? (string)$v['range'] : '';
+            if (preg_match('/^[<>=!]*\s*([\d][\w\.\-+]*)$/', $iv, $mv)) {
+                $iv = $mv[1];
+            }
+            $title = isset($v['title']) ? (string)$v['title'] : '';
+            $sev = isset($v['severity']) ? strtolower((string)$v['severity']) : 'info';
+            if (!in_array($sev, array('info','low','moderate','high','critical'), true)) $sev = 'info';
+            $url = isset($v['url']) ? (string)$v['url'] : (isset($v['advisory']) ? (string)$v['advisory'] : '');
+            $fix_info = isset($v['fixAvailable']) ? $v['fixAvailable'] : null;
+            $fixed = null;
+            if (is_array($fix_info) && isset($fix_info['name']) && isset($fix_info['version'])) {
+                $fixed = (string)$fix_info['version'];
+            } elseif (isset($v['fixedVersion']) && $v['fixedVersion'] !== '' && $v['fixedVersion'] !== '*') {
+                $fixed = (string)$v['fixedVersion'];
+            }
+            $vias = isset($v['via']) && is_array($v['via']) ? $v['via'] : array();
+            if (count($vias) > 0) {
+                foreach ($vias as $via) {
+                    if (is_array($via)) {
+                        $v2 = $via;
+                        $v2_pkg = isset($v2['name']) ? (string)$v2['name'] : (string)$pkg;
+                        $v2_title = isset($v2['title']) ? (string)$v2['title'] : $title;
+                        $v2_sev = isset($v2['severity']) ? strtolower((string)$v2['severity']) : $sev;
+                        if (!in_array($v2_sev, array('info','low','moderate','high','critical'), true)) $v2_sev = 'info';
+                        $v2_url = isset($v2['url']) ? (string)$v2['url'] : $url;
+                        $v2_fixed = $fixed;
+                        if (isset($v2['fixAvailable']) && is_array($v2['fixAvailable']) && isset($v2['fixAvailable']['version'])) {
+                            $v2_fixed = (string)$v2['fixAvailable']['version'];
+                        }
+                        $candidates[] = array(
+                            'package' => $v2_pkg,
+                            'installed_version' => $iv,
+                            'fixed_version' => $v2_fixed,
+                            'severity' => $v2_sev,
+                            'title' => $v2_title,
+                            'url' => $v2_url,
+                        );
+                    }
+                }
+            } else {
+                $candidates[] = array(
+                    'package' => (string)$pkg,
+                    'installed_version' => $iv,
+                    'fixed_version' => $fixed,
+                    'severity' => $sev,
+                    'title' => $title,
+                    'url' => $url,
+                );
+            }
+        }
+    }
+
+    if (isset($parsed['advisories']) && is_array($parsed['advisories'])) {
+        foreach ($parsed['advisories'] as $adv) {
+            if (!is_array($adv)) continue;
+            $pkg = isset($adv['module_name']) ? (string)$adv['module_name'] : (isset($adv['name']) ? (string)$adv['name'] : '');
+            $iv = isset($adv['installed_version']) ? (string)$adv['installed_version'] : (isset($adv['version']) ? (string)$adv['version'] : '');
+            $title = isset($adv['title']) ? (string)$adv['title'] : (isset($adv['overview']) ? (string)$adv['overview'] : '');
+            $sev = isset($adv['severity']) ? strtolower((string)$adv['severity']) : 'info';
+            if (!in_array($sev, array('info','low','moderate','high','critical'), true)) $sev = 'info';
+            $url = isset($adv['url']) ? (string)$adv['url'] : (isset($adv['references']) ? (string)$adv['references'] : '');
+            $fixed = isset($adv['patched_versions']) ? (string)$adv['patched_versions'] : (isset($adv['fixed_version']) ? (string)$adv['fixed_version'] : null);
+            if ($pkg !== '') {
+                $candidates[] = array(
+                    'package' => $pkg,
+                    'installed_version' => $iv,
+                    'fixed_version' => $fixed,
+                    'severity' => $sev,
+                    'title' => $title,
+                    'url' => $url,
+                );
+            }
+        }
+    }
+
+    foreach ($candidates as $c) {
+        $key = $c['package'] . '||' . $c['installed_version'];
+        $sev_rank = isset($severity_order[$c['severity']]) ? $severity_order[$c['severity']] : 0;
+        if (isset($seen_keys[$key])) {
+            $idx = $seen_keys[$key];
+            $existing_rank = isset($severity_order[$vulns[$idx]['severity']]) ? $severity_order[$vulns[$idx]['severity']] : 0;
+            if ($sev_rank > $existing_rank) {
+                $vulns[$idx]['severity'] = $c['severity'];
+                $vulns[$idx]['title'] = $c['title'] ?: $vulns[$idx]['title'];
+                $vulns[$idx]['url'] = $c['url'] ?: $vulns[$idx]['url'];
+                if ($c['fixed_version']) $vulns[$idx]['fixed_version'] = $c['fixed_version'];
+                $vulns[$idx]['severityBadgeVariant'] = gojs_secscan_severity_to_badge($c['severity']);
+            }
+            continue;
+        }
+        $seen_keys[$key] = count($vulns);
+        $item = array(
+            'package' => $c['package'],
+            'installed_version' => $c['installed_version'],
+            'fixed_version' => $c['fixed_version'] ?: null,
+            'severity' => $c['severity'],
+            'title' => $c['title'],
+            'url' => $c['url'] ?: null,
+            'severityBadgeVariant' => gojs_secscan_severity_to_badge($c['severity']),
+        );
+        $vulns[] = $item;
+    }
+
+    $result = array(
+        'available' => true,
+        'scanned_at' => $now,
+        'vulns' => array_values($vulns),
+    );
+    $cache['frontend_cache'] = $result;
+    gojs_secscan_save_cache($cache);
+    return $result;
+}
+
+function gojs_secscan_backend(bool $force=false): array {
+    $cache = gojs_secscan_load_cache();
+    $now = time();
+
+    if (!$force && isset($cache['backend_cache']) && is_array($cache['backend_cache'])) {
+        $bc = $cache['backend_cache'];
+        if (isset($bc['scanned_at']) && ($now - (int)$bc['scanned_at']) < 3600) {
+            return $bc;
+        }
+    }
+
+    $candidates = array(
+        PANEL_ROOT . '/composer.lock',
+        dirname(PANEL_ROOT) . '/composer.lock',
+    );
+    if (!empty($_SERVER['DOCUMENT_ROOT'])) {
+        $docroot = rtrim(str_replace('\\', '/', $_SERVER['DOCUMENT_ROOT']), '/');
+        if ($docroot !== '') {
+            $candidates[] = $docroot . '/composer.lock';
+        }
+    }
+
+    $lock_path = null;
+    foreach ($candidates as $c) {
+        if (file_exists($c) && is_file($c) && is_readable($c)) {
+            $lock_path = $c;
+            break;
+        }
+    }
+
+    if ($lock_path === null) {
+        $result = array(
+            'available' => true,
+            'scanned_at' => $now,
+            'heuristicOnly' => true,
+            'count' => 0,
+            'notice_key' => 'secscan.noComposerLock',
+            'vulns' => array(),
+        );
+        $cache['backend_cache'] = $result;
+        gojs_secscan_save_cache($cache);
+        return $result;
+    }
+
+    $raw = @file_get_contents($lock_path);
+    if ($raw === false) {
+        $result = array(
+            'available' => true,
+            'scanned_at' => $now,
+            'heuristicOnly' => true,
+            'count' => 0,
+            'notice_key' => 'secscan.noComposerLock',
+            'vulns' => array(),
+        );
+        $cache['backend_cache'] = $result;
+        gojs_secscan_save_cache($cache);
+        return $result;
+    }
+    $lock = json_decode($raw, true);
+    if (!is_array($lock)) {
+        $result = array(
+            'available' => true,
+            'scanned_at' => $now,
+            'heuristicOnly' => true,
+            'count' => 0,
+            'notice_key' => 'secscan.noComposerLock',
+            'vulns' => array(),
+        );
+        $cache['backend_cache'] = $result;
+        gojs_secscan_save_cache($cache);
+        return $result;
+    }
+
+    $packages = array();
+    if (isset($lock['packages']) && is_array($lock['packages'])) {
+        $packages = array_merge($packages, $lock['packages']);
+    }
+    if (isset($lock['packages-dev']) && is_array($lock['packages-dev'])) {
+        $packages = array_merge($packages, $lock['packages-dev']);
+    }
+
+    $seed = isset($GLOBALS['GOJS_PHP_CVE_SEED']) && is_array($GLOBALS['GOJS_PHP_CVE_SEED'])
+        ? $GLOBALS['GOJS_PHP_CVE_SEED']
+        : array();
+
+    $seed_by_name = array();
+    foreach ($seed as $s) {
+        $name = isset($s['name']) ? (string)$s['name'] : '';
+        if ($name === '') continue;
+        $seed_by_name[$name][] = $s;
+    }
+
+    $vulns = array();
+
+    foreach ($packages as $pkg) {
+        if (!is_array($pkg)) continue;
+        $name = isset($pkg['name']) ? (string)$pkg['name'] : '';
+        $version = isset($pkg['version']) ? (string)$pkg['version'] : '';
+        if ($name === '' || $version === '') continue;
+        $version = ltrim($version, 'vV');
+        if (!isset($seed_by_name[$name])) continue;
+        foreach ($seed_by_name[$name] as $seed_entry) {
+            $range = isset($seed_entry['vuln_range']) ? (string)$seed_entry['vuln_range'] : '';
+            if ($range === '') continue;
+            if (!gojs_secscan_parse_range($version, $range)) continue;
+            $sev = isset($seed_entry['severity']) ? strtolower((string)$seed_entry['severity']) : 'info';
+            if (!in_array($sev, array('info','low','moderate','high','critical'), true)) $sev = 'info';
+            $title = isset($seed_entry['title']) ? (string)$seed_entry['title'] : '';
+            $url = isset($seed_entry['url']) ? (string)$seed_entry['url'] : '';
+            $vulns[] = array(
+                'package' => $name,
+                'installed_version' => $version,
+                'fixed_version' => null,
+                'severity' => $sev,
+                'title' => $title,
+                'url' => $url ?: null,
+                'severityBadgeVariant' => gojs_secscan_severity_to_badge($sev),
+            );
+        }
+    }
+
+    $result = array(
+        'available' => true,
+        'scanned_at' => $now,
+        'heuristicOnly' => false,
+        'count' => count($vulns),
+        'vulns' => $vulns,
+    );
+    $cache['backend_cache'] = $result;
+    gojs_secscan_save_cache($cache);
+    return $result;
+}
+
+function gojs_unseal_secret($sealed) {
+    if ($sealed === null || $sealed === '' || $sealed === '****') return false;
+    return gojs_decrypt((string)$sealed);
+}
+
+function gojs_destinations_load(): array {
+    global $config;
+    return isset($config['backup_destinations']) && is_array($config['backup_destinations'])
+        ? $config['backup_destinations']
+        : array();
+}
+
+function gojs_destinations_save(array $destinations): void {
+    global $config;
+    $config['backup_destinations'] = $destinations;
+    gojs_save_config();
+}
+
+function gojs_destination_redact(array $dest): array {
+    $redacted = $dest;
+    $secret_fields = array('secret_key_enc', 'password_enc', 'private_key_enc');
+    foreach ($secret_fields as $f) {
+        if (isset($redacted[$f]) && $redacted[$f] !== '') {
+            $redacted[$f] = '****';
+        }
+    }
+    return $redacted;
+}
+
+class GOJS_S3_Destination {
+    private $access_key;
+    private $secret_key;
+    private $endpoint;
+    private $region;
+    private $bucket;
+    private $sse;
+    private $path_prefix;
+
+    public static function available(): bool {
+        $allow_fopen = ini_get('allow_url_fopen') === '1' || filter_var(ini_get('allow_url_fopen'), FILTER_VALIDATE_BOOLEAN);
+        $has_hash = function_exists('hash_hmac') || function_exists('openssl_hmac');
+        return $allow_fopen && (extension_loaded('openssl') || $has_hash);
+    }
+
+    public function __construct($config) {
+        $this->access_key = isset($config['access_key']) ? (string)$config['access_key'] : '';
+        $this->secret_key = isset($config['secret_key']) ? (string)$config['secret_key'] : '';
+        $this->endpoint = isset($config['endpoint']) && $config['endpoint'] !== '' ? rtrim((string)$config['endpoint'], '/') : 'https://s3.amazonaws.com';
+        $this->region = isset($config['region']) && $config['region'] !== '' ? (string)$config['region'] : 'us-east-1';
+        $this->bucket = isset($config['bucket']) ? (string)$config['bucket'] : '';
+        $this->sse = !empty($config['sse']);
+        $this->path_prefix = isset($config['path_prefix']) ? trim((string)$config['path_prefix'], '/') : '';
+    }
+
+    private function sign($key, $data) {
+        if (function_exists('hash_hmac')) {
+            return hash_hmac('sha256', $data, $key, true);
+        }
+        return openssl_hmac($data, $key, 'sha256');
+    }
+
+    private function sha256($data) {
+        if (function_exists('hash')) {
+            return hash('sha256', $data);
+        }
+        return bin2hex(openssl_digest($data, 'sha256'));
+    }
+
+    public function v4($service, $http_method, $path, $headers = array(), $query = array(), $payload = '') {
+        $t = time();
+        $datestamp = gmdate('Ymd', $t);
+        $amzdate = gmdate('Ymd\\THis\\Z', $t);
+
+        $parsed = parse_url($this->endpoint);
+        $host = isset($parsed['host']) ? $parsed['host'] : 's3.amazonaws.com';
+        if (isset($parsed['port'])) {
+            $host .= ':' . $parsed['port'];
+        }
+
+        $canonical_headers = array('host' => $host);
+        foreach ($headers as $k => $v) {
+            $canonical_headers[strtolower($k)] = trim($v);
+        }
+        $canonical_headers['x-amz-date'] = $amzdate;
+
+        ksort($canonical_headers);
+        $signed_headers = implode(';', array_keys($canonical_headers));
+
+        $canonical_header_str = '';
+        foreach ($canonical_headers as $k => $v) {
+            $canonical_header_str .= $k . ':' . $v . "\n";
+        }
+
+        ksort($query);
+        $query_str = http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+
+        $payload_hash = $this->sha256($payload);
+
+        $canonical_request = $http_method . "\n"
+            . $path . "\n"
+            . $query_str . "\n"
+            . $canonical_header_str . "\n"
+            . $signed_headers . "\n"
+            . $payload_hash;
+
+        $algorithm = 'AWS4-HMAC-SHA256';
+        $credential_scope = $datestamp . '/' . $this->region . '/' . $service . '/aws4_request';
+
+        $string_to_sign = $algorithm . "\n"
+            . $amzdate . "\n"
+            . $credential_scope . "\n"
+            . $this->sha256($canonical_request);
+
+        $k_date = $this->sign('AWS4' . $this->secret_key, $datestamp);
+        $k_region = $this->sign($k_date, $this->region);
+        $k_service = $this->sign($k_region, $service);
+        $k_signing = $this->sign($k_service, 'aws4_request');
+        $signature = bin2hex($this->sign($k_signing, $string_to_sign));
+
+        return $algorithm . ' Credential=' . $this->access_key . '/' . $credential_scope
+            . ', SignedHeaders=' . $signed_headers
+            . ', Signature=' . $signature;
+    }
+
+    private function request($method, $key, $body = '', $extra_headers = array(), $query = array()) {
+        $service = 's3';
+        $path = '/' . $this->bucket . '/' . ltrim($key, '/');
+        $real_path = '/' . $this->bucket . '/' . ltrim($key, '/');
+
+        $headers = $extra_headers;
+        if ($body !== '' && !isset($headers['Content-Length'])) {
+            $headers['Content-Length'] = (string)strlen($body);
+        }
+        if ($this->sse) {
+            $headers['x-amz-server-side-encryption'] = 'AES256';
+        }
+
+        $auth = $this->v4($service, $method, $real_path, $headers, $query, $body);
+
+        $parsed = parse_url($this->endpoint);
+        $scheme = isset($parsed['scheme']) ? $parsed['scheme'] : 'https';
+        $host = isset($parsed['host']) ? $parsed['host'] : 's3.amazonaws.com';
+        $port = isset($parsed['port']) ? (int)$parsed['port'] : ($scheme === 'https' ? 443 : 80);
+
+        $url_path = $path;
+        if (!empty($query)) {
+            $url_path .= '?' . http_build_query($query, '', '&', PHP_QUERY_RFC3986);
+        }
+
+        $req_headers = array(
+            'Host' => $host,
+            'X-Amz-Date' => gmdate('Ymd\\THis\\Z'),
+            'Authorization' => $auth,
+        );
+        foreach ($headers as $k => $v) {
+            $req_headers[$k] = $v;
+        }
+
+        $ctx_headers = '';
+        foreach ($req_headers as $k => $v) {
+            $ctx_headers .= $k . ': ' . $v . "\r\n";
+        }
+
+        $opts = array(
+            'http' => array(
+                'method' => $method,
+                'header' => $ctx_headers,
+                'content' => $body,
+                'timeout' => 15,
+                'ignore_errors' => true,
+            ),
+        );
+
+        if ($scheme === 'https' && extension_loaded('openssl')) {
+            $opts['ssl'] = array(
+                'verify_peer' => true,
+                'verify_peer_name' => true,
+            );
+        }
+
+        $context = stream_context_create($opts);
+        $url = $scheme . '://' . $host . ($port !== 80 && $port !== 443 ? ':' . $port : '') . $url_path;
+
+        $result = @file_get_contents($url, false, $context);
+        $status = 0;
+        $resp_headers = array();
+        if (isset($http_response_header)) {
+            foreach ($http_response_header as $h) {
+                if (preg_match('/^HTTP\\/\\S+\\s+(\\d+)/', $h, $m)) {
+                    $status = (int)$m[1];
+                } elseif (strpos($h, ':') !== false) {
+                    list($k, $v) = explode(':', $h, 2);
+                    $resp_headers[strtolower(trim($k))] = trim($v);
+                }
+            }
+        }
+
+        return array('status' => $status, 'body' => $result === false ? '' : $result, 'headers' => $resp_headers);
+    }
+
+    private function full_key($key) {
+        $parts = array();
+        if ($this->path_prefix !== '') $parts[] = $this->path_prefix;
+        $parts[] = ltrim($key, '/');
+        return implode('/', array_filter($parts, 'strlen'));
+    }
+
+    public function testConnection(): array {
+        if (!self::available()) {
+            return array('ok' => false, 'error' => 's3_not_available', 'error_key' => 's3_requirements_missing');
+        }
+        if ($this->access_key === '' || $this->secret_key === '' || $this->bucket === '') {
+            return array('ok' => false, 'error' => 's3_missing_credentials', 'error_key' => 's3_missing_credentials');
+        }
+
+        $head = $this->request('HEAD', '');
+        if ($head['status'] !== 200 && $head['status'] !== 403 && $head['status'] !== 404) {
+            return array(
+                'ok' => false,
+                'error' => 's3_head_bucket_failed: HTTP ' . $head['status'] . ' ' . substr($head['body'], 0, 200),
+                'error_key' => 's3_connect_failed',
+            );
+        }
+
+        $test_key = $this->full_key('gojs-test-' . uniqid('', true) . '.txt');
+        $test_content = 'gojs-connection-test-' . time();
+
+        $put = $this->request('PUT', $test_key, $test_content, array('Content-Type' => 'text/plain'));
+        if ($put['status'] !== 200) {
+            return array(
+                'ok' => false,
+                'error' => 's3_put_failed: HTTP ' . $put['status'] . ' ' . substr($put['body'], 0, 200),
+                'error_key' => 's3_bucket_not_writable',
+            );
+        }
+
+        $this->request('DELETE', $test_key);
+
+        return array(
+            'ok' => true,
+            'bucket_writable' => true,
+            'prefix' => $this->path_prefix,
+        );
+    }
+
+    public function putObject(string $key, $body): array {
+        $full = $this->full_key($key);
+        if (is_resource($body)) {
+            $content = stream_get_contents($body);
+        } else {
+            $content = (string)$body;
+        }
+        $resp = $this->request('PUT', $full, $content, array('Content-Type' => 'application/octet-stream'));
+        if ($resp['status'] === 200) {
+            return array('ok' => true);
+        }
+        return array('ok' => false, 'error' => 'HTTP ' . $resp['status'] . ' ' . substr($resp['body'], 0, 200));
+    }
+
+    public function listObjects(string $prefix, int $max = 1000): array {
+        $full_prefix = $this->full_key($prefix);
+        $query = array(
+            'list-type' => '2',
+            'prefix' => $full_prefix,
+            'max-keys' => (string)min($max, 1000),
+        );
+        $resp = $this->request('GET', '', '', array(), $query);
+        $objects = array();
+        if ($resp['status'] === 200 && $resp['body'] !== '') {
+            $xml = @simplexml_load_string($resp['body']);
+            if ($xml && isset($xml->Contents)) {
+                foreach ($xml->Contents as $c) {
+                    $objects[] = array(
+                        'key' => (string)$c->Key,
+                        'size' => (int)$c->Size,
+                        'last_modified' => (string)$c->LastModified,
+                    );
+                }
+            }
+        }
+        return $objects;
+    }
+
+    public function deleteObject(string $key): array {
+        $full = $this->full_key($key);
+        $resp = $this->request('DELETE', $full);
+        if ($resp['status'] === 204 || $resp['status'] === 200) {
+            return array('ok' => true);
+        }
+        return array('ok' => false, 'error' => 'HTTP ' . $resp['status']);
+    }
+}
+
+class GOJS_FTP_Destination {
+    private $host;
+    private $port;
+    private $username;
+    private $password;
+    private $path_prefix;
+    private $use_tls;
+
+    public static function available(): bool {
+        return extension_loaded('ftp') || function_exists('fsockopen');
+    }
+
+    public function __construct($config) {
+        $this->host = isset($config['host']) ? (string)$config['host'] : '';
+        $this->port = isset($config['port']) ? (int)$config['port'] : 21;
+        $this->username = isset($config['username']) ? (string)$config['username'] : '';
+        $this->password = isset($config['password']) ? (string)$config['password'] : '';
+        $this->path_prefix = isset($config['path_prefix']) ? trim((string)$config['path_prefix'], '/') : '';
+        $this->use_tls = !empty($config['use_tls']);
+    }
+
+    public function testConnection(): array {
+        if (!self::available()) {
+            return array('ok' => false, 'error' => 'ftp_not_available', 'error_key' => 'ftp_requirements_missing');
+        }
+        if ($this->host === '' || $this->username === '') {
+            return array('ok' => false, 'error' => 'ftp_missing_params', 'error_key' => 'ftp_missing_credentials');
+        }
+
+        try {
+            if (extension_loaded('ftp')) {
+                return $this->test_ext();
+            }
+            return $this->test_fsock();
+        } catch (Throwable $e) {
+            return array('ok' => false, 'error' => $e->getMessage(), 'error_key' => 'ftp_connect_failed');
+        }
+    }
+
+    private function test_ext(): array {
+        $conn = $this->use_tls ? @ftp_ssl_connect($this->host, $this->port, 15) : @ftp_connect($this->host, $this->port, 15);
+        if (!$conn) {
+            return array('ok' => false, 'error' => 'ftp_connect_failed', 'error_key' => 'ftp_connect_failed');
+        }
+        if (!@ftp_login($conn, $this->username, $this->password)) {
+            @ftp_close($conn);
+            return array('ok' => false, 'error' => 'ftp_login_failed', 'error_key' => 'ftp_login_failed');
+        }
+        @ftp_pasv($conn, true);
+
+        if ($this->path_prefix !== '') {
+            if (!@ftp_chdir($conn, $this->path_prefix)) {
+                @ftp_close($conn);
+                return array('ok' => false, 'error' => 'ftp_cd_failed', 'error_key' => 'ftp_path_inaccessible');
+            }
+        }
+
+        $tmp = 'gojs-test-' . uniqid('', true) . '.txt';
+        $content = 'gojs-test-' . time();
+        $tmp_file = tempnam(sys_get_temp_dir(), 'gojs_ftp_test_');
+        @file_put_contents($tmp_file, $content);
+
+        if (!@ftp_put($conn, $tmp, $tmp_file, FTP_BINARY)) {
+            @unlink($tmp_file);
+            @ftp_close($conn);
+            return array('ok' => false, 'error' => 'ftp_put_failed', 'error_key' => 'ftp_not_writable');
+        }
+        @unlink($tmp_file);
+
+        $list = @ftp_nlist($conn, '.');
+        @ftp_delete($conn, $tmp);
+        @ftp_close($conn);
+
+        return array('ok' => true);
+    }
+
+    private function test_fsock(): array {
+        $fp = @fsockopen($this->host, $this->port, $errno, $errstr, 15);
+        if (!$fp) {
+            return array('ok' => false, 'error' => "fsock_connect: $errstr ($errno)", 'error_key' => 'ftp_connect_failed');
+        }
+        stream_set_timeout($fp, 15);
+
+        $read = function () use ($fp) {
+            $data = '';
+            while (($line = fgets($fp, 515)) !== false) {
+                $data .= $line;
+                if (isset($line[3]) && $line[3] === ' ') break;
+            }
+            return $data;
+        };
+        $write = function ($cmd) use ($fp) {
+            fputs($fp, $cmd . "\r\n");
+        };
+        $code = function ($resp) {
+            return (int)substr(trim($resp), 0, 3);
+        };
+
+        $banner = $read();
+        if ($code($banner) !== 220) {
+            fclose($fp);
+            return array('ok' => false, 'error' => 'ftp_banner_invalid', 'error_key' => 'ftp_connect_failed');
+        }
+
+        $write('USER ' . $this->username);
+        $r = $read();
+        if ($code($r) === 331) {
+            $write('PASS ' . $this->password);
+            $r = $read();
+        }
+        if ($code($r) !== 230) {
+            fclose($fp);
+            return array('ok' => false, 'error' => 'ftp_login_failed', 'error_key' => 'ftp_login_failed');
+        }
+
+        if ($this->path_prefix !== '') {
+            $write('CWD ' . $this->path_prefix);
+            $r = $read();
+            if ($code($r) !== 250) {
+                fclose($fp);
+                return array('ok' => false, 'error' => 'ftp_cd_failed', 'error_key' => 'ftp_path_inaccessible');
+            }
+        }
+
+        $write('PASV');
+        $r = $read();
+        if ($code($r) !== 227) {
+            fclose($fp);
+            return array('ok' => false, 'error' => 'ftp_pasv_failed');
+        }
+        if (!preg_match('/\\((\\d+),(\\d+),(\\d+),(\\d+),(\\d+),(\\d+)\\)/', $r, $m)) {
+            fclose($fp);
+            return array('ok' => false, 'error' => 'ftp_pasv_parse_failed');
+        }
+        $dhost = $m[1] . '.' . $m[2] . '.' . $m[3] . '.' . $m[4];
+        $dport = ((int)$m[5] << 8) | (int)$m[6];
+
+        $tmp = 'gojs-test-' . uniqid('', true) . '.txt';
+        $content = 'gojs-test-' . time();
+
+        $write('STOR ' . $tmp);
+        $r = $read();
+        if ($code($r) !== 150 && $code($r) !== 125) {
+            fclose($fp);
+            return array('ok' => false, 'error' => 'ftp_stor_failed', 'error_key' => 'ftp_not_writable');
+        }
+
+        $dfp = @fsockopen($dhost, $dport, $errno, $errstr, 10);
+        if (!$dfp) {
+            fclose($fp);
+            return array('ok' => false, 'error' => "ftp_data_connect: $errstr ($errno)");
+        }
+        fwrite($dfp, $content);
+        fclose($dfp);
+        $r = $read();
+
+        $write('DELE ' . $tmp);
+        $read();
+        $write('QUIT');
+        $read();
+        fclose($fp);
+
+        return array('ok' => true);
+    }
+}
+
+class GOJS_SFTP_Destination {
+    private $host;
+    private $port;
+    private $username;
+    private $password;
+    private $private_key;
+    private $path_prefix;
+
+    public static function available(): bool {
+        return extension_loaded('ssh2') || function_exists('fsockopen');
+    }
+
+    public function __construct($config) {
+        $this->host = isset($config['host']) ? (string)$config['host'] : '';
+        $this->port = isset($config['port']) ? (int)$config['port'] : 22;
+        $this->username = isset($config['username']) ? (string)$config['username'] : '';
+        $this->password = isset($config['password']) ? (string)$config['password'] : '';
+        $this->private_key = isset($config['private_key']) ? (string)$config['private_key'] : '';
+        $this->path_prefix = isset($config['path_prefix']) ? trim((string)$config['path_prefix'], '/') : '';
+    }
+
+    public function testConnection(): array {
+        if (!self::available()) {
+            return array('ok' => false, 'error' => 'sftp_not_available', 'error_key' => 'sftp_requirements_missing');
+        }
+        if ($this->host === '' || $this->username === '') {
+            return array('ok' => false, 'error' => 'sftp_missing_params', 'error_key' => 'sftp_missing_credentials');
+        }
+
+        if (!extension_loaded('ssh2')) {
+            return array('ok' => false, 'error' => 'ssh2_extension_required', 'error_key' => 'sftp_ssh2_required');
+        }
+
+        try {
+            return $this->test_ssh2();
+        } catch (Throwable $e) {
+            return array('ok' => false, 'error' => $e->getMessage(), 'error_key' => 'sftp_connect_failed');
+        }
+    }
+
+    private function test_ssh2(): array {
+        $conn = @ssh2_connect($this->host, $this->port);
+        if (!$conn) {
+            return array('ok' => false, 'error' => 'sftp_connect_failed', 'error_key' => 'sftp_connect_failed');
+        }
+
+        $authed = false;
+        if ($this->private_key !== '') {
+            $tmp_pub = '';
+            $tmp_key = tempnam(sys_get_temp_dir(), 'gojs_sftp_key_');
+            $tmp_pub_file = $tmp_key . '.pub';
+            @file_put_contents($tmp_key, $this->private_key);
+            @chmod($tmp_key, 0600);
+
+            $lines = explode("\n", trim($this->private_key));
+            if (strpos($lines[0] ?? '', 'PRIVATE KEY') !== false) {
+                $openssl_available = function_exists('openssl_pkey_get_private');
+                if ($openssl_available) {
+                    $pkey = @openssl_pkey_get_private($this->private_key);
+                    if ($pkey) {
+                        $pub = @openssl_pkey_get_details($pkey);
+                        if ($pub && isset($pub['key'])) {
+                            @file_put_contents($tmp_pub_file, $pub['key']);
+                            $tmp_pub = $tmp_pub_file;
+                        }
+                        @openssl_free_key($pkey);
+                    }
+                }
+            }
+
+            $authed = @ssh2_auth_pubkey_file(
+                $conn,
+                $this->username,
+                $tmp_pub,
+                $tmp_key,
+                $this->password !== '' ? $this->password : null
+            );
+
+            if (!$authed && $this->password !== '') {
+                $authed = @ssh2_auth_password($conn, $this->username, $this->password);
+            }
+
+            @unlink($tmp_key);
+            if ($tmp_pub !== '') @unlink($tmp_pub);
+        } elseif ($this->password !== '') {
+            $authed = @ssh2_auth_password($conn, $this->username, $this->password);
+        }
+
+        if (!$authed) {
+            return array('ok' => false, 'error' => 'sftp_auth_failed', 'error_key' => 'sftp_login_failed');
+        }
+
+        $sftp = @ssh2_sftp($conn);
+        if (!$sftp) {
+            return array('ok' => false, 'error' => 'sftp_init_failed');
+        }
+
+        $target_path = '/';
+        if ($this->path_prefix !== '') {
+            $target_path = '/' . $this->path_prefix . '/';
+            $stat = @ssh2_sftp_stat($sftp, $this->path_prefix);
+            if ($stat === false) {
+                return array('ok' => false, 'error' => 'sftp_cd_failed', 'error_key' => 'sftp_path_inaccessible');
+            }
+        }
+
+        $tmp = 'gojs-test-' . uniqid('', true) . '.txt';
+        $content = 'gojs-test-' . time();
+        $remote_path = $target_path . $tmp;
+
+        $stream = @fopen('ssh2.sftp://' . intval($sftp) . $remote_path, 'w');
+        if (!$stream) {
+            return array('ok' => false, 'error' => 'sftp_write_failed', 'error_key' => 'sftp_not_writable');
+        }
+        fwrite($stream, $content);
+        fclose($stream);
+
+        $dir = @opendir('ssh2.sftp://' . intval($sftp) . $target_path);
+        if ($dir) {
+            $found = false;
+            while (($entry = readdir($dir)) !== false) {
+                if ($entry === $tmp) { $found = true; break; }
+            }
+            closedir($dir);
+        }
+
+        @ssh2_sftp_unlink($sftp, ltrim($remote_path, '/'));
+
+        return array('ok' => true);
+    }
+}
+
+function gojs_backup_destination_factory(array $dest) {
+    $type = isset($dest['type']) ? $dest['type'] : '';
+    $config = array();
+
+    switch ($type) {
+        case 's3':
+            $config['access_key'] = isset($dest['access_key_enc']) ? gojs_unseal_secret($dest['access_key_enc']) : '';
+            $config['secret_key'] = isset($dest['secret_key_enc']) ? gojs_unseal_secret($dest['secret_key_enc']) : '';
+            $config['endpoint'] = $dest['endpoint'] ?? 's3.amazonaws.com';
+            $config['region'] = $dest['region'] ?? 'us-east-1';
+            $config['bucket'] = $dest['bucket'] ?? '';
+            $config['sse'] = !empty($dest['sse']);
+            $config['path_prefix'] = $dest['path_prefix'] ?? '';
+            return new GOJS_S3_Destination($config);
+        case 'ftp':
+            $config['host'] = $dest['host'] ?? '';
+            $config['port'] = isset($dest['port']) ? (int)$dest['port'] : 21;
+            $config['username'] = $dest['username'] ?? '';
+            $config['password'] = isset($dest['password_enc']) ? gojs_unseal_secret($dest['password_enc']) : '';
+            $config['path_prefix'] = $dest['path_prefix'] ?? '';
+            $config['use_tls'] = !empty($dest['use_tls']);
+            return new GOJS_FTP_Destination($config);
+        case 'sftp':
+            $config['host'] = $dest['host'] ?? '';
+            $config['port'] = isset($dest['port']) ? (int)$dest['port'] : 22;
+            $config['username'] = $dest['username'] ?? '';
+            $config['password'] = isset($dest['password_enc']) ? gojs_unseal_secret($dest['password_enc']) : '';
+            $config['private_key'] = isset($dest['private_key_enc']) ? gojs_unseal_secret($dest['private_key_enc']) : '';
+            $config['path_prefix'] = $dest['path_prefix'] ?? '';
+            return new GOJS_SFTP_Destination($config);
+        default:
+            throw new RuntimeException('Unknown destination type: ' . $type);
+    }
+}
+
+function gojs_api_backup_destinations_list() {
+    $destinations = gojs_destinations_load();
+    $redacted = array_map('gojs_destination_redact', $destinations);
+    gojs_json_response(array('destinations' => $redacted));
+}
+
+function gojs_api_backup_destinations_create() {
+    $body = gojs_get_body();
+    if (!is_array($body) || empty($body['type'])) {
+        gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'type 是必填项'), 400);
+    }
+
+    $id = 'dest_' . substr(bin2hex(random_bytes(12)), 0, 16);
+    $dest = array(
+        'id' => $id,
+        'name' => isset($body['name']) ? trim((string)$body['name']) : '',
+        'type' => (string)$body['type'],
+        'path_prefix' => isset($body['path_prefix']) ? (string)$body['path_prefix'] : '',
+        'created_at' => time(),
+        'last_test_ok' => null,
+        'last_test_at' => null,
+    );
+
+    switch ($dest['type']) {
+        case 's3':
+            if (empty($body['name']) || empty($body['access_key']) || empty($body['secret_key']) || empty($body['bucket'])) {
+                gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'name, access_key, secret_key, bucket 为必填项'), 400);
+            }
+            $dest['access_key_enc'] = gojs_seal_secret((string)$body['access_key']);
+            $dest['secret_key_enc'] = gojs_seal_secret((string)$body['secret_key']);
+            $dest['endpoint'] = isset($body['endpoint']) && $body['endpoint'] !== '' ? (string)$body['endpoint'] : 's3.amazonaws.com';
+            $dest['region'] = isset($body['region']) ? (string)$body['region'] : 'us-east-1';
+            $dest['bucket'] = (string)$body['bucket'];
+            $dest['sse'] = !empty($body['sse']);
+            break;
+        case 'ftp':
+            if (empty($body['name']) || empty($body['host']) || empty($body['username'])) {
+                gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'name, host, username 为必填项'), 400);
+            }
+            $dest['host'] = (string)$body['host'];
+            $dest['port'] = isset($body['port']) ? (int)$body['port'] : 21;
+            $dest['username'] = (string)$body['username'];
+            $dest['password_enc'] = gojs_seal_secret((string)($body['password'] ?? ''));
+            $dest['use_tls'] = !empty($body['use_tls']);
+            break;
+        case 'sftp':
+            if (empty($body['name']) || empty($body['host']) || empty($body['username'])) {
+                gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'name, host, username 为必填项'), 400);
+            }
+            $dest['host'] = (string)$body['host'];
+            $dest['port'] = isset($body['port']) ? (int)$body['port'] : 22;
+            $dest['username'] = (string)$body['username'];
+            $dest['password_enc'] = gojs_seal_secret((string)($body['password'] ?? ''));
+            $dest['private_key_enc'] = gojs_seal_secret((string)($body['private_key'] ?? ''));
+            break;
+        default:
+            gojs_json_response(null, array('code' => 'invalid_input', 'message' => '不支持的 type: ' . $dest['type']), 400);
+    }
+
+    $destinations = gojs_destinations_load();
+    $destinations[] = $dest;
+    gojs_destinations_save($destinations);
+    gojs_log_operation('backup_destination_create', $dest['name'], true, $dest['type']);
+
+    gojs_json_response(array('destination' => gojs_destination_redact($dest)));
+}
+
+function gojs_api_backup_destinations_update($id) {
+    $body = gojs_get_body();
+    if (!is_array($body)) {
+        gojs_json_response(null, array('code' => 'invalid_input', 'message' => '请求体无效'), 400);
+    }
+
+    $destinations = gojs_destinations_load();
+    $idx = null;
+    foreach ($destinations as $i => $d) {
+        if (isset($d['id']) && $d['id'] === $id) {
+            $idx = $i;
+            break;
+        }
+    }
+    if ($idx === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '目标不存在'), 404);
+    }
+
+    $dest = $destinations[$idx];
+
+    if (isset($body['name'])) $dest['name'] = trim((string)$body['name']);
+    if (isset($body['path_prefix'])) $dest['path_prefix'] = (string)$body['path_prefix'];
+
+    switch ($dest['type']) {
+        case 's3':
+            if (isset($body['access_key']) && $body['access_key'] !== '' && $body['access_key'] !== '****') {
+                $dest['access_key_enc'] = gojs_seal_secret((string)$body['access_key']);
+            }
+            if (isset($body['secret_key']) && $body['secret_key'] !== '' && $body['secret_key'] !== '****') {
+                $dest['secret_key_enc'] = gojs_seal_secret((string)$body['secret_key']);
+            }
+            if (isset($body['endpoint'])) $dest['endpoint'] = (string)$body['endpoint'];
+            if (isset($body['region'])) $dest['region'] = (string)$body['region'];
+            if (isset($body['bucket'])) $dest['bucket'] = (string)$body['bucket'];
+            if (isset($body['sse'])) $dest['sse'] = !empty($body['sse']);
+            break;
+        case 'ftp':
+            if (isset($body['host'])) $dest['host'] = (string)$body['host'];
+            if (isset($body['port'])) $dest['port'] = (int)$body['port'];
+            if (isset($body['username'])) $dest['username'] = (string)$body['username'];
+            if (isset($body['password']) && $body['password'] !== '' && $body['password'] !== '****') {
+                $dest['password_enc'] = gojs_seal_secret((string)$body['password']);
+            }
+            if (isset($body['use_tls'])) $dest['use_tls'] = !empty($body['use_tls']);
+            break;
+        case 'sftp':
+            if (isset($body['host'])) $dest['host'] = (string)$body['host'];
+            if (isset($body['port'])) $dest['port'] = (int)$body['port'];
+            if (isset($body['username'])) $dest['username'] = (string)$body['username'];
+            if (isset($body['password']) && $body['password'] !== '' && $body['password'] !== '****') {
+                $dest['password_enc'] = gojs_seal_secret((string)$body['password']);
+            }
+            if (isset($body['private_key']) && $body['private_key'] !== '' && $body['private_key'] !== '****') {
+                $dest['private_key_enc'] = gojs_seal_secret((string)$body['private_key']);
+            }
+            break;
+    }
+
+    $destinations[$idx] = $dest;
+    gojs_destinations_save($destinations);
+    gojs_log_operation('backup_destination_update', $dest['name'], true, $dest['type']);
+
+    gojs_json_response(array('destination' => gojs_destination_redact($dest)));
+}
+
+function gojs_api_backup_destinations_delete($id) {
+    $destinations = gojs_destinations_load();
+    $kept = array();
+    $deleted = null;
+    foreach ($destinations as $d) {
+        if (isset($d['id']) && $d['id'] === $id) {
+            $deleted = $d;
+        } else {
+            $kept[] = $d;
+        }
+    }
+    if ($deleted === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '目标不存在'), 404);
+    }
+    gojs_destinations_save($kept);
+    gojs_log_operation('backup_destination_delete', $deleted['name'] ?? $id, true, $deleted['type'] ?? '');
+
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_backup_destinations_test() {
+    $body = gojs_get_body();
+    if (!is_array($body) || empty($body['type'])) {
+        gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'type 是必填项'), 400);
+    }
+
+    $type = (string)$body['type'];
+    $tmp_dest = array('type' => $type, 'path_prefix' => $body['path_prefix'] ?? '');
+
+    switch ($type) {
+        case 's3':
+            $tmp_dest['access_key_enc'] = gojs_seal_secret((string)($body['access_key'] ?? ''));
+            $tmp_dest['secret_key_enc'] = gojs_seal_secret((string)($body['secret_key'] ?? ''));
+            $tmp_dest['endpoint'] = $body['endpoint'] ?? 's3.amazonaws.com';
+            $tmp_dest['region'] = $body['region'] ?? 'us-east-1';
+            $tmp_dest['bucket'] = $body['bucket'] ?? '';
+            $tmp_dest['sse'] = !empty($body['sse']);
+            break;
+        case 'ftp':
+            $tmp_dest['host'] = $body['host'] ?? '';
+            $tmp_dest['port'] = isset($body['port']) ? (int)$body['port'] : 21;
+            $tmp_dest['username'] = $body['username'] ?? '';
+            $tmp_dest['password_enc'] = gojs_seal_secret((string)($body['password'] ?? ''));
+            $tmp_dest['use_tls'] = !empty($body['use_tls']);
+            break;
+        case 'sftp':
+            $tmp_dest['host'] = $body['host'] ?? '';
+            $tmp_dest['port'] = isset($body['port']) ? (int)$body['port'] : 22;
+            $tmp_dest['username'] = $body['username'] ?? '';
+            $tmp_dest['password_enc'] = gojs_seal_secret((string)($body['password'] ?? ''));
+            $tmp_dest['private_key_enc'] = gojs_seal_secret((string)($body['private_key'] ?? ''));
+            break;
+        default:
+            gojs_json_response(null, array('code' => 'invalid_input', 'message' => '不支持的 type: ' . $type), 400);
+    }
+
+    try {
+        $adapter = gojs_backup_destination_factory($tmp_dest);
+        $result = $adapter->testConnection();
+    } catch (Throwable $e) {
+        $result = array('ok' => false, 'error' => $e->getMessage(), 'error_key' => 'unexpected_error');
+    }
+
+    $ok = !empty($result['ok']);
+    if (!empty($body['id'])) {
+        $id = (string)$body['id'];
+        $destinations = gojs_destinations_load();
+        foreach ($destinations as $i => $d) {
+            if (isset($d['id']) && $d['id'] === $id) {
+                $destinations[$i]['last_test_ok'] = $ok;
+                $destinations[$i]['last_test_at'] = time();
+                gojs_destinations_save($destinations);
+                break;
+            }
+        }
+    }
+
+    gojs_json_response($result);
+}
+
+/* ============================================================
+   A.1 CRON 表达式解析器 + next_run_at 计算器
+   ============================================================ */
+
+function gojs_cron_expand_field($field, $min, $max) {
+    if ($field === '' || $field === null) return false;
+    $field = trim((string)$field);
+    $allowed = array();
+
+    if ($field === '*') {
+        for ($i = $min; $i <= $max; $i++) $allowed[] = $i;
+        return $allowed;
+    }
+
+    $parts = explode(',', $field);
+    foreach ($parts as $part) {
+        $step = 1;
+        if (strpos($part, '/') !== false) {
+            list($range_part, $step_str) = explode('/', $part, 2);
+            $step = (int)$step_str;
+            if ($step < 1) $step = 1;
+        } else {
+            $range_part = $part;
+        }
+
+        if ($range_part === '*' || $range_part === '') {
+            for ($i = $min; $i <= $max; $i += $step) $allowed[] = $i;
+        } elseif (strpos($range_part, '-') !== false) {
+            list($start, $end) = explode('-', $range_part, 2);
+            $start = (int)$start;
+            $end = (int)$end;
+            if ($start < $min) $start = $min;
+            if ($end > $max) $end = $max;
+            for ($i = $start; $i <= $end; $i += $step) $allowed[] = $i;
+        } else {
+            $v = (int)$range_part;
+            if ($v < $min || $v > $max) return false;
+            $allowed[] = $v;
+        }
+    }
+
+    return array_values(array_unique($allowed));
+}
+
+function gojs_cron_next_run($expr, $from_ts) {
+    if (!is_string($expr) || trim($expr) === '') {
+        return $from_ts + 86400;
+    }
+
+    $fields = preg_split('/\s+/', trim($expr));
+    if (count($fields) !== 5) {
+        return $from_ts + 86400;
+    }
+
+    $minutes = gojs_cron_expand_field($fields[0], 0, 59);
+    $hours = gojs_cron_expand_field($fields[1], 0, 23);
+    $doms = gojs_cron_expand_field($fields[2], 1, 31);
+    $months = gojs_cron_expand_field($fields[3], 1, 12);
+    $dows = gojs_cron_expand_field($fields[4], 0, 6);
+
+    if ($minutes === false || $hours === false || $doms === false || $months === false || $dows === false) {
+        return $from_ts + 86400;
+    }
+
+    $minutes_set = array_flip($minutes);
+    $hours_set = array_flip($hours);
+    $doms_set = array_flip($doms);
+    $months_set = array_flip($months);
+    $dows_set = array_flip($dows);
+
+    $start_ts = $from_ts + 60;
+    $max_ts = $from_ts + 86400 * 366;
+
+    $current = $start_ts - ($start_ts % 60);
+
+    while ($current <= $max_ts) {
+        $parts = getdate($current);
+        $min = (int)$parts['minutes'];
+        $hour = (int)$parts['hours'];
+        $dom = (int)$parts['mday'];
+        $mon = (int)$parts['mon'];
+        $dow = (int)$parts['wday'];
+
+        if (
+            isset($months_set[$mon]) &&
+            isset($doms_set[$dom]) &&
+            isset($dows_set[$dow]) &&
+            isset($hours_set[$hour]) &&
+            isset($minutes_set[$min])
+        ) {
+            return $current;
+        }
+
+        $current += 60;
+    }
+
+    return $from_ts + 86400;
+}
+
+function gojs_cron_human_readable($expr) {
+    if (!is_string($expr)) return $expr;
+    $fields = preg_split('/\s+/', trim($expr));
+    if (count($fields) !== 5) return $expr;
+
+    list($min, $hour, $dom, $mon, $dow) = $fields;
+
+    if ($min === '0' && $dom === '*' && $mon === '*' && $dow === '*' &&
+        preg_match('#^\*/(\d+)$#', $hour, $m)) {
+        $n = (int)$m[1];
+        return "Every {$n} hours";
+    }
+    if ($min === '0' && $hour === '*' && $dom === '*' && $mon === '*' && $dow === '*') {
+        return 'Every hour';
+    }
+    if ($min === '*' && $hour === '*' && $dom === '*' && $mon === '*' && $dow === '*') {
+        return 'Every minute';
+    }
+    if ($min === '0' && $hour === '0' && $dom === '*' && $mon === '*' && $dow === '0') {
+        return 'Weekly on Sunday 00:00';
+    }
+    if ($min === '0' && $hour === '0' && $dom === '1' && $mon === '*' && $dow === '*') {
+        return 'Monthly on day 1 00:00';
+    }
+    if (preg_match('#^(\d+)$#', $min, $m1) && preg_match('#^(\d+)$#', $hour, $m2) &&
+        $dom === '*' && $mon === '*' && $dow === '*') {
+        $h = str_pad($m2[1], 2, '0', STR_PAD_LEFT);
+        $m = str_pad($m1[1], 2, '0', STR_PAD_LEFT);
+        return "Daily at {$h}:{$m}";
+    }
+
+    return trim($expr);
+}
+
+/* ============================================================
+   A.2 Schedules 存储 + CRUD 端点
+   ============================================================ */
+
+function gojs_schedules_load(): array {
+    global $config;
+    return isset($config['backup_schedules']) && is_array($config['backup_schedules'])
+        ? $config['backup_schedules']
+        : array();
+}
+
+function gojs_schedules_save(array $schedules): void {
+    global $config;
+    $config['backup_schedules'] = $schedules;
+    gojs_save_config();
+}
+
+function gojs_backup_runs_path(): string {
+    return CONFIG_DIR . '/backup_runs.json';
+}
+
+function gojs_backup_runs_load(): array {
+    return gojs_read_json_lock_safe(gojs_backup_runs_path(), array());
+}
+
+function gojs_backup_runs_save(array $runs): void {
+    $cap = 1000;
+    if (count($runs) > $cap) {
+        $runs = array_slice($runs, -$cap);
+    }
+    gojs_write_json_lock_safe(gojs_backup_runs_path(), $runs, true);
+}
+
+function gojs_validate_cron_expr($expr): bool {
+    if (!is_string($expr)) return false;
+    $fields = preg_split('/\s+/', trim($expr));
+    if (count($fields) !== 5) return false;
+    list($min, $hour, $dom, $mon, $dow) = $fields;
+    return (
+        gojs_cron_expand_field($min, 0, 59) !== false &&
+        gojs_cron_expand_field($hour, 0, 23) !== false &&
+        gojs_cron_expand_field($dom, 1, 31) !== false &&
+        gojs_cron_expand_field($mon, 1, 12) !== false &&
+        gojs_cron_expand_field($dow, 0, 6) !== false
+    );
+}
+
+function gojs_validate_destination_ids($dest_ids): bool {
+    if (!is_array($dest_ids)) return false;
+    $dests = gojs_destinations_load();
+    $dest_map = array();
+    foreach ($dests as $d) {
+        if (!empty($d['id'])) $dest_map[$d['id']] = true;
+    }
+    foreach ($dest_ids as $id) {
+        if (!is_string($id) || !isset($dest_map[$id])) return false;
+    }
+    return true;
+}
+
+function gojs_api_backup_schedules_list() {
+    $now = time();
+    $schedules = gojs_schedules_load();
+    $changed = false;
+
+    foreach ($schedules as $i => $s) {
+        if (empty($s['enabled'])) continue;
+        $next_run_at = isset($s['next_run_at']) ? (int)$s['next_run_at'] : 0;
+        if ($next_run_at === 0 || $next_run_at < $now) {
+            $from = $next_run_at > 0 ? $next_run_at : $now;
+            $schedules[$i]['next_run_at'] = gojs_cron_next_run(
+                isset($s['cron_expr']) ? $s['cron_expr'] : '* * * * *',
+                $from
+            );
+            $changed = true;
+        }
+    }
+
+    if ($changed) {
+        gojs_schedules_save($schedules);
+    }
+
+    gojs_json_response(array('schedules' => array_values($schedules)));
+}
+
+function gojs_api_backup_schedules_create() {
+    $body = gojs_get_body();
+    if (!is_array($body)) {
+        gojs_json_response(null, array('code' => 'invalid_input', 'message' => '请求体无效'), 400);
+    }
+
+    $name = isset($body['name']) ? trim((string)$body['name']) : '';
+    if ($name === '') {
+        gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'name 不能为空'), 400);
+    }
+
+    $cron_expr = isset($body['cron_expr']) ? trim((string)$body['cron_expr']) : '';
+    if (!gojs_validate_cron_expr($cron_expr)) {
+        gojs_json_response(null, array('code' => 'invalid_cron', 'message' => 'Cron 表达式无效'), 400);
+    }
+
+    $dest_ids = isset($body['destination_ids']) && is_array($body['destination_ids'])
+        ? $body['destination_ids'] : array();
+    if (!gojs_validate_destination_ids($dest_ids)) {
+        gojs_json_response(null, array('code' => 'invalid_destination', 'message' => '目标 ID 列表包含不存在的目标'), 400);
+    }
+
+    $source = isset($body['source']) && is_array($body['source']) ? $body['source'] : array();
+    $retention = isset($body['retention']) && is_array($body['retention']) ? $body['retention'] : array();
+
+    $id = 'sch_' . substr(bin2hex(random_bytes(12)), 0, 16);
+    $schedule = array(
+        'id' => $id,
+        'name' => $name,
+        'enabled' => isset($body['enabled']) ? (bool)$body['enabled'] : true,
+        'source' => array(
+            'include_files' => isset($source['include_files']) ? (bool)$source['include_files'] : true,
+            'include_db' => isset($source['include_db']) ? (bool)$source['include_db'] : true,
+            'include_config' => isset($source['include_config']) ? (bool)$source['include_config'] : true,
+            'exclude_dirs' => isset($source['exclude_dirs']) && is_array($source['exclude_dirs'])
+                ? array_values($source['exclude_dirs'])
+                : array('cache', 'node_modules', '.git', '.gojs'),
+        ),
+        'destination_ids' => array_values($dest_ids),
+        'cron_expr' => $cron_expr,
+        'retention' => array(
+            'keep_last' => isset($retention['keep_last']) ? (int)$retention['keep_last'] : 30,
+            'keep_daily' => isset($retention['keep_daily']) ? (int)$retention['keep_daily'] : 7,
+            'keep_weekly' => isset($retention['keep_weekly']) ? (int)$retention['keep_weekly'] : 4,
+            'keep_monthly' => isset($retention['keep_monthly']) ? (int)$retention['keep_monthly'] : 6,
+        ),
+        'next_run_at' => 0,
+        'created_at' => time(),
+    );
+
+    if ($schedule['enabled']) {
+        $schedule['next_run_at'] = gojs_cron_next_run($cron_expr, time());
+    }
+
+    $schedules = gojs_schedules_load();
+    $schedules[] = $schedule;
+    gojs_schedules_save($schedules);
+    gojs_log_operation('backup_schedule_create', $name, true, $cron_expr);
+
+    gojs_json_response(array('schedule' => $schedule));
+}
+
+function gojs_api_backup_schedules_update($id) {
+    $body = gojs_get_body();
+    if (!is_array($body)) {
+        gojs_json_response(null, array('code' => 'invalid_input', 'message' => '请求体无效'), 400);
+    }
+
+    $schedules = gojs_schedules_load();
+    $idx = null;
+    foreach ($schedules as $i => $s) {
+        if (isset($s['id']) && $s['id'] === $id) {
+            $idx = $i;
+            break;
+        }
+    }
+    if ($idx === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '计划不存在'), 404);
+    }
+
+    $s = $schedules[$idx];
+    $old_enabled = !empty($s['enabled']);
+    $old_cron = isset($s['cron_expr']) ? $s['cron_expr'] : '';
+
+    if (isset($body['name'])) {
+        $name = trim((string)$body['name']);
+        if ($name === '') {
+            gojs_json_response(null, array('code' => 'invalid_input', 'message' => 'name 不能为空'), 400);
+        }
+        $s['name'] = $name;
+    }
+
+    $enabled_changed = false;
+    if (isset($body['enabled'])) {
+        $s['enabled'] = (bool)$body['enabled'];
+        $enabled_changed = ($old_enabled !== $s['enabled']);
+    }
+
+    $cron_changed = false;
+    if (isset($body['cron_expr'])) {
+        $cron_expr = trim((string)$body['cron_expr']);
+        if (!gojs_validate_cron_expr($cron_expr)) {
+            gojs_json_response(null, array('code' => 'invalid_cron', 'message' => 'Cron 表达式无效'), 400);
+        }
+        $s['cron_expr'] = $cron_expr;
+        $cron_changed = ($old_cron !== $cron_expr);
+    }
+
+    if (isset($body['destination_ids']) && is_array($body['destination_ids'])) {
+        if (!gojs_validate_destination_ids($body['destination_ids'])) {
+            gojs_json_response(null, array('code' => 'invalid_destination', 'message' => '目标 ID 列表包含不存在的目标'), 400);
+        }
+        $s['destination_ids'] = array_values($body['destination_ids']);
+    }
+
+    if (isset($body['source']) && is_array($body['source'])) {
+        $source = $body['source'];
+        $old_source = isset($s['source']) && is_array($s['source']) ? $s['source'] : array();
+        $s['source'] = array(
+            'include_files' => isset($source['include_files']) ? (bool)$source['include_files']
+                : (isset($old_source['include_files']) ? (bool)$old_source['include_files'] : true),
+            'include_db' => isset($source['include_db']) ? (bool)$source['include_db']
+                : (isset($old_source['include_db']) ? (bool)$old_source['include_db'] : true),
+            'include_config' => isset($source['include_config']) ? (bool)$source['include_config']
+                : (isset($old_source['include_config']) ? (bool)$old_source['include_config'] : true),
+            'exclude_dirs' => isset($source['exclude_dirs']) && is_array($source['exclude_dirs'])
+                ? array_values($source['exclude_dirs'])
+                : (isset($old_source['exclude_dirs']) ? $old_source['exclude_dirs']
+                    : array('cache', 'node_modules', '.git', '.gojs')),
+        );
+    }
+
+    if (isset($body['retention']) && is_array($body['retention'])) {
+        $r = $body['retention'];
+        $old_r = isset($s['retention']) && is_array($s['retention']) ? $s['retention'] : array();
+        $s['retention'] = array(
+            'keep_last' => isset($r['keep_last']) ? (int)$r['keep_last']
+                : (isset($old_r['keep_last']) ? (int)$old_r['keep_last'] : 30),
+            'keep_daily' => isset($r['keep_daily']) ? (int)$r['keep_daily']
+                : (isset($old_r['keep_daily']) ? (int)$old_r['keep_daily'] : 7),
+            'keep_weekly' => isset($r['keep_weekly']) ? (int)$r['keep_weekly']
+                : (isset($old_r['keep_weekly']) ? (int)$old_r['keep_weekly'] : 4),
+            'keep_monthly' => isset($r['keep_monthly']) ? (int)$r['keep_monthly']
+                : (isset($old_r['keep_monthly']) ? (int)$old_r['keep_monthly'] : 6),
+        );
+    }
+
+    if ($s['enabled'] && ($cron_changed || $enabled_changed || empty($s['next_run_at']))) {
+        $s['next_run_at'] = gojs_cron_next_run(isset($s['cron_expr']) ? $s['cron_expr'] : '* * * * *', time());
+    } elseif (!$s['enabled']) {
+        $s['next_run_at'] = 0;
+    }
+
+    $schedules[$idx] = $s;
+    gojs_schedules_save($schedules);
+    gojs_log_operation('backup_schedule_update', $s['name'], true);
+
+    gojs_json_response(array('schedule' => $s));
+}
+
+function gojs_api_backup_schedules_delete($id) {
+    $schedules = gojs_schedules_load();
+    $kept = array();
+    $deleted = null;
+    foreach ($schedules as $d) {
+        if (isset($d['id']) && $d['id'] === $id) {
+            $deleted = $d;
+        } else {
+            $kept[] = $d;
+        }
+    }
+    if ($deleted === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '计划不存在'), 404);
+    }
+
+    gojs_schedules_save($kept);
+    gojs_log_operation('backup_schedule_delete', $deleted['name'], true);
+    gojs_json_response(array('success' => true));
+}
+
+function gojs_api_backup_schedules_run_now($id) {
+    $schedules = gojs_schedules_load();
+    $schedule = null;
+    foreach ($schedules as $s) {
+        if (isset($s['id']) && $s['id'] === $id) {
+            $schedule = $s;
+            break;
+        }
+    }
+    if ($schedule === null) {
+        gojs_json_response(null, array('code' => 'not_found', 'message' => '计划不存在'), 404);
+    }
+
+    $result = gojs_backup_execute_schedule($schedule);
+    gojs_json_response(array('run_id' => $result['run_record_id'], 'ok' => $result['ok']));
+}
+
+/* ============================================================
+   A.3 备份执行 + 推送目标 + 保留清理
+   ============================================================ */
+
+function gojs_backup_create_local($source) {
+    $backup_dir = CONFIG_DIR . '/backups';
+    if (!is_dir($backup_dir)) {
+        if (!@mkdir($backup_dir, 0700, true)) {
+            return array('ok' => false, 'error' => '无法创建备份目录');
+        }
+    }
+
+    $include_files = isset($source['include_files']) ? (bool)$source['include_files'] : true;
+    $include_db = isset($source['include_db']) ? (bool)$source['include_db'] : true;
+    $include_config = isset($source['include_config']) ? (bool)$source['include_config'] : true;
+    $exclude_dirs = isset($source['exclude_dirs']) && is_array($source['exclude_dirs'])
+        ? $source['exclude_dirs']
+        : array('cache', 'node_modules', '.git', '.gojs');
+
+    if (!$include_files && !$include_db && !$include_config) {
+        return array('ok' => false, 'error' => '未选择任何备份范围');
+    }
+
+    $timestamp = date('Ymd_His');
+    $backup_name = "gojs-backup-{$timestamp}";
+    $backup_file = $backup_dir . "/{$backup_name}.tar.gz";
+
+    if (class_exists('PharData')) {
+        try {
+            @set_time_limit(0);
+            $phar = new PharData($backup_file . '.tar');
+            $metadata = array(
+                'created_at' => date('Y-m-d H:i:s'),
+                'version' => APP_VERSION,
+                'files' => null,
+                'databases' => array(),
+                'config' => false,
+            );
+
+            $files_root = $GLOBALS['files_root'];
+
+            if ($include_files && is_dir($files_root)) {
+                $file_count = 0;
+                $items = new RecursiveIteratorIterator(
+                    new RecursiveCallbackFilterIterator(
+                        new RecursiveDirectoryIterator($files_root, RecursiveDirectoryIterator::SKIP_DOTS),
+                        function ($current, $key, $iterator) use ($files_root, $exclude_dirs) {
+                            if ($current->isDir()) {
+                                $name = $current->getFilename();
+                                if (in_array($name, $exclude_dirs, true)) return false;
+                            }
+                            $path = $current->getPathname();
+                            return !gojs_is_protected_path($path);
+                        }
+                    ),
+                    RecursiveIteratorIterator::LEAVES_ONLY
+                );
+                foreach ($items as $file) {
+                    if ($file->isFile() && $file->isReadable()) {
+                        $rel = substr($file->getPathname(), strlen($files_root) + 1);
+                        if ($rel === false || $rel === '') continue;
+                        try {
+                            $phar->addFile($file->getPathname(), 'files/' . $rel);
+                            $file_count++;
+                        } catch (Exception $e) {
+                        }
+                    }
+                }
+                $metadata['files'] = array('count' => $file_count, 'root' => basename($files_root));
+            }
+
+            if ($include_db) {
+                $connections = gojs_load_db_connections();
+                foreach ($connections as $conn) {
+                    if (empty($conn['id'])) continue;
+                    $conn_config = gojs_get_db_connection($conn['id']);
+                    if (!$conn_config) continue;
+                    try {
+                        $sql_content = gojs_backup_export_db($conn_config);
+                        if ($sql_content !== '') {
+                            $safe_id = preg_replace('/[^A-Za-z0-9_-]/', '_', $conn['id']);
+                            $phar->addFromString('database/' . $safe_id . '.sql', $sql_content);
+                            $metadata['databases'][] = array(
+                                'id' => $conn['id'],
+                                'name' => isset($conn['name']) ? $conn['name'] : $conn['id'],
+                                'database' => isset($conn_config['database']) ? $conn_config['database'] : '',
+                                'size' => strlen($sql_content),
+                            );
+                        }
+                    } catch (Exception $e) {
+                        if (!isset($metadata['db_error'])) $metadata['db_error'] = array();
+                        $metadata['db_error'][] = (isset($conn['name']) ? $conn['name'] : $conn['id']) . ': ' . $e->getMessage();
+                    }
+                }
+            }
+
+            if ($include_config && file_exists(CONFIG_FILE)) {
+                $phar->addFile(CONFIG_FILE, 'config/config.php');
+                $metadata['config'] = true;
+            }
+
+            $phar->addFromString('backup.json', json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+            $phar->compress(Phar::GZ);
+            unset($phar);
+            @unlink($backup_file . '.tar');
+
+            $size = @filesize($backup_file);
+            gojs_log_operation('backup_schedule_create_local', basename($backup_file), true);
+            return array(
+                'ok' => true,
+                'path' => $backup_file,
+                'filename' => basename($backup_file),
+                'size' => $size,
+                'metadata' => $metadata,
+            );
+        } catch (Exception $e) {
+            @unlink($backup_file);
+            @unlink($backup_file . '.tar');
+            return array('ok' => false, 'error' => $e->getMessage());
+        }
+    } else {
+        return gojs_backup_create_local_zip($backup_dir, $backup_name, $include_files, $include_db, $include_config, $exclude_dirs);
+    }
+}
+
+function gojs_backup_create_local_zip($backup_dir, $backup_name, $include_files, $include_db, $include_config, $exclude_dirs) {
+    $backup_file = $backup_dir . "/{$backup_name}.zip";
+    if (!class_exists('ZipArchive')) {
+        return array('ok' => false, 'error' => 'ZipArchive 和 PharData 均不可用');
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($backup_file, ZipArchive::CREATE | ZipArchive::OVERWRITE) !== true) {
+        return array('ok' => false, 'error' => '创建 zip 包失败');
+    }
+    @set_time_limit(0);
+
+    $metadata = array(
+        'created_at' => date('Y-m-d H:i:s'),
+        'version' => APP_VERSION,
+        'files' => null,
+        'databases' => array(),
+        'config' => false,
+    );
+
+    $files_root = $GLOBALS['files_root'];
+
+    if ($include_files && is_dir($files_root)) {
+        $file_count = gojs_backup_add_dir($zip, $files_root, 'files/', $exclude_dirs);
+        $metadata['files'] = array('count' => $file_count, 'root' => basename($files_root));
+    }
+
+    if ($include_db) {
+        $connections = gojs_load_db_connections();
+        foreach ($connections as $conn) {
+            if (empty($conn['id'])) continue;
+            $conn_config = gojs_get_db_connection($conn['id']);
+            if (!$conn_config) continue;
+            try {
+                $sql_content = gojs_backup_export_db($conn_config);
+                if ($sql_content !== '') {
+                    $safe_id = preg_replace('/[^A-Za-z0-9_-]/', '_', $conn['id']);
+                    $zip->addFromString('database/' . $safe_id . '.sql', $sql_content);
+                    $metadata['databases'][] = array(
+                        'id' => $conn['id'],
+                        'name' => isset($conn['name']) ? $conn['name'] : $conn['id'],
+                        'database' => isset($conn_config['database']) ? $conn_config['database'] : '',
+                        'size' => strlen($sql_content),
+                    );
+                }
+            } catch (Exception $e) {
+                if (!isset($metadata['db_error'])) $metadata['db_error'] = array();
+                $metadata['db_error'][] = (isset($conn['name']) ? $conn['name'] : $conn['id']) . ': ' . $e->getMessage();
+            }
+        }
+    }
+
+    if ($include_config && file_exists(CONFIG_FILE)) {
+        $zip->addFile(CONFIG_FILE, 'config/config.php');
+        $metadata['config'] = true;
+    }
+
+    $zip->addFromString('backup.json', json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    $zip->close();
+
+    $size = @filesize($backup_file);
+    gojs_log_operation('backup_schedule_create_local', basename($backup_file), true);
+    return array(
+        'ok' => true,
+        'path' => $backup_file,
+        'filename' => basename($backup_file),
+        'size' => $size,
+        'metadata' => $metadata,
+    );
+}
+
+function gojs_parse_backup_created_ts($filename) {
+    if (preg_match('/gojs-backup-(\d{8})_(\d{6})/', $filename, $m)) {
+        $date = $m[1];
+        $time = $m[2];
+        $year = (int)substr($date, 0, 4);
+        $mon = (int)substr($date, 4, 2);
+        $day = (int)substr($date, 6, 2);
+        $hour = (int)substr($time, 0, 2);
+        $min = (int)substr($time, 2, 2);
+        $sec = (int)substr($time, 4, 2);
+        return gmmktime($hour, $min, $sec, $mon, $day, $year);
+    }
+    return file_exists($filename) ? @filemtime($filename) : time();
+}
+
+function gojs_retention_prune($dest, $rule) {
+    if (!is_array($dest)) return 0;
+
+    $path_prefix = isset($dest['path_prefix']) ? trim((string)$dest['path_prefix'], '/') : '';
+    $list_prefix = $path_prefix !== '' ? $path_prefix . '/gojs-backup-' : 'gojs-backup-';
+
+    try {
+        $adapter = gojs_destination_factory($dest);
+    } catch (Exception $e) {
+        return 0;
+    }
+
+    if (!method_exists($adapter, 'listObjects') || !method_exists($adapter, 'deleteObject')) {
+        return 0;
+    }
+
+    $list_result = $adapter->listObjects($list_prefix, 1000);
+    $objects = isset($list_result['objects']) && is_array($list_result['objects']) ? $list_result['objects'] : array();
+
+    $now = time();
+    $min_age = 48 * 3600;
+    $candidates = array();
+    foreach ($objects as $o) {
+        $key = is_array($o) ? (isset($o['key']) ? $o['key'] : '') : (string)$o;
+        if ($key === '') continue;
+        $created_ts = gojs_parse_backup_created_ts($key);
+        $age = $now - $created_ts;
+        $candidates[] = array('key' => $key, 'created' => $created_ts, 'age' => $age);
+    }
+
+    usort($candidates, function($a, $b) { return $b['created'] - $a['created']; });
+
+    $keep_last = isset($rule['keep_last']) ? (int)$rule['keep_last'] : 0;
+    $keep_daily = isset($rule['keep_daily']) ? (int)$rule['keep_daily'] : 0;
+    $keep_weekly = isset($rule['keep_weekly']) ? (int)$rule['keep_weekly'] : 0;
+    $keep_monthly = isset($rule['keep_monthly']) ? (int)$rule['keep_monthly'] : 0;
+
+    $kept = array();
+    $remaining = $candidates;
+
+    if ($keep_last > 0) {
+        $to_keep = array_slice($remaining, 0, $keep_last);
+        foreach ($to_keep as $c) {
+            $kept[$c['key']] = true;
+        }
+        $remaining = array_slice($remaining, $keep_last);
+    }
+
+    if ($keep_daily > 0) {
+        $daily_buckets = array();
+        foreach ($remaining as $c) {
+            $bucket = gmdate('Y-m-d', $c['created']);
+            if (!isset($daily_buckets[$bucket])) $daily_buckets[$bucket] = array();
+            $daily_buckets[$bucket][] = $c;
+        }
+        krsort($daily_buckets);
+        $buckets_taken = 0;
+        foreach ($daily_buckets as $bucket => $list) {
+            if ($buckets_taken >= $keep_daily) break;
+            if (count($list) > 0) {
+                $kept[$list[0]['key']] = true;
+                $buckets_taken++;
+            }
+        }
+        $temp = array();
+        foreach ($remaining as $c) {
+            if (!isset($kept[$c['key']])) $temp[] = $c;
+        }
+        $remaining = $temp;
+    }
+
+    if ($keep_weekly > 0) {
+        $weekly_buckets = array();
+        foreach ($remaining as $c) {
+            $week = gmdate('o-W', $c['created']);
+            if (!isset($weekly_buckets[$week])) $weekly_buckets[$week] = array();
+            $weekly_buckets[$week][] = $c;
+        }
+        krsort($weekly_buckets);
+        $buckets_taken = 0;
+        foreach ($weekly_buckets as $bucket => $list) {
+            if ($buckets_taken >= $keep_weekly) break;
+            if (count($list) > 0) {
+                $kept[$list[0]['key']] = true;
+                $buckets_taken++;
+            }
+        }
+        $temp = array();
+        foreach ($remaining as $c) {
+            if (!isset($kept[$c['key']])) $temp[] = $c;
+        }
+        $remaining = $temp;
+    }
+
+    if ($keep_monthly > 0) {
+        $monthly_buckets = array();
+        foreach ($remaining as $c) {
+            $bucket = gmdate('Y-m', $c['created']);
+            if (!isset($monthly_buckets[$bucket])) $monthly_buckets[$bucket] = array();
+            $monthly_buckets[$bucket][] = $c;
+        }
+        krsort($monthly_buckets);
+        $buckets_taken = 0;
+        foreach ($monthly_buckets as $bucket => $list) {
+            if ($buckets_taken >= $keep_monthly) break;
+            if (count($list) > 0) {
+                $kept[$list[0]['key']] = true;
+                $buckets_taken++;
+            }
+        }
+    }
+
+    $deleted = 0;
+    foreach ($candidates as $c) {
+        if (isset($kept[$c['key']])) continue;
+        if ($c['age'] < $min_age) continue;
+        try {
+            $adapter->deleteObject($c['key']);
+            $deleted++;
+        } catch (Exception $e) {
+        }
+    }
+
+    return $deleted;
+}
+
+function gojs_backup_execute_schedule($schedule) {
+    $run_id = 'run_' . substr(bin2hex(random_bytes(12)), 0, 16);
+    $started_at = time();
+    $now = $started_at;
+
+    $runs = gojs_backup_runs_load();
+    $runs[] = array(
+        'id' => $run_id,
+        'schedule_id' => isset($schedule['id']) ? $schedule['id'] : '',
+        'started_at' => $started_at,
+        'ended_at' => null,
+        'status' => 'running',
+        'bytes_total' => 0,
+        'destination_results' => array(),
+        'pruned_count' => 0,
+    );
+    gojs_backup_runs_save($runs);
+
+    $source = isset($schedule['source']) && is_array($schedule['source']) ? $schedule['source'] : array();
+    $create_result = gojs_backup_create_local($source);
+
+    $bytes_total = 0;
+    $dest_results = array();
+    $pruned_count = 0;
+    $final_status = 'success';
+
+    if (!$create_result['ok']) {
+        $final_status = 'failed';
+        if (function_exists('gojs_notifications_append')) {
+            gojs_notifications_append(array(
+                'id' => 'n_' . substr(bin2hex(random_bytes(8)), 0, 16),
+                'category' => 'backup',
+                'severity' => 'warning',
+                'title_key' => 'backup_create_local_failed',
+                'body_key' => 'backup_schedule_name',
+                'body_params' => array('name' => isset($schedule['name']) ? $schedule['name'] : ''),
+                'payload' => array('schedule_id' => isset($schedule['id']) ? $schedule['id'] : '', 'error' => $create_result['error']),
+                'created_at' => time(),
+            ));
+        }
+    } else {
+        $local_path = $create_result['path'];
+        $filename = $create_result['filename'];
+        $bytes_total = isset($create_result['size']) ? (int)$create_result['size'] : 0;
+
+        $dest_ids = isset($schedule['destination_ids']) && is_array($schedule['destination_ids'])
+            ? $schedule['destination_ids']
+            : array();
+        $dests = gojs_destinations_load();
+        $dest_map = array();
+        foreach ($dests as $d) {
+            if (!empty($d['id'])) $dest_map[$d['id']] = $d;
+        }
+
+        foreach ($dest_ids as $dest_id) {
+            if (!isset($dest_map[$dest_id])) {
+                $dest_results[] = array('dest_id' => $dest_id, 'ok' => false, 'error' => 'destination not found');
+                $final_status = 'failed';
+                continue;
+            }
+            $dest = $dest_map[$dest_id];
+            $path_prefix = isset($dest['path_prefix']) ? trim((string)$dest['path_prefix'], '/') : '';
+            $remote_key = $path_prefix !== '' ? $path_prefix . '/' . $filename : $filename;
+
+            try {
+                $adapter = gojs_destination_factory($dest);
+                if (!method_exists($adapter, 'putObject')) {
+                    $dest_results[] = array('dest_id' => $dest_id, 'ok' => false, 'error' => 'putObject not supported');
+                    $final_status = 'failed';
+                    continue;
+                }
+                $body = @file_get_contents($local_path);
+                if ($body === false) {
+                    $dest_results[] = array('dest_id' => $dest_id, 'ok' => false, 'error' => '无法读取本地备份文件');
+                    $final_status = 'failed';
+                    continue;
+                }
+                $push = $adapter->putObject($remote_key, $body);
+                $push_ok = !empty($push['ok']);
+                $dest_results[] = array(
+                    'dest_id' => $dest_id,
+                    'ok' => $push_ok,
+                    'remote_path' => $push_ok ? $remote_key : null,
+                    'error' => $push_ok ? null : (isset($push['error']) ? $push['error'] : 'unknown error'),
+                );
+                if (!$push_ok) $final_status = 'failed';
+                unset($body);
+            } catch (Exception $e) {
+                $dest_results[] = array('dest_id' => $dest_id, 'ok' => false, 'error' => $e->getMessage());
+                $final_status = 'failed';
+            }
+        }
+
+        if ($final_status === 'success') {
+            $retention = isset($schedule['retention']) && is_array($schedule['retention']) ? $schedule['retention'] : array();
+            foreach ($dest_ids as $dest_id) {
+                if (isset($dest_map[$dest_id])) {
+                    $dest = $dest_map[$dest_id];
+                    try {
+                        $pruned_count += gojs_retention_prune($dest, $retention);
+                    } catch (Exception $e) {
+                    }
+                }
+            }
+        }
+
+        $keep_local = true;
+        if (isset($source['keep_local']) && $source['keep_local'] === false) {
+            $keep_local = false;
+        }
+        if (!$keep_local) {
+            @unlink($local_path);
+        }
+    }
+
+    $ended_at = time();
+    $runs = gojs_backup_runs_load();
+    foreach ($runs as $i => $r) {
+        if (isset($r['id']) && $r['id'] === $run_id) {
+            $runs[$i]['ended_at'] = $ended_at;
+            $runs[$i]['status'] = $final_status;
+            $runs[$i]['bytes_total'] = $bytes_total;
+            $runs[$i]['destination_results'] = $dest_results;
+            $runs[$i]['pruned_count'] = $pruned_count;
+            break;
+        }
+    }
+    gojs_backup_runs_save($runs);
+
+    if (function_exists('gojs_notifications_append')) {
+        gojs_notifications_append(array(
+            'id' => 'n_' . substr(bin2hex(random_bytes(8)), 0, 16),
+            'category' => 'backup',
+            'severity' => $final_status === 'success' ? 'success' : 'critical',
+            'title_key' => $final_status === 'success' ? 'backup_run_success' : 'backup_run_failed',
+            'body_key' => 'backup_schedule_name',
+            'body_params' => array('name' => isset($schedule['name']) ? $schedule['name'] : ''),
+            'payload' => array('schedule_id' => isset($schedule['id']) ? $schedule['id'] : '', 'run_id' => $run_id),
+            'created_at' => time(),
+        ));
+    }
+
+    return array(
+        'run_record_id' => $run_id,
+        'ok' => $final_status === 'success',
+        'bytes_total' => $bytes_total,
+        'dest_results' => $dest_results,
+        'pruned_count' => $pruned_count,
+    );
+}
+
+/* ============================================================
+   A.4 InternalCron tick engine
+   ============================================================ */
+
+function gojs_internal_cron_tick(): array {
+    $now = time();
+    $processed_schedules = 0;
+    $processed_runs = 0;
+
+    $schedules = gojs_schedules_load();
+    $changed = false;
+
+    foreach ($schedules as $i => $s) {
+        if (empty($s['enabled'])) continue;
+        $next_run_at = isset($s['next_run_at']) ? (int)$s['next_run_at'] : 0;
+        if ($next_run_at > 0 && $next_run_at <= $now) {
+            gojs_backup_execute_schedule($s);
+            $schedules[$i]['last_run_at'] = $now;
+            $schedules[$i]['next_run_at'] = gojs_cron_next_run(
+                isset($s['cron_expr']) ? $s['cron_expr'] : '* * * * *',
+                $now
+            );
+            $changed = true;
+            $processed_schedules++;
+        }
+    }
+
+    if ($changed) {
+        gojs_schedules_save($schedules);
+    }
+
+    $runs = gojs_backup_runs_load();
+    $processed_runs = count($runs);
+
+    $drained_outbox = 0;
+    if (function_exists('gojs_channels_deliver_all')) {
+        $stats = gojs_channels_deliver_all();
+        $drained_outbox = isset($stats['delivered']) ? (int)$stats['delivered']
+            : (isset($stats['drained']) ? (int)$stats['drained'] : 0);
+    }
+
+    $stats = array(
+        'processed_schedules' => $processed_schedules,
+        'processed_runs' => $processed_runs,
+        'drained_outbox' => $drained_outbox,
+        'tick_at' => $now,
+    );
+
+    if (function_exists('gojs_internal_cron_acme_renew_hook')) {
+        gojs_internal_cron_acme_renew_hook($stats);
+    }
+
+    return $stats;
+}
+
+function gojs_api_internal_cron_tick() {
+    global $config;
+    $provided_token = gojs_get_param('internal_cron_token', '');
+    if ($provided_token === '') {
+        $headers = function_exists('getallheaders') ? getallheaders() : array();
+        if (!$headers) $headers = array();
+        foreach ($headers as $k => $v) {
+            if (strtolower($k) === 'x-internal-cron-token') {
+                $provided_token = $v;
+                break;
+            }
+        }
+    }
+    $valid_token = isset($config['internal_cron_token']) ? $config['internal_cron_token'] : '';
+    $admin_allowed = !empty($_SESSION['authenticated']);
+    if (!$admin_allowed && ($provided_token === '' || $valid_token === '' || !hash_equals($valid_token, $provided_token))) {
+        gojs_json_response(null, array(
+            'code' => 'forbidden',
+            'message' => '需要 internal_cron_token 或管理员登录',
+        ), 403);
+    }
+    $stats = gojs_internal_cron_tick();
+    gojs_json_response($stats);
+}
+
+function gojs_api_internal_cron_regenerate_token() {
+    global $config;
+    $chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $token = '';
+    for ($i = 0; $i < 32; $i++) {
+        $token .= $chars[mt_rand(0, strlen($chars) - 1)];
+    }
+    $config['internal_cron_token'] = $token;
+    gojs_save_config();
+    gojs_json_response(array('token' => $token));
+}
+
+/* ============================================================
+   A.5 Run log endpoints
+   ============================================================ */
+
+function gojs_api_backup_runs_list() {
+    $schedule_id = gojs_get_param('schedule_id', '');
+    $limit = (int)gojs_get_param('limit', 50);
+    $offset = (int)gojs_get_param('offset', 0);
+
+    if ($limit < 1) $limit = 1;
+    if ($limit > 500) $limit = 500;
+    if ($offset < 0) $offset = 0;
+
+    $runs = gojs_backup_runs_load();
+    usort($runs, function($a, $b) {
+        $at_a = isset($a['started_at']) ? (int)$a['started_at'] : 0;
+        $at_b = isset($b['started_at']) ? (int)$b['started_at'] : 0;
+        return $at_b - $at_a;
+    });
+
+    if ($schedule_id !== '') {
+        $runs = array_values(array_filter($runs, function($r) use ($schedule_id) {
+            return isset($r['schedule_id']) && $r['schedule_id'] === $schedule_id;
+        }));
+    }
+
+    $total = count($runs);
+    $paged = array_slice($runs, $offset, $limit);
+
+    gojs_json_response(array(
+        'runs' => $paged,
+        'total' => $total,
+        'limit' => $limit,
+        'offset' => $offset,
+    ));
+}
+
+function gojs_api_backup_runs_get($id) {
+    $runs = gojs_backup_runs_load();
+    foreach ($runs as $r) {
+        if (isset($r['id']) && $r['id'] === $id) {
+            gojs_json_response(array('run' => $r));
+        }
+    }
+    gojs_json_response(null, array('code' => 'not_found', 'message' => '运行记录不存在'), 404);
+}
+
+function gojs_ftp_capabilities(): array {
+    global $config, $root_path;
+
+    $supported = array('proftpd_authfile', 'pureftpd_passwd');
+    $active_provider = null;
+    $detected_path = null;
+    $can_write = true;
+
+    $provider_override = isset($config['ftp']['provider']) ? $config['ftp']['provider'] : '';
+    $path_override = isset($config['ftp']['path']) ? $config['ftp']['path'] : '';
+
+    if ($provider_override && $path_override) {
+        $active_provider = $provider_override;
+        $detected_path = $path_override;
+        $can_write = is_writable($detected_path) || (!file_exists($detected_path) && is_writable(dirname($detected_path)));
+    } else {
+        $docroot_parent = rtrim($root_path, '/\\') . DIRECTORY_SEPARATOR . '..';
+        $proftpd_candidates = array(
+            rtrim($docroot_parent, '/\\') . DIRECTORY_SEPARATOR . '.ftp_passwd',
+            rtrim($docroot_parent, '/\\') . DIRECTORY_SEPARATOR . 'proftpd.passwd',
+            CONFIG_DIR . DIRECTORY_SEPARATOR . 'ftpd.passwd',
+        );
+        foreach ($proftpd_candidates as $cand) {
+            if (file_exists($cand) && is_readable($cand)) {
+                $active_provider = 'proftpd_authfile';
+                $detected_path = $cand;
+                $can_write = is_writable($cand);
+                break;
+            }
+        }
+
+        if ($active_provider === null) {
+            $pureftpd_candidates = array(
+                CONFIG_DIR . DIRECTORY_SEPARATOR . 'pureftpd.passwd',
+                rtrim($docroot_parent, '/\\') . DIRECTORY_SEPARATOR . 'pureftpd.passwd',
+            );
+            foreach ($pureftpd_candidates as $cand) {
+                if (file_exists($cand) && is_readable($cand)) {
+                    $active_provider = 'pureftpd_passwd';
+                    $detected_path = $cand;
+                    $can_write = is_writable($cand);
+                    break;
+                }
+            }
+        }
+
+        if ($active_provider === null) {
+            $can_write = true;
+        }
+    }
+
+    $default_uid = function_exists('posix_getuid') ? posix_getuid() : 1000;
+    $default_gid = function_exists('posix_getgid') ? posix_getgid() : 1000;
+
+    return array(
+        'available' => true,
+        'supported_providers' => $supported,
+        'active_provider' => $active_provider,
+        'path' => $detected_path,
+        'can_write' => $can_write,
+        'default_uid' => $default_uid,
+        'default_gid' => $default_gid,
+    );
+}
+
+function gojs_api_ftp_capabilities() {
+    gojs_json_response(gojs_ftp_capabilities());
+}
+
+function gojs_ftp_accounts_load(): array {
+    global $config;
+    if (!isset($config['ftp_accounts']) || !is_array($config['ftp_accounts'])) {
+        return array();
+    }
+    return $config['ftp_accounts'];
+}
+
+function gojs_ftp_accounts_save(array $accounts): void {
+    global $config;
+    $config['ftp_accounts'] = array_values($accounts);
+    gojs_save_config();
+}
+
+function gojs_ftp_account_redact(array $account): array {
+    $redacted = $account;
+    unset($redacted['password_hash_enc']);
+    $redacted['password'] = null;
+    return $redacted;
+}
+
+function gojs_ftp_validate_username(string $username): bool {
+    return (bool)preg_match('/^[a-zA-Z0-9_]{3,32}$/', $username);
+}
+
+function gojs_ftp_validate_home_dir(string $home_dir): bool {
+    if ($home_dir === '' || $home_dir === null) {
+        return false;
+    }
+    if (strpos($home_dir, '..') !== false) {
+        return false;
+    }
+    return true;
+}
+
+function gojs_api_ftp_accounts_list() {
+    $accounts = gojs_ftp_accounts_load();
+    $redacted = array_map('gojs_ftp_account_redact', $accounts);
+    gojs_json_response(array('accounts' => $redacted));
+}
+
+function gojs_ftp_hash_password(string $password): string {
+    return password_hash($password, PASSWORD_BCRYPT, array('cost' => 10));
+}
+
+function gojs_ftp_gen_id(): string {
+    return 'ftp_' . bin2hex(random_bytes(8));
+}
+
+function gojs_api_ftp_accounts_create() {
+    $username = gojs_get_param('username', '');
+    $password = gojs_get_param('password', '');
+    $home_dir = gojs_get_param('home_dir', '');
+    $uid = gojs_get_param('uid', null);
+    $gid = gojs_get_param('gid', null);
+    $quota_size_mb = gojs_get_param('quota_size_mb', null);
+    $quota_files = gojs_get_param('quota_files', null);
+    $upload_bw_kbps = gojs_get_param('upload_bw_kbps', null);
+    $download_bw_kbps = gojs_get_param('download_bw_kbps', null);
+    $allow_client_ips = gojs_get_param('allow_client_ips', '');
+    $deny_client_ips = gojs_get_param('deny_client_ips', '');
+    $enabled = gojs_get_param('enabled', true);
+    $expires_at_ts = gojs_get_param('expires_at_ts', null);
+
+    $username = trim($username);
+    $home_dir = trim($home_dir);
+
+    if (!gojs_ftp_validate_username($username)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_username',
+            'message' => '用户名格式无效，仅允许3-32位字母数字下划线',
+        ), 400);
+    }
+    if (strlen($password) < 8) {
+        gojs_json_response(null, array(
+            'code' => 'weak_password',
+            'message' => '密码至少需要8个字符',
+        ), 400);
+    }
+    if (!gojs_ftp_validate_home_dir($home_dir)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_home_dir',
+            'message' => '家目录无效',
+        ), 400);
+    }
+
+    $accounts = gojs_ftp_accounts_load();
+    foreach ($accounts as $acc) {
+        if ($acc['username'] === $username) {
+            gojs_json_response(null, array(
+                'code' => 'username_exists',
+                'message' => '该用户名已存在',
+            ), 409);
+        }
+    }
+
+    $caps = gojs_ftp_capabilities();
+    $now = time();
+
+    $account = array(
+        'id' => gojs_ftp_gen_id(),
+        'username' => $username,
+        'password_hash_enc' => gojs_ftp_hash_password($password),
+        'home_dir' => $home_dir,
+        'uid' => $uid !== null ? (int)$uid : (isset($caps['default_uid']) ? (int)$caps['default_uid'] : 1000),
+        'gid' => $gid !== null ? (int)$gid : (isset($caps['default_gid']) ? (int)$caps['default_gid'] : 1000),
+        'quota_size_mb' => $quota_size_mb !== null ? ((int)$quota_size_mb > 0 ? (int)$quota_size_mb : null) : null,
+        'quota_files' => $quota_files !== null ? ((int)$quota_files > 0 ? (int)$quota_files : null) : null,
+        'upload_bw_kbps' => $upload_bw_kbps !== null ? ((int)$upload_bw_kbps > 0 ? (int)$upload_bw_kbps : null) : null,
+        'download_bw_kbps' => $download_bw_kbps !== null ? ((int)$download_bw_kbps > 0 ? (int)$download_bw_kbps : null) : null,
+        'allow_client_ips' => is_string($allow_client_ips) ? trim($allow_client_ips) : '',
+        'deny_client_ips' => is_string($deny_client_ips) ? trim($deny_client_ips) : '',
+        'enabled' => (bool)$enabled,
+        'expires_at_ts' => $expires_at_ts !== null ? ((int)$expires_at_ts > 0 ? (int)$expires_at_ts : null) : null,
+        'created_at' => $now,
+        'last_changed_at' => $now,
+        'last_login_at' => null,
+    );
+
+    $accounts[] = $account;
+    gojs_ftp_accounts_save($accounts);
+
+    if ($caps['active_provider'] && $caps['can_write'] && $caps['path']) {
+        gojs_ftp_sync_to_provider($accounts, $caps);
+    }
+
+    gojs_json_response(array('account' => gojs_ftp_account_redact($account)));
+}
+
+function gojs_api_ftp_accounts_update($id) {
+    $accounts = gojs_ftp_accounts_load();
+    $index = null;
+    foreach ($accounts as $i => $acc) {
+        if ($acc['id'] === $id) {
+            $index = $i;
+            break;
+        }
+    }
+    if ($index === null) {
+        gojs_json_response(null, array(
+            'code' => 'not_found',
+            'message' => '账户不存在',
+        ), 404);
+    }
+
+    $account = $accounts[$index];
+
+    $username = gojs_get_param('username', null);
+    $password = gojs_get_param('password', null);
+    $password_renew = gojs_get_param('password_renew', null);
+    $home_dir = gojs_get_param('home_dir', null);
+    $uid = gojs_get_param('uid', null);
+    $gid = gojs_get_param('gid', null);
+    $quota_size_mb = gojs_get_param('quota_size_mb', null);
+    $quota_files = gojs_get_param('quota_files', null);
+    $upload_bw_kbps = gojs_get_param('upload_bw_kbps', null);
+    $download_bw_kbps = gojs_get_param('download_bw_kbps', null);
+    $allow_client_ips = gojs_get_param('allow_client_ips', null);
+    $deny_client_ips = gojs_get_param('deny_client_ips', null);
+    $enabled = gojs_get_param('enabled', null);
+    $expires_at_ts = gojs_get_param('expires_at_ts', null);
+
+    if ($username !== null) {
+        $username = trim($username);
+        if (!gojs_ftp_validate_username($username)) {
+            gojs_json_response(null, array(
+                'code' => 'invalid_username',
+                'message' => '用户名格式无效',
+            ), 400);
+        }
+        foreach ($accounts as $i => $acc) {
+            if ($i !== $index && $acc['username'] === $username) {
+                gojs_json_response(null, array(
+                    'code' => 'username_exists',
+                    'message' => '该用户名已存在',
+                ), 409);
+            }
+        }
+        $account['username'] = $username;
+    }
+
+    if ($password !== null && $password !== '') {
+        if (strlen($password) < 8) {
+            gojs_json_response(null, array(
+                'code' => 'weak_password',
+                'message' => '密码至少需要8个字符',
+            ), 400);
+        }
+        $account['password_hash_enc'] = gojs_ftp_hash_password($password);
+    } elseif ($password_renew !== null && $password_renew !== '') {
+        if (strlen($password_renew) < 8) {
+            gojs_json_response(null, array(
+                'code' => 'weak_password',
+                'message' => '密码至少需要8个字符',
+            ), 400);
+        }
+        $account['password_hash_enc'] = gojs_ftp_hash_password($password_renew);
+    }
+
+    if ($home_dir !== null) {
+        $home_dir = trim($home_dir);
+        if (!gojs_ftp_validate_home_dir($home_dir)) {
+            gojs_json_response(null, array(
+                'code' => 'invalid_home_dir',
+                'message' => '家目录无效',
+            ), 400);
+        }
+        $account['home_dir'] = $home_dir;
+    }
+
+    if ($uid !== null) $account['uid'] = (int)$uid;
+    if ($gid !== null) $account['gid'] = (int)$gid;
+    if (isset($quota_size_mb)) $account['quota_size_mb'] = ($quota_size_mb === null || (int)$quota_size_mb <= 0) ? null : (int)$quota_size_mb;
+    if (isset($quota_files)) $account['quota_files'] = ($quota_files === null || (int)$quota_files <= 0) ? null : (int)$quota_files;
+    if (isset($upload_bw_kbps)) $account['upload_bw_kbps'] = ($upload_bw_kbps === null || (int)$upload_bw_kbps <= 0) ? null : (int)$upload_bw_kbps;
+    if (isset($download_bw_kbps)) $account['download_bw_kbps'] = ($download_bw_kbps === null || (int)$download_bw_kbps <= 0) ? null : (int)$download_bw_kbps;
+    if ($allow_client_ips !== null) $account['allow_client_ips'] = trim($allow_client_ips);
+    if ($deny_client_ips !== null) $account['deny_client_ips'] = trim($deny_client_ips);
+    if ($enabled !== null) $account['enabled'] = (bool)$enabled;
+    if (isset($expires_at_ts)) $account['expires_at_ts'] = ($expires_at_ts === null || (int)$expires_at_ts <= 0) ? null : (int)$expires_at_ts;
+
+    $account['last_changed_at'] = time();
+
+    $accounts[$index] = $account;
+    gojs_ftp_accounts_save($accounts);
+
+    $caps = gojs_ftp_capabilities();
+    if ($caps['active_provider'] && $caps['can_write'] && $caps['path']) {
+        gojs_ftp_sync_to_provider($accounts, $caps);
+    }
+
+    gojs_json_response(array('account' => gojs_ftp_account_redact($account)));
+}
+
+function gojs_api_ftp_accounts_delete($id) {
+    $accounts = gojs_ftp_accounts_load();
+    $found = false;
+    $accounts = array_values(array_filter($accounts, function($acc) use ($id, &$found) {
+        if ($acc['id'] === $id) {
+            $found = true;
+            return false;
+        }
+        return true;
+    }));
+
+    if (!$found) {
+        gojs_json_response(null, array(
+            'code' => 'not_found',
+            'message' => '账户不存在',
+        ), 404);
+    }
+
+    gojs_ftp_accounts_save($accounts);
+
+    $caps = gojs_ftp_capabilities();
+    if ($caps['active_provider'] && $caps['can_write'] && $caps['path']) {
+        gojs_ftp_sync_to_provider($accounts, $caps);
+    }
+
+    gojs_json_response(array('ok' => true));
+}
+
+function gojs_api_ftp_accounts_test_login($id) {
+    $accounts = gojs_ftp_accounts_load();
+    $account = null;
+    foreach ($accounts as $acc) {
+        if ($acc['id'] === $id) {
+            $account = $acc;
+            break;
+        }
+    }
+    if ($account === null) {
+        gojs_json_response(null, array(
+            'code' => 'not_found',
+            'message' => '账户不存在',
+        ), 404);
+    }
+
+    $password = gojs_get_param('password', '');
+    if ($password === '') {
+        gojs_json_response(null, array(
+            'code' => 'password_required',
+            'message' => '需要密码',
+        ), 400);
+    }
+
+    $hash = isset($account['password_hash_enc']) ? $account['password_hash_enc'] : '';
+    $ok = $hash !== '' && password_verify($password, $hash);
+
+    if ($ok) {
+        $accounts_copy = $accounts;
+        foreach ($accounts_copy as $i => $acc) {
+            if ($acc['id'] === $id) {
+                $accounts_copy[$i]['last_login_at'] = time();
+                break;
+            }
+        }
+        gojs_ftp_accounts_save($accounts_copy);
+    }
+
+    gojs_json_response(array('ok' => $ok));
+}
+
+function gojs_ftp_proftpd_write(array $accounts, string $path): array {
+    $lines = array();
+    foreach ($accounts as $acc) {
+        if (empty($acc['enabled'])) continue;
+        $hash = isset($acc['password_hash_enc']) ? $acc['password_hash_enc'] : '';
+        $uid = isset($acc['uid']) ? (int)$acc['uid'] : 1000;
+        $gid = isset($acc['gid']) ? (int)$acc['gid'] : 1000;
+        $gecos = $acc['username'];
+        $homedir = $acc['home_dir'];
+        $shell = '/bin/false';
+        $lines[] = $acc['username'] . ':' . $hash . ':' . $uid . ':' . $gid . ':' . $gecos . ':' . $homedir . ':' . $shell;
+    }
+    $content = implode("\n", $lines) . "\n";
+    $written = @file_put_contents($path, $content, LOCK_EX);
+    if ($written === false) {
+        $err = error_get_last();
+        return array('ok' => false, 'error' => isset($err['message']) ? $err['message'] : '写入失败');
+    }
+    @chmod($path, 0640);
+    return array('ok' => true);
+}
+
+function gojs_ftp_pureftpd_write(array $accounts, string $path): array {
+    $lines = array();
+    foreach ($accounts as $acc) {
+        if (empty($acc['enabled'])) continue;
+        $hash = isset($acc['password_hash_enc']) ? $acc['password_hash_enc'] : '';
+        $uid = isset($acc['uid']) ? (int)$acc['uid'] : 1000;
+        $gid = isset($acc['gid']) ? (int)$acc['gid'] : 1000;
+        $gecos = $acc['username'];
+        $homedir = $acc['home_dir'];
+        $ul_bw = isset($acc['upload_bw_kbps']) ? (int)$acc['upload_bw_kbps'] : 0;
+        $dl_bw = isset($acc['download_bw_kbps']) ? (int)$acc['download_bw_kbps'] : 0;
+        $ul_ratio = 0;
+        $dl_ratio = 0;
+        $q_files = isset($acc['quota_files']) ? (int)$acc['quota_files'] : 0;
+        $q_size_mb = isset($acc['quota_size_mb']) ? (int)$acc['quota_size_mb'] : 0;
+        $q_size = $q_size_mb * 1024;
+        $time_offset = 0;
+        $allow_ip = isset($acc['allow_client_ips']) ? $acc['allow_client_ips'] : '';
+        $deny_ip = isset($acc['deny_client_ips']) ? $acc['deny_client_ips'] : '';
+        $allow_local = '';
+        $deny_local = '';
+        $max_concurrent = 0;
+        $max_per_ip = 0;
+        $min_uid = $uid;
+        $allowed_chmod = '';
+        $deleted_flag = 0;
+        $expire = isset($acc['expires_at_ts']) ? (int)$acc['expires_at_ts'] : 0;
+
+        $fields = array(
+            $acc['username'],
+            $hash,
+            $uid,
+            $gid,
+            $gecos,
+            '/',
+            $homedir,
+            $ul_bw,
+            $dl_bw,
+            $ul_ratio,
+            $dl_ratio,
+            $q_files,
+            $q_size,
+            $time_offset,
+            $allow_ip,
+            $deny_ip,
+            $allow_local,
+            $deny_local,
+            $max_concurrent,
+            $max_per_ip,
+            $min_uid,
+            $allowed_chmod,
+            $deleted_flag,
+            $expire,
+        );
+        $lines[] = implode(':', $fields);
+    }
+    $content = implode("\n", $lines) . "\n";
+    $written = @file_put_contents($path, $content, LOCK_EX);
+    if ($written === false) {
+        $err = error_get_last();
+        return array('ok' => false, 'error' => isset($err['message']) ? $err['message'] : '写入失败');
+    }
+    @chmod($path, 0640);
+    return array('ok' => true);
+}
+
+function gojs_ftp_sync_to_provider(array $accounts, array $caps): array {
+    $provider = $caps['active_provider'];
+    $path = $caps['path'];
+    if ($provider === 'proftpd_authfile') {
+        return gojs_ftp_proftpd_write($accounts, $path);
+    } elseif ($provider === 'pureftpd_passwd') {
+        return gojs_ftp_pureftpd_write($accounts, $path);
+    }
+    return array('ok' => false, 'error' => '未知的 provider');
+}
+
+function gojs_api_ftp_sync() {
+    $caps = gojs_ftp_capabilities();
+    if (!$caps['active_provider']) {
+        gojs_json_response(null, array(
+            'code' => 'no_provider',
+            'message' => '未检测到系统 FTP provider，无法同步',
+        ), 400);
+    }
+    if (!$caps['can_write'] || !$caps['path']) {
+        gojs_json_response(null, array(
+            'code' => 'not_writable',
+            'message' => '检测到 provider 文件但不可写',
+        ), 400);
+    }
+    $accounts = gojs_ftp_accounts_load();
+    $result = gojs_ftp_sync_to_provider($accounts, $caps);
+    if (!$result['ok']) {
+        gojs_json_response(null, array(
+            'code' => 'sync_failed',
+            'message' => isset($result['error']) ? $result['error'] : '同步失败',
+        ), 500);
+    }
+    gojs_json_response(array('ok' => true, 'count' => count($accounts)));
+}
+
+function gojs_api_ftp_export() {
+    $format = gojs_get_param('format', 'proftpd_authfile');
+    $accounts = gojs_ftp_accounts_load();
+
+    $filename = '';
+    $content = '';
+
+    if ($format === 'pureftpd_passwd') {
+        $tmp_path = tempnam(sys_get_temp_dir(), 'pureftpd_');
+        $result = gojs_ftp_pureftpd_write($accounts, $tmp_path);
+        if (!$result['ok']) {
+            @unlink($tmp_path);
+            gojs_json_response(null, array(
+                'code' => 'export_failed',
+                'message' => isset($result['error']) ? $result['error'] : '导出失败',
+            ), 500);
+        }
+        $content = file_get_contents($tmp_path);
+        @unlink($tmp_path);
+        $filename = 'pureftpd.passwd';
+    } else {
+        $tmp_path = tempnam(sys_get_temp_dir(), 'proftpd_');
+        $result = gojs_ftp_proftpd_write($accounts, $tmp_path);
+        if (!$result['ok']) {
+            @unlink($tmp_path);
+            gojs_json_response(null, array(
+                'code' => 'export_failed',
+                'message' => isset($result['error']) ? $result['error'] : '导出失败',
+            ), 500);
+        }
+        $content = file_get_contents($tmp_path);
+        @unlink($tmp_path);
+        $filename = 'ftpd.passwd';
+    }
+
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Content-Length: ' . strlen($content));
+    echo $content;
+    exit;
 }

@@ -4,7 +4,54 @@ import type {
   BackupCreateResult,
   BackupListResponse,
   BackupRestoreResult,
+  BackupSchedule,
+  BackupRunRecord,
 } from '@shared/types'
+
+export interface BackupScheduleCreateInput {
+  name: string
+  enabled?: boolean
+  cron_expr: string
+  destination_ids: string[]
+  source: {
+    include_files?: boolean
+    include_db?: boolean
+    include_config?: boolean
+    exclude_dirs?: string[]
+  }
+  retention: {
+    keep_last?: number
+    keep_daily?: number
+    keep_weekly?: number
+    keep_monthly?: number
+  }
+}
+
+export type BackupScheduleUpdateInput = BackupScheduleCreateInput
+
+export interface BackupSchedulesListResponse {
+  schedules: BackupSchedule[]
+}
+
+export interface BackupScheduleResponse {
+  schedule: BackupSchedule
+}
+
+export interface BackupRunNowResponse {
+  run_id: string
+  ok: boolean
+}
+
+export interface BackupRunsListResponse {
+  runs: BackupRunRecord[]
+  total: number
+  limit: number
+  offset: number
+}
+
+export interface BackupRunResponse {
+  run: BackupRunRecord
+}
 
 export const backupApi = {
   list() {
@@ -32,10 +79,6 @@ export const backupApi = {
     })
   },
 
-  /**
-   * 下载备份。后端为 GET /backup/download?filename=...，CSRF 检查不拦截 GET，
-   * 直接通过原生 <a download> 触发浏览器下载，避免 fetch 把大文件拉成 ArrayBuffer。
-   */
   download(filename: string) {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
     const params = new URLSearchParams({ filename })
@@ -46,5 +89,45 @@ export const backupApi = {
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
+  },
+
+  listSchedules() {
+    return apiFetch<BackupSchedulesListResponse>('/backup/schedules')
+  },
+
+  createSchedule(data: BackupScheduleCreateInput) {
+    return apiFetch<BackupScheduleResponse>('/backup/schedules', {
+      method: 'POST',
+      body: data,
+    })
+  },
+
+  updateSchedule(id: string, data: BackupScheduleUpdateInput) {
+    return apiFetch<BackupScheduleResponse>(`/backup/schedules/${id}`, {
+      method: 'PUT',
+      body: data,
+    })
+  },
+
+  deleteSchedule(id: string) {
+    return apiFetch<{ ok: boolean }>(`/backup/schedules/${id}`, {
+      method: 'DELETE',
+    })
+  },
+
+  runScheduleNow(id: string) {
+    return apiFetch<BackupRunNowResponse>(`/backup/schedules/${id}/run-now`, {
+      method: 'POST',
+    })
+  },
+
+  listRuns(params?: { schedule_id?: string; limit?: number; offset?: number }) {
+    return apiFetch<BackupRunsListResponse>('/backup/runs', {
+      params,
+    })
+  },
+
+  getRun(id: string) {
+    return apiFetch<BackupRunResponse>(`/backup/runs/${id}`)
   },
 }
