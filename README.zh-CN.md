@@ -15,10 +15,12 @@
 
 ### 普通用户（部署使用）
 
-从 [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases) 下载最新的 `gojs-lite-VERSION.zip`，解压后把 **`gojs/` 目录**整个上传到你的 Web 根目录即可。
+从 [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases) 下载最新的 `gojs-lite-VERSION.zip`，解压后把 **`gojs/` 目录**整个上传到你的 Web 根目录即可（目录名可任意，如 `gojs`、`panel`，或直接上传到根目录）。
 
-- 面板入口：`https://你的域名/gojs/`
-- 面板文件全部独立于根目录，不影响你原有站点内容 ✅
+- 面板入口：`https://你的域名/<部署目录>/`（例如部署到 `gojs` 目录则访问 `https://你的域名/gojs/`，首次访问自动进入安装向导）
+- 面板文件全部独立于 Web 根目录，不影响你原有站点内容 ✅
+
+> ⚠️ **部署前置要求**：主机需开启 **mod_rewrite** 且允许目录使用 `.htaccess`（多数虚拟主机默认开启）。`.htaccess` 使用相对路径重写，**部署在任意子目录都无需修改**；若遇到 403，请检查主机是否禁止了 `.htaccess` 生效。
 
 ### 开发者（本地开发）
 
@@ -74,7 +76,7 @@ npm run dev
 
 1. **下载** 最新发布包（`gojs-lite-VERSION.zip`）
 2. **解压** 得到独立的 `gojs/` 目录
-3. **上传** `gojs/` 目录到 Web 根目录（`public_html/gojs/`、`wwwroot/gojs/` 等）
+3. **上传** `gojs/` 目录到 Web 根目录（`public_html/gojs/`、`wwwroot/gojs/` 等，目录名可任意）
 4. **访问** `https://你的域名/gojs/`，自动进入安装向导
 5. **设置** 管理员密码，保存私密访问链接，完成安装 ✅
 
@@ -89,20 +91,23 @@ public_html/              ← 你的用户站点（面板不抢占根目录）
 ├── index.html / index.php ← 用户自己的网站内容，保持原样
 └── gojs/                  ← 面板独立子目录（从此链接进入）
     ├── api.php            # 后端 API（单文件）
-    ├── .htaccess          # Apache 重写规则（RewriteBase /gojs/）
-    └── dist/              # 前端构建产物
-        ├── index.html
-        └── assets/
+    ├── router.php         # PHP 内置服务器路由（php -S 场景）
+    ├── .htaccess          # Apache 重写规则（相对路径，自适应任意挂载点）
+    ├── dist/              # 前端构建产物
+    │   ├── index.html
+    │   └── assets/
+    └── .gojs/             # 运行时配置（安装时自动生成，禁止 Web 访问）
+        ├── config.php     # 主配置（PHP 数组）
+        └── auth.log       # 登录日志（暴力破解防护）
 ```
 
-配置文件会在安装时自动生成在面板父目录：
-
-```
-public_html/
-└── .gojs/
-    ├── config.php         # 主配置（PHP 数组，禁止 Web 访问）
-    └── auth.log           # 登录日志（暴力破解防护）
-```
+> 📌 **挂载点不是 `/gojs/` 时**（例如部署在 `panel/` 或根目录）：后端 `.htaccess` 与 `router.php` 均自动适配，无需改动；但前端构建产物内的资源路径按 `vite base` 写入。若前端 404，请在项目根目录用实际路径重新构建：
+>
+> ```bash
+> npx vite build --base=/panel/    # 部署在 /panel/ 时；根目录部署用 --base=/
+> ```
+>
+> 然后重新上传 `dist/` 目录。
 
 ---
 

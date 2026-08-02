@@ -1,5 +1,5 @@
 # Go.js - 轻量级 PHP 服务器管理面板
-# Apache 配置文件（部署在 /gojs/ 子目录内，不抢占用户 Web 根）
+# Apache 配置文件（可部署于任意子目录 /gojs/、/panel/ 或根目录，无需修改本文件）
 
 # 禁止访问 .gojs 配置目录
 <DirectoryMatch "^.*/\.gojs/">
@@ -36,35 +36,29 @@
     Deny from all
 </FilesMatch>
 
-# 禁止直接访问 api.php（仅允许内部重写访问）
-<Files "api.php">
-    Order Allow,Deny
-    Deny from all
-</Files>
-
-# 默认入口：前端 SPA 优先
-DirectoryIndex index.html
+# ====== 入口 ======
+# 前端构建产物位于 dist/ 子目录，目录请求（如 /gojs/）直接指向它。
+# 若你手动把 dist/ 内容平铺到本目录，请改为：DirectoryIndex index.html
+DirectoryIndex dist/index.html index.html
 
 # 开启 URL 重写
 RewriteEngine On
 
-# ====== 子目录关键：部署于 /gojs/ 时生效，开发环境请注释 ======
-RewriteBase /gojs/
+# 本文件使用相对路径重写（不写 RewriteBase），自动适配任意挂载点：
+# 部署在 /gojs/、/panel/ 或根目录均无需修改任何配置。
 
-# 如果请求的是真实存在的文件或目录，直接访问
-RewriteCond %{REQUEST_FILENAME} -f
-RewriteRule ^ - [L]
-
-RewriteCond %{REQUEST_FILENAME} -d
-RewriteRule ^ - [L]
-
-# API 路由重写：/gojs/api/xxx -> api.php?api=xxx
+# 1) API 路由：/api/xxx -> api.php?api=xxx
 RewriteRule ^api/(.*)$ api.php?api=$1 [QSA,L]
 
-# 前端页面路由：所有非文件请求指向 index.html（SPA，仅限 /gojs/ 子目录内）
+# 2) 前端静态资源：/assets/* -> dist/assets/*（仅当根目录不存在同名文件时）
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^assets/(.*)$ dist/assets/$1 [L]
+
+# 3) SPA 前端路由：非文件/目录请求统一交给前端 index.html
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^ index.html [L]
+RewriteCond %{REQUEST_URI} !/dist/
+RewriteRule ^ dist/index.html [L]
 
 # 安全头部
 <IfModule mod_headers.c>

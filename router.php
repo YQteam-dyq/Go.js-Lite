@@ -6,9 +6,29 @@ $raw_uri = urldecode($raw_uri);
 $is_panel = false;
 $strip_prefix = '';
 
-if ($raw_uri === '/gojs' || $raw_uri === '/gojs/' || strpos($raw_uri, '/gojs/') === 0) {
-    $is_panel = true;
-    $strip_prefix = '/gojs';
+// 动态取挂载前缀：部署目录名（如 /gojs/、/panel/），根目录部署为空前缀
+$panel_dir = basename(__DIR__);
+$reserved_dirs = array('public_html', 'htdocs', 'www', 'wwwroot', 'html', 'web', '.');
+$panel_base = in_array($panel_dir, $reserved_dirs, true) ? '' : '/' . $panel_dir;
+
+$candidates = array();
+if ($panel_base !== '') {
+    $candidates[] = $panel_base;
+}
+$candidates[] = '/gojs'; // 兼容历史硬编码前缀
+$candidates[] = '';      // 根目录部署
+
+foreach ($candidates as $cand) {
+    if ($cand === '') {
+        $is_panel = true;
+        $strip_prefix = '';
+        break;
+    }
+    if ($raw_uri === $cand || $raw_uri === $cand . '/' || strpos($raw_uri, $cand . '/') === 0) {
+        $is_panel = true;
+        $strip_prefix = $cand;
+        break;
+    }
 }
 
 if ($is_panel && strlen($strip_prefix) > 0) {

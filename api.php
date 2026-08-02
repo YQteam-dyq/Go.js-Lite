@@ -8,6 +8,10 @@ define('CONFIG_DIR', ROOT . '/.gojs');
 define('CONFIG_FILE', CONFIG_DIR . '/config.php');
 define('AUTH_LOG', CONFIG_DIR . '/auth.log');
 define('DB_CONNECTIONS_FILE', CONFIG_DIR . '/db_connections.json');
+define('GOJS_ACME_ACCOUNT_FILE', CONFIG_DIR . '/acme_account.json');
+define('GOJS_ACME_CERTS_FILE', CONFIG_DIR . '/acme_certs.json');
+define('GOJS_ACME_CHALLENGES_DIRNAME', 'acme_challenges');
+define('GOJS_ACME_CHALLENGES_DIR', CONFIG_DIR . '/' . GOJS_ACME_CHALLENGES_DIRNAME);
 
 $config = array();
 $installed = false;
@@ -261,6 +265,19 @@ function gojs_dispatch() {
     }
 
     $api = ltrim($api, '/');
+
+    // legacy path aliases: map old frontend routes to current endpoints
+    $legacy_aliases = array(
+        'files/list'            => 'files',
+        'settings/get'          => 'settings',
+        'htaccess/get'          => 'htaccess',
+        'trash/list'            => 'trash',
+        'ssl/acme/certificates' => 'ssl/certificates',
+        '2fa/status'            => 'auth/totp/status',
+    );
+    if (isset($legacy_aliases[$api])) {
+        $api = $legacy_aliases[$api];
+    }
 
     if (!$api) {
         gojs_json_response(null, array(
@@ -2458,7 +2475,7 @@ function gojs_totp_generate_secret(int $bytes = 20): string {
     return GOJS_Base32::encode(random_bytes($bytes));
 }
 
-function gojs_totp_compute(string $secret, int $time = null, int $digits = 6, int $step = 30, string $algo = 'sha1'): string {
+function gojs_totp_compute(string $secret, ?int $time = null, int $digits = 6, int $step = 30, string $algo = 'sha1'): string {
     if ($time === null) $time = time();
     $secretBin = GOJS_Base32::decode($secret);
     $counter = (int)floor($time / $step);
@@ -2810,6 +2827,12 @@ function gojs_api_login() {
 function gojs_api_logout() {
     session_unset();
     session_destroy();
+
+    // Clear session cookie to prevent session resurrection
+    if (ini_get('session.use_cookies')) {
+        $params = session_get_cookie_params();
+        setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
+    }
 
     gojs_json_response(array('success' => true));
 }
@@ -3265,16 +3288,22 @@ function gojs_safe_path($relative_path) {
 
     $full_path = $files_root . '/' . $relative_path;
 
-    $root_real = rtrim(realpath($files_root), '/');
+    $root_real = rtrim(str_replace('\\', '/', realpath($files_root)), '/');
     if (!$root_real) {
-        $root_real = rtrim($files_root, '/');
+        $root_real = rtrim(str_replace('\\', '/', $files_root), '/');
     }
 
     $real_path = realpath($full_path);
+    if ($real_path) {
+        $real_path = str_replace('\\', '/', $real_path);
+    }
 
     if (!$real_path) {
         $parent_dir = dirname($full_path);
         $real_parent = realpath($parent_dir);
+        if ($real_parent) {
+            $real_parent = str_replace('\\', '/', $real_parent);
+        }
 
         if (!$real_parent ||
             ($real_parent !== $root_real && strpos($real_parent, $root_real . '/') !== 0)) {
@@ -6245,9 +6274,7 @@ function gojs_cron_capabilities() {
         $result['info_key'] = $info_key;
         $result['info_params'] = $info_params;
     }
-    if ($method !== 'none') {
-        $result['method'] = $method;
-    }
+    $result['method'] = $method;
     if ($cron_file !== null) {
         $result['cron_file'] = $cron_file;
     }
@@ -6262,12 +6289,14 @@ function gojs_cron_list() {
         return array();
     }
 
+    $cron_method = isset($caps['method']) ? $caps['method'] : 'none';
+
     $content = '';
-    if ($caps['method'] === 'exec') {
+    if ($cron_method === 'exec') {
         $output = array();
         @exec('crontab -l 2>/dev/null', $output);
         $content = implode("\n", $output);
-    } else if ($caps['method'] === 'file' && isset($caps['cron_file'])) {
+    } else if ($cron_method === 'file' && isset($caps['cron_file'])) {
         if (file_exists($caps['cron_file'])) {
             $content = (string)@file_get_contents($caps['cron_file']);
         }
@@ -6342,7 +6371,7 @@ function gojs_cron_save($jobs) {
         @exec('crontab ' . escapeshellarg($tmp) . ' 2>&1', $output, $exit_code);
         @unlink($tmp);
         return $exit_code === 0;
-    } else if ($caps['method'] === 'file' && isset($caps['cron_file'])) {
+    } else if ($cron_method === 'file' && isset($caps['cron_file'])) {
         $dir = dirname($caps['cron_file']);
         if (!is_dir($dir)) {
             @mkdir($dir, 0700, true);
@@ -9855,11 +9884,6 @@ function gojs_api_ssl_remove_domain() {
     gojs_log_operation('ssl_remove_domain', $domain, true);
     gojs_json_response(array('ok' => true));
 }
-
-define('GOJS_ACME_ACCOUNT_FILE', CONFIG_DIR . '/acme_account.json');
-define('GOJS_ACME_CERTS_FILE', CONFIG_DIR . '/acme_certs.json');
-define('GOJS_ACME_CHALLENGES_DIRNAME', 'acme_challenges');
-define('GOJS_ACME_CHALLENGES_DIR', CONFIG_DIR . '/' . GOJS_ACME_CHALLENGES_DIRNAME);
 
 function gojs_acme_docroot(): string {
     global $root_path;
