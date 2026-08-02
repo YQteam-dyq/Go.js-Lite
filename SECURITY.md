@@ -18,14 +18,14 @@ Only the latest minor release in each supported major.minor line receives full s
 Instead, send an encrypted report to:
 
 ```
-Email: security@gojs.example
+Email: yqteamcs0001@163.com
 PGP key ID: 0xDEADBEEFCAFEBABE1234567890ABCDEF12345678
 Fingerprint: AAAA BBBB CCCC DDDD EEEE  FFFF 0000 1111 2222 3333
 ```
 
 ```
 -----BEGIN PGP PUBLIC KEY BLOCK-----
-Comment: Go.js Lite Security Team <security@gojs.example>
+Comment: Go.js Lite Security Team <yqteamcs0001@163.com>
 Placeholder PGP block. Replace with the real team key when publishing.
 mQINBG... [this is a template]
 -----END PGP PUBLIC KEY BLOCK-----
