@@ -55,20 +55,20 @@ export const notificationChannelsApi = {
   },
 
   update(id: string, patch: Partial<NotificationChannelCreateInput>) {
-    return apiFetch<NotificationChannel>(`/notification/channels/$$id}`, {
+    return apiFetch<NotificationChannel>(`/notification/channels/${id}`, {
       method: 'PUT',
       body: patch,
     })
   },
 
   remove(id: string) {
-    return apiFetch<{ success: boolean }>(`/notification/channels/$$id}`, {
+    return apiFetch<{ success: boolean }>(`/notification/channels/${id}`, {
       method: 'DELETE',
     })
   },
 
   test(id: string) {
-    return apiFetch<ChannelTestResult>(`/notification/channels/$$id}/test`, {
+    return apiFetch<ChannelTestResult>(`/notification/channels/${id}/test`, {
       method: 'POST',
     })
   },
@@ -92,7 +92,7 @@ export const notificationsApi = {
   },
 
   markRead(id: string) {
-    return apiFetch<{ success: boolean }>(`/notifications/$$id}/read`, {
+    return apiFetch<{ success: boolean }>(`/notifications/${id}/read`, {
       method: 'PATCH',
     })
   },
@@ -104,7 +104,7 @@ export const notificationsApi = {
   },
 
   remove(id: string) {
-    return apiFetch<{ success: boolean }>(`/notifications/$$id}`, {
+    return apiFetch<{ success: boolean }>(`/notifications/${id}`, {
       method: 'DELETE',
     })
   },

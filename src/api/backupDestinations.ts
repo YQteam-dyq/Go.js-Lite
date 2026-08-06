@@ -89,14 +89,14 @@ export const backupDestinationsApi = {
   },
 
   update(id: string, patch: BackupDestinationUpdateInput) {
-    return apiFetch<BackupDestinationResponse>(`/backup/destinations/$$encodeURIComponent(id)}`, {
+    return apiFetch<BackupDestinationResponse>(`/backup/destinations/${encodeURIComponent(id)}`, {
       method: 'PUT',
       body: patch,
     })
   },
 
   remove(id: string) {
-    return apiFetch<{ success: boolean }>(`/backup/destinations/$$encodeURIComponent(id)}`, {
+    return apiFetch<{ success: boolean }>(`/backup/destinations/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     })
   },

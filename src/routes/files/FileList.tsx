@@ -298,9 +298,9 @@ export default function FileList() {
 
   const handleOpenFile = (file: FileEntry) => {
     if (file.type === 'dir') {
-      navigate(`/files$$file.path}`)
+      navigate(`/files${file.path}`)
     } else {
-      navigate(`/edit$$file.path}`)
+      navigate(`/edit${file.path}`)
     }
   }
 
@@ -622,7 +622,7 @@ export default function FileList() {
             <span key={crumb.path} className="flex items-center gap-1 shrink-0">
               {i > 0 && <ChevronRight size={14} className="text-fg-subtle" />}
               <Link
-                to={crumb.path ? `/files$$crumb.path}` : '/files'}
+                to={crumb.path ? `/files${crumb.path}` : '/files'}
                 className="inline-flex items-center min-h-[44px] px-1 text-fg-muted hover:text-fg hover:underline underline-offset-2 transition-colors"
               >
                 {crumb.name}
@@ -663,7 +663,7 @@ export default function FileList() {
           <div className="hidden sm:flex items-center bg-bg-sunken rounded-lg p-0.5">
             <button
               onClick={() => setViewMode('list')}
-              className={`p-1.5 rounded-md transition-colors $$
+              className={`p-1.5 rounded-md transition-colors ${
                 viewMode === 'list'
                   ? 'bg-bg-elevated text-fg shadow-sm'
                   : 'text-fg-muted hover:text-fg'
@@ -674,7 +674,7 @@ export default function FileList() {
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`p-1.5 rounded-md transition-colors $$
+              className={`p-1.5 rounded-md transition-colors ${
                 viewMode === 'grid'
                   ? 'bg-bg-elevated text-fg shadow-sm'
                   : 'text-fg-muted hover:text-fg'
@@ -1216,11 +1216,11 @@ function FileRow({
         flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-2
         min-h-[48px]
         transition-colors cursor-pointer
-        $$selected ? 'bg-accent/10' : 'hover:bg-fg/5'}
-        $$active ? 'bg-bg-sunken' : ''}
-        $$animationClass}
+        ${selected ? 'bg-accent/10' : 'hover:bg-fg/5'}
+        ${active ? 'bg-bg-sunken' : ''}
+        ${animationClass}
       `}
-      style={{ animationDelay: isNew ? `$$index * 30}ms` : undefined }}
+      style={{ animationDelay: isNew ? `${index * 30}ms` : undefined }}
     >
       {selected && (
         <div className="w-5 h-5 rounded border-2 border-accent bg-accent flex items-center justify-center shrink-0">
@@ -1231,7 +1231,7 @@ function FileRow({
       )}
 
       <div
-        className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 $$
+        className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${
           file.type === 'dir' ? 'bg-accent/10 text-accent' : 'bg-bg-sunken text-fg-muted'
         }`}
       >
@@ -1317,11 +1317,11 @@ function FileGridItem({
       className={`
         relative flex flex-col items-center gap-2 p-3 rounded-lg
         transition-all duration-150 cursor-pointer
-        $$selected ? 'bg-accent/10 ring-2 ring-accent/30' : 'hover:bg-fg/5'}
-        $$active ? 'bg-bg-sunken' : ''}
-        $$animationClass}
+        ${selected ? 'bg-accent/10 ring-2 ring-accent/30' : 'hover:bg-fg/5'}
+        ${active ? 'bg-bg-sunken' : ''}
+        ${animationClass}
       `}
-      style={{ animationDelay: isNew ? `$$index * 30}ms` : undefined }}
+      style={{ animationDelay: isNew ? `${index * 30}ms` : undefined }}
       onClick={!selected ? onOpen : undefined}
     >
       {selected && (
@@ -1335,7 +1335,7 @@ function FileGridItem({
       <div
         className={`
           w-14 h-14 rounded-lg flex items-center justify-center
-          $$file.type === 'dir' ? 'bg-accent/10 text-accent' : 'bg-bg-sunken text-fg-muted'}
+          ${file.type === 'dir' ? 'bg-accent/10 text-accent' : 'bg-bg-sunken text-fg-muted'}
         `}
       >
         <Icon size={28} />

@@ -87,7 +87,7 @@ export const useUiStore = create<UiState>()(
       setSelection: (paths) => set({ multiSelection: new Set(paths) }),
 
       addToast: (toast) => {
-        const id = `toast-$$++toastId}`
+        const id = `toast-${++toastId}`
         const duration = toast.duration ?? 3000
         set({
           toasts: [...get().toasts, { ...toast, id }],

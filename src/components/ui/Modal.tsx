@@ -63,7 +63,7 @@ export function Modal({
       />
       <div
         ref={dialogRef}
-        className={`relative w-full $$sizeClasses[size]} bg-bg-elevated rounded-2xl shadow-2xl border border-border/50 animate-scale-in will-change-transform $$fullscreen}`}
+        className={`relative w-full ${sizeClasses[size]} bg-bg-elevated rounded-2xl shadow-2xl border border-border/50 animate-scale-in will-change-transform ${fullscreen}`}
         role="dialog"
         aria-modal="true"
       >
@@ -80,7 +80,7 @@ export function Modal({
             </Button>
           </div>
         )}
-        <div className={`px-5 py-4 $$fullscreen ? 'flex-1 overflow-auto' : ''}`}>{children}</div>
+        <div className={`px-5 py-4 ${fullscreen ? 'flex-1 overflow-auto' : ''}`}>{children}</div>
         {footer && (
           <div className="px-5 py-3 border-t border-border shrink-0 flex justify-end gap-2 flex-wrap">
             {footer}

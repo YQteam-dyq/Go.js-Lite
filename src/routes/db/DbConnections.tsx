@@ -162,13 +162,13 @@ export default function DbConnections() {
                 <Badge variant="muted">{conn.database}</Badge>
               </CardHeader>
               <CardBody className="flex gap-2">
-                <Link to={`$$conn.id}/browse`} className="flex-1">
+                <Link to={`${conn.id}/browse`} className="flex-1">
                   <Button variant="secondary" size="sm" className="w-full">
                     <Eye size={14} />
                     {t('db.browse')}
                   </Button>
                 </Link>
-                <Link to={`$$conn.id}/sql`} className="flex-1">
+                <Link to={`${conn.id}/sql`} className="flex-1">
                   <Button variant="secondary" size="sm" className="w-full">
                     <Server size={14} />
                     {t('db.sql')}

@@ -18,7 +18,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       )}
       <input
         ref={ref}
-        className={`input-base $$icon ? 'pl-10' : ''} $$invalid ? 'input-invalid' : ''} $$className}`}
+        className={`input-base ${icon ? 'pl-10' : ''} ${invalid ? 'input-invalid' : ''} ${className}`}
         {...props}
       />
     </div>
@@ -36,9 +36,9 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(function 
   return (
     <textarea
       ref={ref}
-      className={`input-base min-h-[120px] py-2 font-mono text-sm leading-relaxed resize-y $$
+      className={`input-base min-h-[120px] py-2 font-mono text-sm leading-relaxed resize-y ${
         invalid ? 'input-invalid' : ''
-      } $$className}`}
+      } ${className}`}
       {...props}
     />
   )

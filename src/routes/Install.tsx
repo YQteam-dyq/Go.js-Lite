@@ -110,7 +110,7 @@ export default function Install() {
 
   if (done) {
     const panelUrl = accessToken
-      ? `$$window.location.origin}$$window.location.pathname}?token=$$accessToken}`
+      ? `${window.location.origin}${window.location.pathname}?token=${accessToken}`
       : ''
     return (
       <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
@@ -170,7 +170,7 @@ export default function Install() {
                 <div
                   key={i}
                   className="w-2 h-2 rounded-full bg-success animate-pulse"
-                  style={{ animationDelay: `$$i * 0.2}s` }}
+                  style={{ animationDelay: `${i * 0.2}s` }}
                 />
               ))}
             </div>
@@ -243,13 +243,13 @@ export default function Install() {
                 <div className="space-y-2 pt-1 animate-fade-in">
                   <div className="password-strength-bar">
                     <div
-                      className={`password-strength-fill $$strengthColors[strengthLabel]}`}
-                      style={{ width: `$$strengthPercent}%` }}
+                      className={`password-strength-fill ${strengthColors[strengthLabel]}`}
+                      style={{ width: `${strengthPercent}%` }}
                     />
                   </div>
                   <div className="flex items-center justify-between text-xs">
-                    <span className={`font-medium $$strengthTextColors[strengthLabel]}`}>
-                      {t(`install.strength$$strengthLabel.charAt(0).toUpperCase() + strengthLabel.slice(1)}` as any) || t('install.weak')}
+                    <span className={`font-medium ${strengthTextColors[strengthLabel]}`}>
+                      {t(`install.strength${strengthLabel.charAt(0).toUpperCase() + strengthLabel.slice(1)}` as any) || t('install.weak')}
                     </span>
                     <span className="text-fg-subtle">{strengthScore}/4</span>
                   </div>
@@ -302,8 +302,8 @@ export default function Install() {
 
 function CheckPassword({ ok, label }: { ok: boolean; label: string }) {
   return (
-    <div className={`flex items-center gap-2 text-xs transition-all duration-200 $$ok ? 'text-success' : 'text-fg-subtle'}`}>
-      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200 $$ok ? 'bg-success/10' : 'bg-bg-sunken'}`}>
+    <div className={`flex items-center gap-2 text-xs transition-all duration-200 ${ok ? 'text-success' : 'text-fg-subtle'}`}>
+      <div className={`w-4 h-4 rounded-full flex items-center justify-center transition-all duration-200 ${ok ? 'bg-success/10' : 'bg-bg-sunken'}`}>
         <CheckCircle2 size={12} className={ok ? '' : 'opacity-40'} />
       </div>
       <span className={ok ? 'font-medium' : ''}>{label}</span>

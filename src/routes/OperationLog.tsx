@@ -72,7 +72,7 @@ function formatExportFilename(format: 'csv' | 'jsonl' | 'json'): string {
     pad(d.getHours()) +
     pad(d.getMinutes()) +
     pad(d.getSeconds())
-  return `operation_log_$$stamp}.$$format}`
+  return `operation_log_${stamp}.${format}`
 }
 
 function dateToTs(value: string, endOfDay: boolean): number | undefined {
@@ -359,7 +359,7 @@ export default function OperationLog() {
               disabled={isFetching}
               className={`
                 min-w-[32px] h-8 px-2 rounded-lg text-xs font-medium transition-colors
-                $$p === currentPage
+                ${p === currentPage
                   ? 'bg-accent text-accent-fg'
                   : 'text-fg-muted hover:text-fg hover:bg-fg/5'}
               `}
@@ -389,7 +389,7 @@ export default function OperationLog() {
           <div className="flex items-start gap-3 min-w-0">
             <Badge
               variant={color.variant}
-              className={`shrink-0 mt-0.5 border $$color.className} font-mono text-[10px]`}
+              className={`shrink-0 mt-0.5 border ${color.className} font-mono text-[10px]`}
             >
               {entry.action}
             </Badge>
@@ -430,7 +430,7 @@ export default function OperationLog() {
       ...prev,
       when: {
         ...prev.when,
-        outside_hours_range: from && to ? `$$from}-$$to}` : undefined,
+        outside_hours_range: from && to ? `${from}-${to}` : undefined,
       },
     }))
   }
@@ -439,7 +439,7 @@ export default function OperationLog() {
     <button
       type="button"
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none $$
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
         checked ? 'bg-accent' : 'bg-fg/15'
       }`}
       role="switch"
@@ -447,7 +447,7 @@ export default function OperationLog() {
       aria-label={label}
     >
       <span
-        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform $$
+        className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
           checked ? 'translate-x-5' : 'translate-x-0'
         }`}
       />
@@ -494,7 +494,7 @@ export default function OperationLog() {
                   <button
                     onClick={() => handleExport('csv', 'current_filter')}
                     disabled={!filterActive}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors $$
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                       filterActive
                         ? 'hover:bg-fg/5 text-fg'
                         : 'text-fg-muted opacity-60 cursor-not-allowed'
@@ -511,7 +511,7 @@ export default function OperationLog() {
                   <button
                     onClick={() => handleExport('jsonl', 'current_filter')}
                     disabled={!filterActive}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors $$
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                       filterActive
                         ? 'hover:bg-fg/5 text-fg'
                         : 'text-fg-muted opacity-60 cursor-not-allowed'
@@ -528,7 +528,7 @@ export default function OperationLog() {
                   <button
                     onClick={() => handleExport('json', 'current_filter')}
                     disabled={!filterActive}
-                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors $$
+                    className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
                       filterActive
                         ? 'hover:bg-fg/5 text-fg'
                         : 'text-fg-muted opacity-60 cursor-not-allowed'
@@ -734,7 +734,7 @@ export default function OperationLog() {
             <button
               type="button"
               onClick={() => setAlertTab('conditions')}
-              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors $$
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 alertTab === 'conditions'
                   ? 'bg-bg-elevated text-fg shadow-sm'
                   : 'text-fg-muted hover:text-fg'
@@ -745,7 +745,7 @@ export default function OperationLog() {
             <button
               type="button"
               onClick={() => setAlertTab('channels')}
-              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors $$
+              className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
                 alertTab === 'channels'
                   ? 'bg-bg-elevated text-fg shadow-sm'
                   : 'text-fg-muted hover:text-fg'
@@ -771,7 +771,7 @@ export default function OperationLog() {
                     className="text-xs text-accent hover:underline"
                   >
                     {(ruleForm.when.action_in?.length ?? 0) > 0
-                      ? `$$ruleForm.when.action_in?.length} $$t('common.selected')}`
+                      ? `${ruleForm.when.action_in?.length} ${t('common.selected')}`
                       : t('common.add')}
                   </button>
                 </div>
@@ -784,7 +784,7 @@ export default function OperationLog() {
                           key={opt}
                           type="button"
                           onClick={() => toggleConditionAction('in', opt)}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors $$
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors ${
                             sel ? 'bg-accent/10 text-accent' : 'hover:bg-fg/5 text-fg-muted'
                           }`}
                         >
@@ -811,7 +811,7 @@ export default function OperationLog() {
                     className="text-xs text-accent hover:underline"
                   >
                     {(ruleForm.when.action_not_in?.length ?? 0) > 0
-                      ? `$$ruleForm.when.action_not_in?.length} $$t('common.selected')}`
+                      ? `${ruleForm.when.action_not_in?.length} ${t('common.selected')}`
                       : t('common.add')}
                   </button>
                 </div>
@@ -824,7 +824,7 @@ export default function OperationLog() {
                           key={opt}
                           type="button"
                           onClick={() => toggleConditionAction('notin', opt)}
-                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors $$
+                          className={`flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs text-left transition-colors ${
                             sel ? 'bg-accent/10 text-accent' : 'hover:bg-fg/5 text-fg-muted'
                           }`}
                         >
@@ -912,7 +912,7 @@ export default function OperationLog() {
                       onClick={() =>
                         setRuleForm((p) => ({ ...p, then: { ...p.then, severity: sev } }))
                       }
-                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors $$
+                      className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                         ruleForm.then.severity === sev
                           ? sev === 'critical'
                             ? 'bg-danger/15 text-danger border border-danger/30'
@@ -922,7 +922,7 @@ export default function OperationLog() {
                           : 'bg-fg/5 text-fg-muted hover:text-fg border border-transparent'
                       }`}
                     >
-                      {t(`oplog.severity$$sev.charAt(0).toUpperCase() + sev.slice(1)}`)}
+                      {t(`oplog.severity${sev.charAt(0).toUpperCase() + sev.slice(1)}`)}
                     </button>
                   ))}
                 </div>
@@ -945,7 +945,7 @@ export default function OperationLog() {
                       return (
                         <label
                           key={ch.id}
-                          className={`flex items-center gap-3 px-3 py-2 border-b last:border-b-0 border-border cursor-pointer transition-colors $$
+                          className={`flex items-center gap-3 px-3 py-2 border-b last:border-b-0 border-border cursor-pointer transition-colors ${
                             sel ? 'bg-accent/5' : 'hover:bg-fg/5'
                           }`}
                         >
@@ -962,7 +962,7 @@ export default function OperationLog() {
                               {ch.type === 'email'
                                 ? ch.from_addr ?? t('common.notSet')
                                 : ch.type === 'smtp'
-                                  ? `$$ch.host}:$$ch.port}`
+                                  ? `${ch.host}:${ch.port}`
                                   : ch.type === 'webhook'
                                     ? ch.url
                                     : t('common.notSet')}

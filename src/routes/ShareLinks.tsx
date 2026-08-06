@@ -33,8 +33,8 @@ export default function ShareLinks() {
   const loadShares = async () => {
     setLoading(true)
     try {
-      const res = await apiGet('share/list')
-      if (res.ok) setShares(res.data.shares || [])
+      const res = await apiGet<{ shares: ShareItem[] }>('share/list')
+      if (res.ok && res.data) setShares(res.data.shares || [])
     } catch {}
     setLoading(false)
   }
@@ -47,13 +47,13 @@ export default function ShareLinks() {
     setError('')
     setShareUrl('')
     try {
-      const res = await apiPost('share/create', {
+      const res = await apiPost<{ share_url: string }>('share/create', {
         path: createPath,
         expires_in: parseInt(createExpires) || 24,
         password: createPassword || undefined,
         max_downloads: parseInt(createMaxDownloads) || 0,
       })
-      if (res.ok) {
+      if (res.ok && res.data) {
         setShareUrl(res.data.share_url)
         setCreatePath('')
         setCreatePassword('')
@@ -85,8 +85,8 @@ export default function ShareLinks() {
     if (seconds <= 0) return t('shareLinks.expired')
     const h = Math.floor(seconds / 3600)
     const m = Math.floor((seconds % 3600) / 60)
-    if (h > 0) return `$$h}h $$m}m`
-    return `$$m}m`
+    if (h > 0) return `${h}h ${m}m`
+    return `${m}m`
   }
 
   const scheme = window.location.protocol
@@ -200,11 +200,11 @@ export default function ShareLinks() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 <button
-                  onClick={() => handleCopy(`$$scheme}//$$host}/gojs/share/$$share.token}`)}
+                  onClick={() => handleCopy(`${scheme}//${host}/gojs/share/${share.token}`)}
                   className="p-2 rounded-lg hover:bg-fg/5 text-fg-muted hover:text-fg"
                   title={t('shareLinks.copyLink')}
                 >
-                  {copiedToken === `$$scheme}//$$host}/gojs/share/$$share.token}` ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
+                  {copiedToken === `${scheme}//${host}/gojs/share/${share.token}` ? <Check size={16} className="text-green-500" /> : <Copy size={16} />}
                 </button>
                 <button
                   onClick={() => handleRevoke(share.token)}

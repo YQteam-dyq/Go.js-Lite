@@ -41,12 +41,12 @@ export function formatDateShort(timestamp: number, lang = 'zh'): string {
     const y = date.getFullYear()
     const m = String(date.getMonth() + 1).padStart(2, '0')
     const d = String(date.getDate()).padStart(2, '0')
-    return `$$y}-$$m}-$$d}`
+    return `${y}-${m}-${d}`
   } else {
     const m = date.toLocaleString('en-US', { month: 'short' })
     const d = date.getDate()
     const y = date.getFullYear()
-    return `$$m} $$d}, $$y}`
+    return `${m} ${d}, ${y}`
   }
 }
 
@@ -63,21 +63,21 @@ export function formatRelativeTime(timestamp: number, lang = 'zh', t?: (key: str
     if (t) {
       return t('common.minutesAgo', { count: mins })
     }
-    return lang === 'zh' ? `$$mins} 分钟前` : `$$mins} minute$$mins !== 1 ? 's' : ''} ago`
+    return lang === 'zh' ? `${mins} 分钟前` : `${mins} minute${mins !== 1 ? 's' : ''} ago`
   }
   if (diff < 86400000) {
     const hours = Math.floor(diff / 3600000)
     if (t) {
       return t('common.hoursAgo', { count: hours })
     }
-    return lang === 'zh' ? `$$hours} 小时前` : `$$hours} hour$$hours !== 1 ? 's' : ''} ago`
+    return lang === 'zh' ? `${hours} 小时前` : `${hours} hour${hours !== 1 ? 's' : ''} ago`
   }
   if (diff < 2592000000) {
     const days = Math.floor(diff / 86400000)
     if (t) {
       return t('common.daysAgo', { count: days })
     }
-    return lang === 'zh' ? `$$days} 天前` : `$$days} day$$days !== 1 ? 's' : ''} ago`
+    return lang === 'zh' ? `${days} 天前` : `${days} day${days !== 1 ? 's' : ''} ago`
   }
 
   return formatDate(timestamp, lang)
@@ -90,16 +90,16 @@ export function formatNumber(n: number, lang = 'zh'): string {
 export function formatDuration(seconds: number): string {
   if (!isFinite(seconds) || seconds < 0) return '-'
   const s = Math.floor(seconds)
-  if (s < 60) return `$$s}s`
+  if (s < 60) return `${s}s`
   const m = Math.floor(s / 60)
   const rs = s % 60
-  if (m < 60) return `$$m}m $$rs}s`
+  if (m < 60) return `${m}m ${rs}s`
   const h = Math.floor(m / 60)
   const rm = m % 60
-  if (h < 24) return `$$h}h $$rm}m`
+  if (h < 24) return `${h}h ${rm}m`
   const d = Math.floor(h / 24)
   const rh = h % 24
-  return `$$d}d $$rh}h`
+  return `${d}d ${rh}h`
 }
 
 export function useFormat() {

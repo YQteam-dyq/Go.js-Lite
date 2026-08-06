@@ -26,7 +26,7 @@ export const dbApi = {
 
   updateConnection(id: string, data: Partial<DbConnectionInput>) {
     if (USE_MOCK) return mockApi.updateDbConnection()
-    return apiFetch<DbConnection>(`/db/connections/$$id}`, {
+    return apiFetch<DbConnection>(`/db/connections/${id}`, {
       method: 'PUT',
       body: data,
     })
@@ -34,7 +34,7 @@ export const dbApi = {
 
   deleteConnection(id: string) {
     if (USE_MOCK) return mockApi.deleteDbConnection()
-    return apiFetch<void>(`/db/connections/$$id}`, {
+    return apiFetch<void>(`/db/connections/${id}`, {
       method: 'DELETE',
     })
   },

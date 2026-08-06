@@ -19,7 +19,7 @@ export default function AppLayout({ children }: AppLayoutProps) {
         <main
           className={`
             flex-1 min-w-0 overflow-y-auto
-            $$isMobile ? 'pb-16' : ''}
+            ${isMobile ? 'pb-16' : ''}
           `}
         >
           {children}

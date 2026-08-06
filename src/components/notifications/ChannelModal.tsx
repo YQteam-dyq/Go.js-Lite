@@ -86,7 +86,7 @@ export function ChannelModal({ open, onClose, initial }: ChannelModalProps) {
   })
   const isEdit = !!initial
   const title = isEdit
-    ? t('notify.editChannel', { defaultValue: '编辑通知通道' }) + ` — $$initial?.name ?? ''}`
+    ? t('notify.editChannel', { defaultValue: '编辑通知通道' }) + ` — ${initial?.name ?? ''}`
     : t('notify.addChannel', { defaultValue: '添加通知通道' })
 
   useEffect(() => {
@@ -126,7 +126,7 @@ export function ChannelModal({ open, onClose, initial }: ChannelModalProps) {
     mutationFn: async () => {
       if (!initial) {
         const base: any = {
-          name: form.name || `tmp-$$Date.now()}`,
+          name: form.name || `tmp-${Date.now()}`,
           type: form.type!,
           enabled: true,
         }
@@ -210,7 +210,7 @@ export function ChannelModal({ open, onClose, initial }: ChannelModalProps) {
                     onClick={() => updateField('type', opt.value)}
                     className={`
                       flex flex-col items-center gap-1.5 py-3 px-2 rounded-xl border text-xs transition-all
-                      $$active
+                      ${active
                         ? 'border-accent bg-accent/5 text-accent font-semibold shadow-sm shadow-accent/10'
                         : 'border-border text-fg-muted hover:border-border-strong hover:text-fg hover:bg-bg-sunken/50'}
                     `}
@@ -379,8 +379,8 @@ export function ChannelModal({ open, onClose, initial }: ChannelModalProps) {
                   onClick={() => {
                     const hdrs = { ...(form.headers || {}) }
                     let i = 1
-                    while (hdrs[`X-Header-$$i}`] !== undefined) i++
-                    hdrs[`X-Header-$$i}`] = ''
+                    while (hdrs[`X-Header-${i}`] !== undefined) i++
+                    hdrs[`X-Header-${i}`] = ''
                     updateField('headers', hdrs)
                   }}
                 >
@@ -446,7 +446,7 @@ export function ChannelModal({ open, onClose, initial }: ChannelModalProps) {
           <div
             className={`
               flex items-start gap-2 rounded-lg border p-3 text-sm
-              $$testState.result.ok
+              ${testState.result.ok
                 ? 'border-success/30 bg-success/5 text-success'
                 : 'border-danger/30 bg-danger/5 text-danger'}
             `}

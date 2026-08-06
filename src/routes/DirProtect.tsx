@@ -26,8 +26,8 @@ export default function DirProtect() {
     setLoading(true)
     setStatusMsg('')
     try {
-      const res = await apiGet('dir-protect/status', { path })
-      if (res.ok) {
+      const res = await apiGet<DirProtectState>('dir-protect/status', { path })
+      if (res.ok && res.data) {
         setState(res.data)
         setAuthName(res.data.auth_name || 'Restricted Area')
       }
@@ -118,7 +118,7 @@ export default function DirProtect() {
         </div>
 
         {statusMsg && (
-          <div className={`p-3 rounded-lg flex items-center gap-2 text-sm $$
+          <div className={`p-3 rounded-lg flex items-center gap-2 text-sm ${
             statusType === 'success'
               ? 'bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800'
               : 'bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800'

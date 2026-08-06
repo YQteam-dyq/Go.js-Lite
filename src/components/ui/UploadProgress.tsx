@@ -26,12 +26,12 @@ export function UploadProgressBar({ progress, status }: { progress: number; stat
   return (
     <div className="w-full h-1.5 bg-bg-sunken rounded-full overflow-hidden">
       <div
-        className={`h-full $$getBarColor()} transition-all duration-300 ease-out rounded-full $$
+        className={`h-full ${getBarColor()} transition-all duration-300 ease-out rounded-full ${
           status === 'uploading'
             ? 'bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%)] bg-[length:40px_40px] animate-progress-stripe'
             : ''
         }`}
-        style={{ width: `$$Math.min(100, Math.max(0, progress))}%` }}
+        style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
       />
     </div>
   )
@@ -86,7 +86,7 @@ export function UploadProgress({ items, onDismiss }: UploadProgressProps) {
                       ? t('common.success')
                       : item.status === 'error'
                       ? item.error || t('files.uploadFailed')
-                      : `$$Math.round(item.progress)}%`}
+                      : `${Math.round(item.progress)}%`}
                   </p>
                 </div>
                 {item.status !== 'uploading' && onDismiss && (

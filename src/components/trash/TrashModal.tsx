@@ -133,7 +133,7 @@ export function TrashModal({ open, onClose, onChanged }: TrashModalProps) {
           <button
             type="button"
             onClick={toggleEnabled}
-            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none $$
+            className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
               enabled ? 'bg-accent' : 'bg-fg/15'
             }`}
             role="switch"
@@ -141,7 +141,7 @@ export function TrashModal({ open, onClose, onChanged }: TrashModalProps) {
             aria-label={t('trash.enable')}
           >
             <span
-              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform $$
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition-transform ${
                 enabled ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
@@ -166,7 +166,7 @@ export function TrashModal({ open, onClose, onChanged }: TrashModalProps) {
             {items.map((item) => (
               <li key={item.id} className="flex items-center gap-3 py-2.5 px-1">
                 <div
-                  className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 $$
+                  className={`w-9 h-9 rounded-md flex items-center justify-center shrink-0 ${
                     item.type === 'dir'
                       ? 'bg-accent/10 text-accent'
                       : 'bg-bg-sunken text-fg-muted'

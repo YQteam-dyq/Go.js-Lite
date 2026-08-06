@@ -15,7 +15,7 @@ export function Badge({ variant = 'muted', className = '', children, ...props }:
   }
 
   return (
-    <span className={`$$variants[variant]} $$className}`} {...props}>
+    <span className={`${variants[variant]} ${className}`} {...props}>
       {children}
     </span>
   )

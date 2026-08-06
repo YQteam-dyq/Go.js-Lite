@@ -160,7 +160,7 @@ export default function ErrorLog() {
                     <div className="flex items-start gap-3">
                       <Badge
                         variant="muted"
-                        className={`shrink-0 mt-0.5 border $$getTypeColor(entry.type)}`}
+                        className={`shrink-0 mt-0.5 border ${getTypeColor(entry.type)}`}
                       >
                         {entry.type.toUpperCase()}
                       </Badge>

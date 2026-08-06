@@ -32,7 +32,7 @@ export function DropdownMenu({ trigger, children, align = 'right' }: DropdownMen
           className={`
             absolute z-40 mt-2 min-w-[180px] bg-bg-elevated border border-border
             rounded-lg shadow-xl py-1 animate-scale-in origin-top-right
-            $$align === 'right' ? 'right-0' : 'left-0'}
+            ${align === 'right' ? 'right-0' : 'left-0'}
           `}
           role="menu"
         >
@@ -61,7 +61,7 @@ export function MenuItem({ icon, label, description, onClick, danger, disabled }
       className={`
         w-full flex items-center gap-3 px-3 py-2 text-sm text-left
         transition-colors
-        $$disabled
+        ${disabled
           ? 'text-fg-subtle opacity-50 cursor-not-allowed'
           : danger
           ? 'text-danger hover:bg-danger/10'

@@ -139,11 +139,11 @@ export default function Notifications() {
   const catLabel = (c: NotificationCategory | 'all') =>
     c === 'all'
       ? t('notify.catAll', { defaultValue: '全部' })
-      : t((`notify.category$$c.charAt(0).toUpperCase() + c.slice(1)}`) as never, { defaultValue: c })
+      : t((`notify.category${c.charAt(0).toUpperCase() + c.slice(1)}`) as never, { defaultValue: c })
 
   const sevBadge = (s: NotificationSeverity) => NOTIFY_SEVERITY_BADGE[s]
   const sevLabel = (s: NotificationSeverity) =>
-    t((`notify.severity$$s.charAt(0).toUpperCase() + s.slice(1)}`) as never, { defaultValue: s })
+    t((`notify.severity${s.charAt(0).toUpperCase() + s.slice(1)}`) as never, { defaultValue: s })
   const hasMore = items.length === LIMIT && offset + LIMIT < total
 
   const listHeader = (
@@ -175,7 +175,7 @@ export default function Notifications() {
             <button
               key={c}
               onClick={() => { setCategory(c); setOffset(0) }}
-              className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-all $$
+              className={`w-full flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-sm transition-all ${
                 active ? 'bg-accent/10 text-accent font-semibold' : 'text-fg-muted hover:bg-bg-sunken hover:text-fg'
               }`}
             >
@@ -217,20 +217,20 @@ export default function Notifications() {
                 type="button"
                 key={it.id}
                 onClick={() => { setSelectedId(it.id); if (isMobile) setMobileDetailOpen(true) }}
-                className={`w-full text-left p-3 transition-all group relative $$
+                className={`w-full text-left p-3 transition-all group relative ${
                   active ? 'bg-accent/5' : 'hover:bg-bg-sunken/60'
-                } $$unread ? 'bg-fg/[0.015]' : ''}`}
+                } ${unread ? 'bg-fg/[0.015]' : ''}`}
               >
                 {unread && (
                   <span className="absolute left-1.5 top-1/2 -translate-y-1/2 w-2 h-2 rounded-full bg-accent shrink-0" />
                 )}
-                <div className={`flex items-start gap-2 $$unread ? 'pl-3' : 'pl-1'}`}>
+                <div className={`flex items-start gap-2 ${unread ? 'pl-3' : 'pl-1'}`}>
                   <div className="flex items-center gap-1.5 shrink-0 flex-wrap">
                     <Badge variant="muted" className="text-[10px] px-1.5">{catLabel(it.category)}</Badge>
                     <Badge variant={sevBadge(it.severity)} className="text-[10px] px-1.5">{sevLabel(it.severity)}</Badge>
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className={`text-sm truncate $$unread ? 'font-semibold text-fg' : 'text-fg'}`}>
+                    <div className={`text-sm truncate ${unread ? 'font-semibold text-fg' : 'text-fg'}`}>
                       {renderI18nText(t, it.title_key, it.body_params as never) ?? it.title_key}
                     </div>
                     <div className="text-xs text-fg-subtle mt-0.5">{relTime(it.created_at)}</div>

@@ -26,8 +26,8 @@ export default function AppStore() {
     setLoading(true)
     setError('')
     try {
-      const res = await apiGet('appstore/list')
-      if (res.ok) setApps(res.data.apps || [])
+      const res = await apiGet<{ apps: AppMeta[] }>('appstore/list')
+      if (res.ok && res.data) setApps(res.data.apps || [])
       else setError(t('common.unknownError'))
     } catch {
       setError(t('common.unknownError'))

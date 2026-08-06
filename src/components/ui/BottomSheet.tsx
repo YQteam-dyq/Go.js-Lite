@@ -66,7 +66,7 @@ export function ActionSheetItem({ icon, label, onClick, danger, disabled }: Acti
       className={`
         w-full flex items-center gap-4 px-5 py-3.5 text-base text-left
         transition-colors min-h-[56px]
-        $$disabled
+        ${disabled
           ? 'text-fg-subtle opacity-50 cursor-not-allowed'
           : danger
           ? 'text-danger hover:bg-danger/10 active:bg-danger/15'

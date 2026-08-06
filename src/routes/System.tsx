@@ -106,7 +106,7 @@ export default function System() {
               <InfoCard
                 icon={<MemoryStick size={16} />}
                 label={t('system.memoryUsed') || '内存使用'}
-                value={`$$formatBytes(sys.memUsed * 1024)}$$
+                value={`${formatBytes(sys.memUsed * 1024)}${
                   sys.memPercent !== null && sys.memPercent !== undefined
                     ? ` (${Number(sys.memPercent).toFixed(1)}%)`
                     : ''
@@ -172,7 +172,7 @@ export default function System() {
                     <div
                       className="h-full bg-accent rounded-full transition-all duration-500"
                       style={{
-                        width: `$$sys.diskTotal > 0 ? (sys.diskUsed / sys.diskTotal) * 100 : 0}%`,
+                        width: `${sys.diskTotal > 0 ? (sys.diskUsed / sys.diskTotal) * 100 : 0}%`,
                       }}
                     />
                   </div>
@@ -319,7 +319,7 @@ function InfoRow({
   return (
     <div className="flex items-center justify-between gap-4">
       <span className="text-fg-muted shrink-0">{label}</span>
-      <span className={`text-fg truncate $$mono ? 'font-mono' : ''}`}>{value}</span>
+      <span className={`text-fg truncate ${mono ? 'font-mono' : ''}`}>{value}</span>
     </div>
   )
 }
@@ -328,7 +328,7 @@ function formatUptime(seconds: number, t: (key: string) => string): string {
   const days = Math.floor(seconds / 86400)
   const hours = Math.floor((seconds % 86400) / 3600)
   const mins = Math.floor((seconds % 3600) / 60)
-  return `$$days}$$t('system.days')} $$hours}$$t('system.hours')} $$mins}$$t('system.minutes')}`
+  return `${days}${t('system.days')} ${hours}${t('system.hours')} ${mins}${t('system.minutes')}`
 }
 
 type InfoCardColor = 'accent' | 'success' | 'warning' | 'danger' | 'info'
@@ -354,7 +354,7 @@ function InfoCard({
 
   return (
     <div className="flex flex-col gap-2">
-      <div className={`w-8 h-8 rounded-md flex items-center justify-center $$colorClasses[color]}`}>
+      <div className={`w-8 h-8 rounded-md flex items-center justify-center ${colorClasses[color]}`}>
         {icon}
       </div>
       <div>

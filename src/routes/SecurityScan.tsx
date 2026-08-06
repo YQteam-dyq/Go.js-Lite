@@ -142,7 +142,7 @@ function VulnTable({ vulns }: { vulns: SecurityVulnItem[] }) {
           <tbody>
             {items.map((v, i) => (
               <tr
-                key={`$$v.package}-$$v.installed_version}-$$i}`}
+                key={`${v.package}-${v.installed_version}-${i}`}
                 className="border-t border-border/50 hover:bg-bg-sunken/40 transition-colors"
               >
                 <td className="px-3 py-2.5 font-mono text-fg break-all">{v.package}</td>
@@ -152,7 +152,7 @@ function VulnTable({ vulns }: { vulns: SecurityVulnItem[] }) {
                 </td>
                 <td className="px-3 py-2.5">
                   <Badge variant={v.severityBadgeVariant as 'danger' | 'warning' | 'muted' | 'accent' | 'success'}>
-                    {t(`secscan.severity$$v.severity.charAt(0).toUpperCase() + v.severity.slice(1)}` as any) ?? v.severity}
+                    {t(`secscan.severity${v.severity.charAt(0).toUpperCase() + v.severity.slice(1)}` as any) ?? v.severity}
                   </Badge>
                 </td>
                 <td className="px-3 py-2.5 text-fg max-w-xs truncate" title={v.title}>
@@ -182,7 +182,7 @@ function VulnTable({ vulns }: { vulns: SecurityVulnItem[] }) {
       <div className="md:hidden space-y-2.5">
         {items.map((v, i) => (
           <div
-            key={`$$v.package}-$$v.installed_version}-$$i}-m`}
+            key={`${v.package}-${v.installed_version}-${i}-m`}
             className="rounded-lg border border-border/60 p-3 bg-bg-sunken/20"
           >
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -201,7 +201,7 @@ function VulnTable({ vulns }: { vulns: SecurityVulnItem[] }) {
                 variant={v.severityBadgeVariant as 'danger' | 'warning' | 'muted' | 'accent' | 'success'}
                 className="shrink-0"
               >
-                {t(`secscan.severity$$v.severity.charAt(0).toUpperCase() + v.severity.slice(1)}` as any) ?? v.severity}
+                {t(`secscan.severity${v.severity.charAt(0).toUpperCase() + v.severity.slice(1)}` as any) ?? v.severity}
               </Badge>
             </div>
             {v.title && (

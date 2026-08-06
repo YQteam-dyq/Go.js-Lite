@@ -41,7 +41,7 @@ export default function Deploy() {
 
   const openModal = (app: DeployAppInfo) => {
     setSelected(app)
-    setTargetDir(`/$$app.id}`)
+    setTargetDir(`/${app.id}`)
     setDbHost('')
     setDbName('')
     setDbUser('')
@@ -204,7 +204,7 @@ export default function Deploy() {
                   })()}
                   <div className="text-xs text-fg leading-relaxed">
                     <div className="font-semibold">{t(result.next_step_key)}</div>
-                    <div className="mt-1">{t('deploy.deployingTo', { dir: `/$$result.target_dir}` })}</div>
+                    <div className="mt-1">{t('deploy.deployingTo', { dir: `/${result.target_dir}` })}</div>
                     {result.db_configured === false && (
                       <div className="mt-1 opacity-80">{t('deploy.dbOptional')}</div>
                     )}
@@ -225,7 +225,7 @@ export default function Deploy() {
                     className="mt-1.5"
                     value={targetDir}
                     onChange={(e) => setTargetDir(e.target.value)}
-                    placeholder={`/$$selected.id}`}
+                    placeholder={`/${selected.id}`}
                     icon={<FolderOpen size={15} />}
                   />
                   <p className="text-[11px] text-fg-subtle mt-1">

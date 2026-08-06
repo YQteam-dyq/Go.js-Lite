@@ -24,13 +24,13 @@ export function Skeleton({
 
   const sizeStyle: React.CSSProperties = {
     ...style,
-    ...(width !== undefined ? { width: typeof width === 'number' ? `$$width}px` : width } : {}),
-    ...(height !== undefined ? { height: typeof height === 'number' ? `$$height}px` : height } : {}),
+    ...(width !== undefined ? { width: typeof width === 'number' ? `${width}px` : width } : {}),
+    ...(height !== undefined ? { height: typeof height === 'number' ? `${height}px` : height } : {}),
   }
 
   return (
     <div
-      className={`$$baseClass} $$variantClasses[variant]} $$className}`}
+      className={`${baseClass} ${variantClasses[variant]} ${className}`}
       style={sizeStyle}
       aria-hidden="true"
       {...props}
@@ -46,7 +46,7 @@ export function SkeletonText({
   className?: string
 }) {
   return (
-    <div className={`space-y-2 $$className}`}>
+    <div className={`space-y-2 ${className}`}>
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton
           key={i}
@@ -64,7 +64,7 @@ export function SkeletonCard({
   className?: string
 }) {
   return (
-    <div className={`card p-5 space-y-4 $$className}`}>
+    <div className={`card p-5 space-y-4 ${className}`}>
       <div className="flex items-center gap-3">
         <Skeleton variant="circular" width={40} height={40} />
         <div className="flex-1 space-y-2">
@@ -89,7 +89,7 @@ export function SkeletonList({
   className?: string
 }) {
   return (
-    <div className={`divide-y divide-border $$className}`}>
+    <div className={`divide-y divide-border ${className}`}>
       {Array.from({ length: count }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3">
           <Skeleton variant="circular" width={36} height={36} />
@@ -110,7 +110,7 @@ export function SkeletonDashboard({
   className?: string
 }) {
   return (
-    <div className={`space-y-5 $$className}`}>
+    <div className={`space-y-5 ${className}`}>
       <div className="space-y-2">
         <Skeleton variant="text" className="w-32 h-7" />
         <Skeleton variant="text" className="w-48 h-4" />
@@ -147,13 +147,13 @@ export function SkeletonTable({
   className?: string
 }) {
   return (
-    <div className={`card overflow-hidden $$className}`}>
+    <div className={`card overflow-hidden ${className}`}>
       <div className="hidden md:flex items-center gap-2 px-4 py-2 border-b border-border bg-bg-sunken/50">
         {Array.from({ length: columns }).map((_, i) => (
           <Skeleton
             key={i}
             variant="text"
-            className={`flex-1 $$i === 0 ? '' : 'text-right'} h-3`}
+            className={`flex-1 ${i === 0 ? '' : 'text-right'} h-3`}
             style={{ maxWidth: i === 0 ? 'none' : '120px' }}
           />
         ))}

@@ -106,7 +106,7 @@ function BackupTabs({
             onClick={() => onTabChange(key)}
             className={`
               px-4 py-3 text-xs font-medium flex items-center gap-2 border-b-2 transition-colors
-              $$activeTab === key
+              ${activeTab === key
                 ? 'border-accent text-accent'
                 : 'border-transparent text-fg-muted hover:text-fg hover:bg-fg/5'}
             `}
@@ -147,7 +147,7 @@ function ArchivesTab() {
       toast({
         type: 'success',
         title: t('backup.createSuccess'),
-        description: `$$res.filename} · $$formatBytes(res.size)}`,
+        description: `${res.filename} · ${formatBytes(res.size)}`,
       })
       setShowCreate(false)
       queryClient.invalidateQueries({ queryKey: ['backups'] })
@@ -694,7 +694,7 @@ function RemoteRestoreModal({
             {items.map((item) => (
               <label
                 key={item.key}
-                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors $$
+                className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
                   selectedKey === item.key ? 'bg-accent/5' : 'hover:bg-fg/5'
                 }`}
               >
@@ -944,7 +944,7 @@ function DestinationCard({
     <div className="rounded-xl border border-border bg-bg-card hover:border-accent/30 hover:shadow-sm transition-all p-4 flex flex-col gap-3">
       <div className="flex items-start gap-3">
         <div
-          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 $$typeMeta.bgClass}`}
+          className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${typeMeta.bgClass}`}
         >
           {typeMeta.icon}
         </div>
@@ -1056,12 +1056,12 @@ function getDestinationSummary(dest: BackupDestination): string {
     case 'ftp': {
       const host = dest.host || ''
       const prefix = dest.path_prefix ? '/' + dest.path_prefix.replace(/^\/+/, '') : ''
-      return `$$dest.username}@$$host}$$dest.port !== 21 ? ':' + dest.port : ''}$$prefix}`
+      return `${dest.username}@${host}${dest.port !== 21 ? ':' + dest.port : ''}${prefix}`
     }
     case 'sftp': {
       const host = dest.host || ''
       const prefix = dest.path_prefix ? '/' + dest.path_prefix.replace(/^\/+/, '') : ''
-      return `$$dest.username}@$$host}$$dest.port !== 22 ? ':' + dest.port : ''}$$prefix}`
+      return `${dest.username}@${host}${dest.port !== 22 ? ':' + dest.port : ''}${prefix}`
     }
   }
 }
@@ -1335,7 +1335,7 @@ function DestinationModal({
               disabled={isEdit}
               className={`
                 flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-md text-xs font-medium transition-all
-                $$typeTab === key
+                ${typeTab === key
                   ? 'bg-bg-card text-fg shadow-sm'
                   : 'text-fg-muted hover:text-fg disabled:opacity-50 disabled:cursor-not-allowed'}
               `}
@@ -1549,7 +1549,7 @@ function DestinationModal({
 
         {testResult && (
           <div
-            className={`rounded-lg border px-3 py-2.5 flex items-start gap-2 text-xs $$
+            className={`rounded-lg border px-3 py-2.5 flex items-start gap-2 text-xs ${
               testResult.ok
                 ? 'bg-success/5 border-success/20 text-success'
                 : 'bg-danger/5 border-danger/20 text-danger'
@@ -1691,8 +1691,8 @@ function SchedulesTab() {
     const host = typeof window !== 'undefined' ? window.location.host : ''
     const proto = typeof window !== 'undefined' ? window.location.protocol : 'https:'
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
-    const suffix = base ? `$$base}/webcron.php` : '/webcron.php'
-    return token ? `$$proto}//$$host}$$suffix}?token=$$encodeURIComponent(token)}` : ''
+    const suffix = base ? `${base}/webcron.php` : '/webcron.php'
+    return token ? `${proto}//${host}${suffix}?token=${encodeURIComponent(token)}` : ''
   }, [configQuery.data])
 
   const handleCopyUrl = async () => {
@@ -2094,7 +2094,7 @@ function RunRow({
         {run.bytes_total > 0 ? formatBytes(run.bytes_total) : '-'}
       </td>
       <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-fg-muted">
-        {destTotal > 0 ? `$$destOk}/$$destTotal}` : '-'}
+        {destTotal > 0 ? `${destOk}/${destTotal}` : '-'}
       </td>
       <td className="px-3 py-2 whitespace-nowrap text-right font-mono text-fg-muted">
         {run.pruned_count > 0 ? run.pruned_count : '-'}
@@ -2124,10 +2124,10 @@ function ScheduleCard({
 
   const retention = schedule.retention ?? {}
   const retentionParts: string[] = []
-  if (retention.keep_last) retentionParts.push(`$$t('remoteBackup.keepLast')}: $$retention.keep_last}`)
-  if (retention.keep_daily) retentionParts.push(`$$t('remoteBackup.keepDaily')}: $$retention.keep_daily}`)
-  if (retention.keep_weekly) retentionParts.push(`$$t('remoteBackup.keepWeekly')}: $$retention.keep_weekly}`)
-  if (retention.keep_monthly) retentionParts.push(`$$t('remoteBackup.keepMonthly')}: $$retention.keep_monthly}`)
+  if (retention.keep_last) retentionParts.push(`${t('remoteBackup.keepLast')}: ${retention.keep_last}`)
+  if (retention.keep_daily) retentionParts.push(`${t('remoteBackup.keepDaily')}: ${retention.keep_daily}`)
+  if (retention.keep_weekly) retentionParts.push(`${t('remoteBackup.keepWeekly')}: ${retention.keep_weekly}`)
+  if (retention.keep_monthly) retentionParts.push(`${t('remoteBackup.keepMonthly')}: ${retention.keep_monthly}`)
   const retentionText = retentionParts.length > 0 ? retentionParts.join(' · ') : '-'
 
   const toggleMutation = useMutation({
@@ -2218,7 +2218,7 @@ function ScheduleCard({
             return (
               <div
                 key={d.id}
-                className={`w-6 h-6 rounded flex items-center justify-center $$meta.bgClass} shrink-0`}
+                className={`w-6 h-6 rounded flex items-center justify-center ${meta.bgClass} shrink-0`}
                 title={d.name}
               >
                 <span className="scale-75">{meta.icon}</span>
@@ -2446,7 +2446,7 @@ function ScheduleModal({
             <button
               key={tk}
               onClick={() => setTab(tk)}
-              className={`flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-md text-[11px] font-medium whitespace-nowrap transition-all $$
+              className={`flex-1 min-w-[90px] flex items-center justify-center gap-1.5 px-2.5 py-2 rounded-md text-[11px] font-medium whitespace-nowrap transition-all ${
                 tab === tk ? 'bg-bg-card text-fg shadow-sm' : 'text-fg-muted hover:text-fg'
               }`}
             >
@@ -2455,7 +2455,7 @@ function ScheduleModal({
               {tk === 'source' && <FileArchive size={11} />}
               {tk === 'destinations' && <Cloud size={11} />}
               {tk === 'retention' && <Shield size={11} />}
-              {t(`remoteBackup.tab$$tk.charAt(0).toUpperCase() + tk.slice(1)}`)}
+              {t(`remoteBackup.tab${tk.charAt(0).toUpperCase() + tk.slice(1)}`)}
             </button>
           ))}
         </div>
@@ -2493,13 +2493,13 @@ function ScheduleModal({
                   <button
                     key={p.key}
                     onClick={() => setCronPreset(p.key)}
-                    className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all $$
+                    className={`px-2.5 py-1.5 rounded-md text-[11px] font-medium transition-all ${
                       cronPreset === p.key
                         ? 'bg-accent text-white shadow-sm'
                         : 'bg-bg-sunken text-fg-muted hover:text-fg hover:bg-bg-card'
                     }`}
                   >
-                    {t(`remoteBackup.$$p.label_key}`)}
+                    {t(`remoteBackup.${p.label_key}`)}
                   </button>
                 ))}
               </div>
@@ -2600,7 +2600,7 @@ function ScheduleModal({
                   return (
                     <label
                       key={d.id}
-                      className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors $$
+                      className={`flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors ${
                         checked ? 'border-accent/40 bg-accent/5' : 'border-border hover:bg-fg/5'
                       }`}
                     >
@@ -2614,7 +2614,7 @@ function ScheduleModal({
                         }
                         className="mt-0.5 accent-accent"
                       />
-                      <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 $$getDestinationMeta(d.type).bgClass}`}>
+                      <div className={`w-7 h-7 rounded-md flex items-center justify-center shrink-0 ${getDestinationMeta(d.type).bgClass}`}>
                         <span className="scale-[0.75]">{getDestinationMeta(d.type).icon}</span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -2695,7 +2695,7 @@ function ScopeCheckbox({ checked, onChange, icon, title, desc }: ScopeCheckboxPr
     <label
       className={`
         flex items-start gap-3 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors
-        $$checked ? 'border-accent/40 bg-accent/5' : 'border-border hover:bg-fg/5'}
+        ${checked ? 'border-accent/40 bg-accent/5' : 'border-border hover:bg-fg/5'}
       `}
     >
       <input

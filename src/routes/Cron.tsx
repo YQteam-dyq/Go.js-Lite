@@ -88,7 +88,7 @@ function getNextRunTime(expression: string): Date | null {
 
 function formatDateTime(d: Date): string {
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `$$d.getFullYear()}-$$pad(d.getMonth() + 1)}-$$pad(d.getDate())} $$pad(d.getHours())}:$$pad(d.getMinutes())}`
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
 function isValidExpression(expr: string): boolean {
@@ -267,13 +267,13 @@ export default function Cron() {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-medium text-fg">
-                {caps?.info_key && hasKey(`cron.$$caps.info_key}`)
-                  ? t(`cron.$$caps.info_key}`)
+                {caps?.info_key && hasKey(`cron.${caps.info_key}`)
+                  ? t(`cron.${caps.info_key}`)
                   : t('cron.crontabCliMissing')}
               </div>
               <p className="text-xs text-fg-muted mt-1 leading-relaxed">
-                {caps?.info_key && hasKey(`cron.$$caps.info_key}Detail`)
-                  ? t(`cron.$$caps.info_key}Detail`)
+                {caps?.info_key && hasKey(`cron.${caps.info_key}Detail`)
+                  ? t(`cron.${caps.info_key}Detail`)
                   : t('cron.crontabCliMissingDetail')}
               </p>
             </div>
@@ -295,15 +295,15 @@ export default function Cron() {
             </div>
             <div className="min-w-0">
               <div className="text-sm font-medium text-fg">
-                {caps?.message_key && hasKey(`cron.$$caps.message_key}`)
-                  ? t(`cron.$$caps.message_key}`)
+                {caps?.message_key && hasKey(`cron.${caps.message_key}`)
+                  ? t(`cron.${caps.message_key}`)
                   : hasKey('cron.notAvailable')
                     ? t('cron.notAvailable')
                     : (caps?.message || t('cron.unavailable'))}
               </div>
               <p className="text-xs text-fg-muted mt-1 leading-relaxed">
-                {caps?.message_key && hasKey(`cron.$$caps.message_key}_detail`)
-                  ? t(`cron.$$caps.message_key}_detail`, caps.message_params as Record<string, string | number> | undefined)
+                {caps?.message_key && hasKey(`cron.${caps.message_key}_detail`)
+                  ? t(`cron.${caps.message_key}_detail`, caps.message_params as Record<string, string | number> | undefined)
                   : hasKey('cron.notAvailableDesc')
                     ? t('cron.notAvailableDesc')
                     : (caps?.message || t('cron.unavailableDetail'))}
@@ -387,7 +387,7 @@ export default function Cron() {
                   const next = nextRunMap[i]
                   return (
                     <li
-                      key={`$$job.expression}-$$i}`}
+                      key={`${job.expression}-${i}`}
                       className="px-4 py-3 hover:bg-fg/5 transition-colors"
                     >
                       <div className="flex items-start justify-between gap-3 flex-wrap">
@@ -512,7 +512,7 @@ export default function Cron() {
                             {' · '}
                             {t('webcron.summaryAcme')} {e.stats.acme_renewed}
                             {e.stats.acme_failed
-                              ? ` ($$t('webcron.summaryAcmeFailed')} $$e.stats.acme_failed})`
+                              ? ` (${t('webcron.summaryAcmeFailed')} ${e.stats.acme_failed})`
                               : ''}
                           </>
                         )}
@@ -563,7 +563,7 @@ export default function Cron() {
                   className="inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-xs bg-bg-sunken hover:bg-fg/10 text-fg-muted hover:text-fg transition-colors border border-border"
                 >
                   <ChevronDown size={12} />
-                  {t(`cron.template_$$tpl.key}`)}
+                  {t(`cron.template_${tpl.key}`)}
                 </button>
               ))}
             </div>

@@ -79,7 +79,7 @@ export default function HealthCheck() {
                   <div
                     className="h-full transition-all duration-500"
                     style={{
-                      width: `$$score}%`,
+                      width: `${score}%`,
                       background:
                         score >= 80
                           ? 'hsl(var(--success))'
@@ -114,7 +114,7 @@ export default function HealthCheck() {
                 key={tb.key}
                 type="button"
                 onClick={() => setTab(tb.key)}
-                className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 h-10 px-3 rounded-md text-sm font-medium transition-colors duration-150 focus-ring $$
+                className={`flex-1 min-w-[100px] flex items-center justify-center gap-2 h-10 px-3 rounded-md text-sm font-medium transition-colors duration-150 focus-ring ${
                   tab === tb.key
                     ? 'bg-bg-elevated text-fg shadow-sm'
                     : 'text-fg-muted hover:text-fg'
@@ -243,7 +243,7 @@ function CompatibilityCard({ item }: { item: CompatibilityItem }) {
               return (
                 <span
                   key={i}
-                  className={`badge font-mono $$
+                  className={`badge font-mono ${
                     isMissingExt ? 'bg-danger/10 text-danger' : 'bg-success/10 text-success'
                   }`}
                 >

@@ -7,8 +7,8 @@ export function useRelativeTime() {
   return (ts: number) => {
     const diff = Math.max(0, Math.floor((Date.now() - ts * 1000) / 1000))
     if (diff < 60) return t('notify.relNow', { defaultValue: '刚刚' })
-    if (diff < 3600) return `$$Math.floor(diff / 60)} $$t('notify.relMin', { defaultValue: '分钟前' })}`
-    if (diff < 86400) return `$$Math.floor(diff / 3600)} $$t('notify.relHour', { defaultValue: '小时前' })}`
+    if (diff < 3600) return `${Math.floor(diff / 60)} ${t('notify.relMin', { defaultValue: '分钟前' })}`
+    if (diff < 86400) return `${Math.floor(diff / 3600)} ${t('notify.relHour', { defaultValue: '小时前' })}`
     const locale = language === 'en' ? 'en-US' : 'zh-CN'
     return new Date(ts * 1000).toLocaleDateString(locale)
   }
@@ -17,7 +17,7 @@ export function useRelativeTime() {
 export function JsonTree({ data }: { data: unknown }) {
   const [open, setOpen] = useState<Record<string, boolean>>({})
   const render = (node: unknown, path: string, depth = 0): ReactNode => {
-    const indent = { paddingLeft: `$$depth * 16 + 8}px` }
+    const indent = { paddingLeft: `${depth * 16 + 8}px` }
     if (node === null) return <span style={indent} className="font-mono text-xs text-fg-subtle">null</span>
     if (typeof node !== 'object') {
       return (
@@ -49,9 +49,9 @@ export function JsonTree({ data }: { data: unknown }) {
         >
           <ChevronRight
             size={12}
-            className={`inline mr-1 -ml-1 transition-transform $$isOpen ? 'rotate-90' : ''}`}
+            className={`inline mr-1 -ml-1 transition-transform ${isOpen ? 'rotate-90' : ''}`}
           />
-          <span className="text-fg">{arr ? `[$$entries.length}]` : `{$$entries.length}}`}</span>
+          <span className="text-fg">{arr ? `[${entries.length}]` : `{${entries.length}}`}</span>
         </button>
         {isOpen && entries.length > 0 && (
           <div>
@@ -59,7 +59,7 @@ export function JsonTree({ data }: { data: unknown }) {
               <div key={path + '.' + k}>
                 {!arr && (
                   <span
-                    style={{ paddingLeft: `$$(depth + 1) * 16 + 8}px` }}
+                    style={{ paddingLeft: `${(depth + 1) * 16 + 8}px` }}
                     className="font-mono text-xs text-accent py-0.5 inline-block"
                   >
                     {k}:

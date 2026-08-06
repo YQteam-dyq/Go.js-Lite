@@ -14,7 +14,7 @@ export const apiTokensApi = {
   },
 
   revoke(id: string) {
-    return apiFetch<{ success: boolean }>(`/api-tokens/$$encodeURIComponent(id)}`, {
+    return apiFetch<{ success: boolean }>(`/api-tokens/${encodeURIComponent(id)}`, {
       method: 'DELETE',
     })
   },

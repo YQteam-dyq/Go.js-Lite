@@ -17,7 +17,7 @@ export function Sparkline({ data, color = 'text-accent', height = 48, max, class
 
   if (!data || data.length === 0) {
     return (
-      <div style={{ height }} className={`flex items-center justify-center text-2xs text-fg-subtle $$className}`}>
+      <div style={{ height }} className={`flex items-center justify-center text-2xs text-fg-subtle ${className}`}>
         —
       </div>
     )
@@ -27,7 +27,7 @@ export function Sparkline({ data, color = 'text-accent', height = 48, max, class
 
   if (values.length === 1) {
     return (
-      <svg viewBox={`0 0 $$W} $$H}`} style={{ height }} className={`w-full $$color} $$className}`} aria-hidden="true">
+      <svg viewBox={`0 0 ${W} ${H}`} style={{ height }} className={`w-full ${color} ${className}`} aria-hidden="true">
         <circle cx={W / 2} cy={H / 2} r={2.5} fill="currentColor" />
       </svg>
     )
@@ -41,18 +41,18 @@ export function Sparkline({ data, color = 'text-accent', height = 48, max, class
   const points = values.map((v, i) => {
     const x = i * stepX
     const y = H - pad - ((v - min) / range) * (H - pad * 2)
-    return `$$x.toFixed(2)},$$y.toFixed(2)}`
+    return `${x.toFixed(2)},${y.toFixed(2)}`
   })
 
   const line = points.join(' ')
-  const area = `0,$$H} $$line} $$W},$$H}`
+  const area = `0,${H} ${line} ${W},${H}`
 
   return (
     <svg
-      viewBox={`0 0 $$W} $$H}`}
+      viewBox={`0 0 ${W} ${H}`}
       preserveAspectRatio="none"
       style={{ height }}
-      className={`w-full $$color} $$className}`}
+      className={`w-full ${color} ${className}`}
       aria-hidden="true"
     >
       <defs>
@@ -61,7 +61,7 @@ export function Sparkline({ data, color = 'text-accent', height = 48, max, class
           <stop offset="100%" stopColor="currentColor" stopOpacity="0" />
         </linearGradient>
       </defs>
-      <polygon points={area} fill={`url(#$$gradId})`} />
+      <polygon points={area} fill={`url(#${gradId})`} />
       <polyline
         points={line}
         fill="none"

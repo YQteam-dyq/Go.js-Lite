@@ -14,7 +14,7 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
   const config = sizeMap[size]
 
   return (
-    <div className={`inline-flex items-center $$config.gap} $$className}`}>
+    <div className={`inline-flex items-center ${config.gap} ${className}`}>
       <svg
         width={config.icon}
         height={config.icon}
@@ -30,7 +30,7 @@ export function Logo({ size = 'md', showText = true, className = '' }: LogoProps
         />
       </svg>
       {showText && (
-        <div className={`font-semibold $$config.text} text-fg tracking-tight leading-none`}>
+        <div className={`font-semibold ${config.text} text-fg tracking-tight leading-none`}>
           Go<span className="text-accent">.</span><span className="font-mono font-normal">js</span>
         </div>
       )}
