@@ -1,7 +1,7 @@
 <?php
 
-// Database management: connections, databases/tables/structure, SQL execution, import/export.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_load_db_connections() {
     if (!file_exists(DB_CONNECTIONS_FILE)) {

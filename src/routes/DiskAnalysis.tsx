@@ -174,7 +174,7 @@ export default function DiskAnalysis() {
               <div className="h-2.5 bg-bg-sunken rounded-full overflow-hidden">
                 <div
                   className="h-full bg-accent rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(usagePercent, 100)}%` }}
+                  style={{ width: `$$Math.min(usagePercent, 100)}%` }}
                 />
               </div>
             </div>
@@ -224,7 +224,7 @@ export default function DiskAnalysis() {
                 <ul className="divide-y divide-border">
                   {directories.map((dir, i) => (
                     <DirectoryRow
-                      key={`${dir.path}-${i}`}
+                      key={`$$dir.path}-$$i}`}
                       dir={dir}
                       maxDirSize={maxDirSize}
                       formatBytes={formatBytes}
@@ -282,7 +282,7 @@ export default function DiskAnalysis() {
                 <ul className="divide-y divide-border">
                   {files.map((file, i) => (
                     <LargeFileRow
-                      key={`${file.path}-${i}`}
+                      key={`$$file.path}-$$i}`}
                       file={file}
                       formatBytes={formatBytes}
                       formatDate={formatDate}
@@ -320,7 +320,7 @@ function OverviewStat({
   return (
     <div className="flex flex-col gap-1.5">
       <div
-        className={`w-8 h-8 rounded-md flex items-center justify-center ${overviewColorClasses[color]}`}
+        className={`w-8 h-8 rounded-md flex items-center justify-center $$overviewColorClasses[color]}`}
       >
         <HardDrive size={16} />
       </div>
@@ -354,7 +354,7 @@ function DirectoryRow({
       <div className="h-1.5 bg-bg-sunken rounded-full overflow-hidden mb-1">
         <div
           className="h-full bg-accent/70 rounded-full transition-all duration-300"
-          style={{ width: `${Math.min(barWidth, 100)}%` }}
+          style={{ width: `$$Math.min(barWidth, 100)}%` }}
         />
       </div>
       <div className="flex justify-between text-xs text-fg-subtle">
@@ -544,7 +544,7 @@ function DiskRing({
           viewBox="0 0 160 160"
           className="w-36 h-36 md:w-40 md:h-40"
           role="img"
-          aria-label={`${t('diskAnalysis.usage')} ${displayPercent}%`}
+          aria-label={`$$t('diskAnalysis.usage')} $$displayPercent}%`}
         >
           <circle
             cx="80"
@@ -560,7 +560,7 @@ function DiskRing({
             r={radius}
             fill="none"
             strokeWidth="20"
-            strokeDasharray={`${dash} ${circumference}`}
+            strokeDasharray={`$$dash} $$circumference}`}
             strokeLinecap="round"
             transform="rotate(-90 80 80)"
             className={isHighUsage ? 'stroke-warning' : 'stroke-accent'}
@@ -574,7 +574,7 @@ function DiskRing({
             className="fill-fg font-mono"
             style={{ fontSize: 30, fontWeight: 700 }}
           >
-            {total > 0 ? `${displayPercent}%` : displayPercent}
+            {total > 0 ? `$$displayPercent}%` : displayPercent}
           </text>
         </svg>
       </div>
@@ -588,7 +588,7 @@ function DiskRing({
         <div className="flex items-center justify-center gap-3 text-xs">
           <span className="flex items-center gap-1.5">
             <span
-              className={`inline-block w-2 h-2 rounded-full ${isHighUsage ? 'bg-warning' : 'bg-accent'}`}
+              className={`inline-block w-2 h-2 rounded-full $$isHighUsage ? 'bg-warning' : 'bg-accent'}`}
             />
             <span className="text-fg-subtle">{t('diskAnalysis.used')}</span>
           </span>
@@ -736,7 +736,7 @@ function DirBarChart({
         const sharePct = totalSize > 0 ? (dir.size / totalSize) * 100 : 0
         return (
           <button
-            key={`${dir.path}-${i}`}
+            key={`$$dir.path}-$$i}`}
             type="button"
             onClick={() => onDrillDown(dir.path)}
             className="w-full text-left rounded-md px-2 py-1.5 transition-colors hover:bg-bg-sunken focus-ring group"
@@ -767,7 +767,7 @@ function DirBarChart({
                 <div
                   className="h-full rounded-full transition-all duration-500"
                   style={{
-                    width: `${Math.min(barWidth, 100)}%`,
+                    width: `$$Math.min(barWidth, 100)}%`,
                     background:
                       'linear-gradient(90deg, hsl(var(--accent)), hsl(var(--warning)))',
                   }}

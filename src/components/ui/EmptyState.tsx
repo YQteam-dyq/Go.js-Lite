@@ -37,7 +37,7 @@ export function EmptyState({
   )
 
   return (
-    <div className={`py-12 px-4 text-center ${className}`}>
+    <div className={`py-12 px-4 text-center $$className}`}>
       <div className="mx-auto mb-4">{icon || defaultIcon}</div>
       <p className="text-sm font-medium text-fg mb-1">{title}</p>
       {description && (
@@ -107,7 +107,7 @@ export function EmptySearch({ query, className = '' }: EmptySearchProps) {
         </div>
       }
       title={t('files.noResults')}
-      description={query ? `「${query}」${t('files.noResultsHint')}` : t('files.noResultsHint')}
+      description={query ? `「$$query}」$$t('files.noResultsHint')}` : t('files.noResultsHint')}
     />
   )
 }

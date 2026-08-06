@@ -1,7 +1,7 @@
 <?php
 
-// Common utilities: capability detection, IP, migration, CSRF/auth, API Token, secret sealing.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_return_bytes($val) {
     $val = trim($val);
@@ -223,7 +223,7 @@ function gojs_migrate_050() {
         return;
     }
 
-    // Add new config keys without breaking existing structure.
+    
     if (!isset($config['totp']) || !is_array($config['totp'])) {
         $config['totp'] = array();
     }
@@ -256,19 +256,19 @@ function gojs_migrate_050() {
 
     gojs_save_config();
 
-    // webcron history file
+    
     $history_file = CONFIG_DIR . '/webcron_history.json';
     if (!file_exists($history_file)) {
         @file_put_contents($history_file, '[]');
     }
 
-    // Trash directory
+    
     $trash_dir = CONFIG_DIR . '/trash';
     if (!is_dir($trash_dir)) {
         @mkdir($trash_dir, 0700, true);
     }
 
-    // Monitor history file
+    
     $monitor_file = CONFIG_DIR . '/monitor_history.json';
     if (!file_exists($monitor_file)) {
         @file_put_contents($monitor_file, '[]');
@@ -289,33 +289,33 @@ function gojs_run_migration() {
             return;
         }
 
-        // 0.2.x -> 0.3.0 migration
-        // 0.3.0 -> 0.3.1: hotfix release, no migration step
+        
+        
         if (version_compare($current_version, '0.3.0', '<')) {
-            // Create operation log file
+            
             $log_file = CONFIG_DIR . '/operation_log.json';
             if (!file_exists($log_file)) {
                 @file_put_contents($log_file, '[]');
             }
 
-            // Create backup directory
+            
             $backup_dir = CONFIG_DIR . '/backups';
             if (!is_dir($backup_dir)) {
                 @mkdir($backup_dir, 0700, true);
             }
         }
 
-        // 0.3.1 -> 0.4.0 migration
+        
         gojs_migrate_040();
 
-        // 0.4.0 -> 0.5.0 migration
+        
         gojs_migrate_050();
 
-        // Update version number
+        
         $config['version'] = APP_VERSION;
         gojs_save_config();
     } catch (Exception $e) {
-        // Migration failure does not block panel startup
+        
     }
 }
 
@@ -375,9 +375,7 @@ function gojs_log_auth_attempt($success) {
     }
 }
 
-/**
- * Clear login failure records for the given IP (called after a successful login).
- */
+
 function gojs_clear_auth_attempts($ip) {
     if (!file_exists(AUTH_LOG)) {
         return;
@@ -435,7 +433,7 @@ function gojs_log_operation($action, $target, $result = true, $detail = '') {
         $logs = array_slice($logs, -$retention);
     }
 
-    // Write (failure does not affect the operation itself)
+    
     @file_put_contents($log_file, json_encode($logs, JSON_UNESCAPED_UNICODE));
 
     $ctx = array(
@@ -462,7 +460,7 @@ function gojs_check_csrf() {
         return;
     }
 
-    // REST requests authenticated via an API Token do not rely on the session CSRF token.
+    
     if (!empty($_SESSION['api_token_scopes'])) {
         return;
     }
@@ -534,7 +532,7 @@ function gojs_check_auth() {
 
     gojs_check_access_token();
 
-    // API Token auth (HTTP_X_API_TOKEN): takes precedence over session validation.
+    
     $api_token = isset($_SERVER['HTTP_X_API_TOKEN']) ? $_SERVER['HTTP_X_API_TOKEN'] : '';
     if ($api_token !== '') {
         $tokens = isset($config['api_tokens']) && is_array($config['api_tokens']) ? $config['api_tokens'] : array();
@@ -543,7 +541,7 @@ function gojs_check_auth() {
             $sealed = gojs_unseal_secret($t['token_enc']);
             if (is_string($sealed) && $sealed !== '' && hash_equals($sealed, $api_token)) {
                 $_SESSION['api_token_scopes'] = (isset($t['scopes']) && is_array($t['scopes'])) ? array_values($t['scopes']) : array();
-                // Throttle last_used_at updates (persist only if more than 60s since last write)
+                
                 $now = time();
                 $last = isset($t['last_used_at']) ? (int)$t['last_used_at'] : 0;
                 if ($now - $last > 60) {
@@ -609,7 +607,7 @@ function gojs_check_access_token() {
         $token = $_SERVER['HTTP_X_ACCESS_TOKEN'];
     }
 
-    // Only enforce token validation when a token is present in the request; otherwise allow the normal auth flow.
+    
     if (!$token) {
         return;
     }
@@ -633,7 +631,7 @@ function gojs_save_config() {
 }
 
 function gojs_require_scope($scope) {
-    // Normal session login (admin) is allowed directly.
+    
     if (empty($_SESSION['api_token_scopes'])) {
         if (!empty($_SESSION['authenticated']) || !empty($_SESSION['access_token_valid'])) {
             return;
@@ -785,13 +783,13 @@ function gojs_api_status() {
 
 function gojs_api_backup_run_rest() {
     gojs_require_scope('backup:run');
-    // Reuse gojs_api_backup_create(): it reads the body, outputs the response, and exits.
+    
     gojs_api_backup_create();
 }
 
 function gojs_api_files_rest() {
     gojs_require_scope('files:read');
-    // Reuse gojs_api_files(): it reads the GET params (path/sort/order) and outputs.
+    
     gojs_api_files();
 }
 

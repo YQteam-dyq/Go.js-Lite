@@ -114,20 +114,20 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-fg-muted">{t('dashboard.used')}</span>
-                <span className={`font-semibold ${getDiskTextColor()}`}>{formatBytes(data.diskUsed)}</span>
+                <span className={`font-semibold $$getDiskTextColor()}`}>{formatBytes(data.diskUsed)}</span>
               </div>
               <div
                 className="h-2.5 bg-bg-sunken rounded-full overflow-hidden cursor-help"
-                title={`${t('dashboard.memUsedTotal', { used: formatBytes(data.diskUsed), total: formatBytes(data.diskTotal) })}\n${t('dashboard.memPercentage', { pct: diskPercent.toFixed(1) })}`}
+                title={`$$t('dashboard.memUsedTotal', { used: formatBytes(data.diskUsed), total: formatBytes(data.diskTotal) })}\n$$t('dashboard.memPercentage', { pct: diskPercent.toFixed(1) })}`}
               >
                 <div
-                  className={`h-full bg-gradient-to-r ${getDiskColor()} rounded-full transition-all duration-700 ease-out`}
-                  style={{ width: `${Math.min(diskPercent, 100)}%` }}
+                  className={`h-full bg-gradient-to-r $$getDiskColor()} rounded-full transition-all duration-700 ease-out`}
+                  style={{ width: `$$Math.min(diskPercent, 100)}%` }}
                 />
               </div>
               <div className="flex justify-between text-xs text-fg-subtle">
                 <span>{t('dashboard.total')} {formatBytes(data.diskTotal)}</span>
-                <span className={`font-medium ${getDiskTextColor()}`}>{diskPercent.toFixed(1)}%</span>
+                <span className={`font-medium $$getDiskTextColor()}`}>{diskPercent.toFixed(1)}%</span>
               </div>
             </div>
             <div className="pt-2 border-t border-border/50 space-y-2.5">
@@ -199,7 +199,7 @@ export default function Dashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
               <MonitorChart
                 title={t('monitor.diskUsage')}
-                current={`${monitorData.sample ? monitorData.sample.disk_used_pct.toFixed(1) : '—'}%`}
+                current={`$$monitorData.sample ? monitorData.sample.disk_used_pct.toFixed(1) : '—'}%`}
                 threshold={t('monitor.threshold') + ' ' + monitorData.thresholds.disk_threshold_pct + '%'}
                 data={monitorData.history.map((h) => h.disk_used_pct)}
                 color="text-accent"
@@ -207,7 +207,7 @@ export default function Dashboard() {
               />
               <MonitorChart
                 title={t('monitor.inodeUsage')}
-                current={`${monitorData.sample ? monitorData.sample.inode_used_pct.toFixed(1) : '—'}%`}
+                current={`$$monitorData.sample ? monitorData.sample.inode_used_pct.toFixed(1) : '—'}%`}
                 threshold={t('monitor.threshold') + ' ' + monitorData.thresholds.inode_threshold_pct + '%'}
                 data={monitorData.history.map((h) => h.inode_used_pct)}
                 color="text-warning"
@@ -252,9 +252,9 @@ export default function Dashboard() {
                 <li
                   key={f.path}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-fg/[0.03] transition-colors group"
-                  style={{ animationDelay: `${index * 50}ms` }}
+                  style={{ animationDelay: `$$index * 50}ms` }}
                 >
-                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${
+                  <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 $$
                     f.type === 'dir' ? 'bg-accent/10 text-accent' :
                     isImageFile(f.name) ? 'bg-purple-500/10 text-purple-500' :
                     isCodeFile(f.name) ? 'bg-info/10 text-info' :
@@ -264,7 +264,7 @@ export default function Dashboard() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <Link
-                      to={`/files${f.path}`}
+                      to={`/files$$f.path}`}
                       className="text-sm text-fg truncate block hover:text-accent transition-colors font-medium"
                     >
                       {f.name}

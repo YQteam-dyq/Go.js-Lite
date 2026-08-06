@@ -82,7 +82,7 @@ export const backupApi = {
   download(filename: string) {
     const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
     const params = new URLSearchParams({ filename })
-    const url = `${base}/api/backup/download?${params.toString()}`
+    const url = `$$base}/api/backup/download?$$params.toString()}`
     const a = document.createElement('a')
     a.href = url
     a.download = filename
@@ -103,20 +103,20 @@ export const backupApi = {
   },
 
   updateSchedule(id: string, data: BackupScheduleUpdateInput) {
-    return apiFetch<BackupScheduleResponse>(`/backup/schedules/${id}`, {
+    return apiFetch<BackupScheduleResponse>(`/backup/schedules/$$id}`, {
       method: 'PUT',
       body: data,
     })
   },
 
   deleteSchedule(id: string) {
-    return apiFetch<{ ok: boolean }>(`/backup/schedules/${id}`, {
+    return apiFetch<{ ok: boolean }>(`/backup/schedules/$$id}`, {
       method: 'DELETE',
     })
   },
 
   runScheduleNow(id: string) {
-    return apiFetch<BackupRunNowResponse>(`/backup/schedules/${id}/run-now`, {
+    return apiFetch<BackupRunNowResponse>(`/backup/schedules/$$id}/run-now`, {
       method: 'POST',
     })
   },
@@ -128,6 +128,6 @@ export const backupApi = {
   },
 
   getRun(id: string) {
-    return apiFetch<BackupRunResponse>(`/backup/runs/${id}`)
+    return apiFetch<BackupRunResponse>(`/backup/runs/$$id}`)
   },
 }

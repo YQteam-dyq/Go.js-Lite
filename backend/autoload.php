@@ -1,6 +1,6 @@
 <?php
-// Lightweight module loader: load backend/*.php modules in dependency order.
-// Keep api.php as the single entry point; the router.php / webcron.php contract is unchanged.
+
+
 require_once __DIR__ . '/Context.php';
 require_once __DIR__ . '/Router.php';
 require_once __DIR__ . '/core.php';
@@ -19,4 +19,7 @@ require_once __DIR__ . '/destinations.php';
 require_once __DIR__ . '/cron.php';
 require_once __DIR__ . '/ftp.php';
 require_once __DIR__ . '/upgrade.php';
+require_once __DIR__ . '/appstore.php';
+require_once __DIR__ . '/share.php';
+require_once __DIR__ . '/dirprotect.php';
 

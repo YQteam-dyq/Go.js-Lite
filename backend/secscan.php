@@ -1,7 +1,7 @@
 <?php
 
-// Security scan: frontend/backend dependency vulnerability scanning.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_secscan_cache_path(): string {
     return CONFIG_DIR . '/secscan_cache.json';
@@ -17,7 +17,7 @@ function gojs_secscan_severity_to_badge(string $s): string {
     return 'muted';
 }
 
-/** Normalize a version string for version_compare: strip leading v/V and +build suffix. */
+
 function gojs_secscan_normalize_version(string $v): string {
     $v = trim($v);
     $v = preg_replace('/^[vV]/', '', $v);
@@ -29,16 +29,13 @@ function gojs_secscan_version_compare(string $a, string $op, string $b): bool {
     return version_compare(gojs_secscan_normalize_version($a), gojs_secscan_normalize_version($b), $op);
 }
 
-/**
- * Parse a single version constraint clause (space-separated comparisons are AND-combined).
- * Supports: *, X.* / X.Y.* ranges, "A - B" closed intervals, single comparators, and bare versions.
- */
+
 function gojs_secscan_parse_single_range(string $pkg_version, string $range): bool {
     $range = trim($range);
     if ($range === '') return true;
-    // Wildcard: * matches any version.
+    
     if ($range === '*') return true;
-    // Wildcard prefix -> range: X.* -> >=X.0.0 <X+1.0.0; X.Y.* -> >=X.Y.0 <X.(Y+1).0 (carries at Y=9).
+    
     if (preg_match('/^(\d+)(?:\.(\d+))?\.\*$/', $range, $wm)) {
         $major = (int)$wm[1];
         $minor = isset($wm[2]) && $wm[2] !== '' ? (int)$wm[2] : 0;
@@ -56,14 +53,14 @@ function gojs_secscan_parse_single_range(string $pkg_version, string $range): bo
         return gojs_secscan_version_compare($pkg_version, '>=', $major . '.0.0')
             && gojs_secscan_version_compare($pkg_version, '<', ($major + 1) . '.0.0');
     }
-    // Closed interval: A - B.
+    
     if (preg_match('/^(.+?)\s*-\s*(.+)$/', $range, $m)) {
         $lo = trim($m[1]);
         $hi = trim($m[2]);
         return gojs_secscan_version_compare($pkg_version, '>=', $lo)
             && gojs_secscan_version_compare($pkg_version, '<=', $hi);
     }
-    // Space-separated compound comparisons (AND), e.g. ">=1.0.0 <1.0.21" (must precede single-comparator handling).
+    
     $tokens = preg_split('/\s+/', $range);
     if (count($tokens) > 1) {
         $match = true;
@@ -77,21 +74,18 @@ function gojs_secscan_parse_single_range(string $pkg_version, string $range): bo
         }
         return $match;
     }
-    // Single comparator.
+    
     if (preg_match('/^(<|<=|==|=|>=|>|!=|<>)\s*(\S+)$/', $range, $m)) {
         $op = $m[1];
         if ($op === '=') $op = '==';
         $ver = trim($m[2]);
         return gojs_secscan_version_compare($pkg_version, $op, $ver);
     }
-    // Bare version: exact equality.
+    
     return gojs_secscan_version_compare($pkg_version, '==', $range);
 }
 
-/**
- * Expand composer semantic constraints into comma-separated AND conditions
- * (^X.Y[.Z], ~X.Y, ~X.Y.Z). Unrecognized input is returned unchanged.
- */
+
 function gojs_secscan_expand_composer(string $cond): string {
     $cond = trim($cond);
     if (preg_match('/^\^(\d+)(?:\.(\d+))?(?:\.(\d+))?$/', $cond, $m)) {
@@ -124,9 +118,9 @@ function gojs_secscan_parse_range(string $pkg_version, string $range): bool {
     $ors = explode('||', $range);
     foreach ($ors as $or_part) {
         $or_part = trim($or_part);
-        // Empty branch or * means a match (any version hits).
+        
         if ($or_part === '' || $or_part === '*') return true;
-        // Expand ^ / ~ semantics, split AND by comma: all conditions must hold.
+        
         $expanded = trim(gojs_secscan_expand_composer($or_part));
         $and_parts = explode(',', $expanded);
         $match = true;
@@ -165,7 +159,7 @@ $GLOBALS['GOJS_PHP_CVE_SEED'] = [
     ['name'=>'erusev/parsedown',              'vuln_range'=>'< 1.7.4',                'severity'=>'moderate', 'title'=>'Parsedown XSS CVE-2018-1000163',                     'url'=>'https://github.com/erusev/parsedown/issues'],
     ['name'=>'michelf/php-markdown',          'vuln_range'=>'< 1.9.0',                'severity'=>'moderate', 'title'=>'PHP Markdown Lib XSS',                               'url'=>'https://github.com/michelf/php-markdown'],
     ['name'=>'cakephp/cakephp',               'vuln_range'=>'< 4.4.11 || < 3.10.12', 'severity'=>'critical', 'title'=>'CakePHP cache-engine RCE',                            'url'=>'https://bakery.cakephp.org/'],
-    // Additional entries (real advisories; ranges confirmed by official announcements to avoid multi-series false positives).
+    
     ['name'=>'phpseclib/phpseclib',           'vuln_range'=>'<1.0.23 || >=2.0.0 <2.0.46 || >=3.0.0 <3.0.34', 'severity'=>'high', 'title'=>'phpseclib BinaryField DoS CVE-2023-49316',        'url'=>'https://github.com/phpseclib/phpseclib/releases/tag/3.0.34'],
     ['name'=>'guzzlehttp/psr7',               'vuln_range'=>'<1.9.1 || >=2.0.0 <2.4.5', 'severity'=>'high', 'title'=>'guzzlehttp/psr7 HTTP multiline header injection CVE-2023-29197', 'url'=>'https://github.com/guzzle/psr7/security/advisories/GHSA-wxmh-65f7-jcvw'],
     ['name'=>'symfony/runtime',               'vuln_range'=>'>=5.3.0 <5.4.46 || >=6.0.0 <6.4.14 || >=7.0.0 <7.1.7', 'severity'=>'moderate', 'title'=>'Symfony runtime env/debug switch via crafted query CVE-2024-50340', 'url'=>'https://symfony.com/cve-2024-50340'],

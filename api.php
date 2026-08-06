@@ -1,7 +1,7 @@
 <?php
 
-define('VERSION', '0.5.2');
-define('APP_VERSION', '0.5.2');
+define('VERSION', '0.6.0');
+define('APP_VERSION', '0.6.0');
 define('ROOT', dirname(__FILE__));
 define('PANEL_ROOT', ROOT);
 define('CONFIG_DIR', ROOT . '/.gojs');

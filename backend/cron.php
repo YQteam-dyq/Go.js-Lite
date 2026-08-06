@@ -1,7 +1,7 @@
 <?php
 
-// Cron: expression parsing, scheduling, backup plans, internal cron tick.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_cron_expand_field($field, $min, $max) {
     if ($field === '' || $field === null) return false;
@@ -132,9 +132,7 @@ function gojs_cron_human_readable($expr) {
     return trim($expr);
 }
 
-/* ============================================================
-   A.2 Schedules storage + CRUD endpoints
-   ============================================================ */
+
 
 function gojs_schedules_load(): array {
     global $config;
@@ -414,9 +412,7 @@ function gojs_api_backup_schedules_run_now($id) {
     gojs_json_response(array('run_id' => $result['run_record_id'], 'ok' => $result['ok']));
 }
 
-/* ============================================================
-   A.3 Backup execution + push destinations + retention cleanup
-   ============================================================ */
+
 
 function gojs_backup_create_local($source) {
     $backup_dir = CONFIG_DIR . '/backups';
@@ -643,7 +639,7 @@ function gojs_retention_prune($dest, $rule) {
     $list_result = $adapter->listObjects($list_prefix, 1000);
     $objects = array();
     if (is_array($list_result)) {
-        // Prefer plain array (unified adapter format); fall back to legacy wrapper {objects: [...]}.
+        
         if (isset($list_result['objects']) && is_array($list_result['objects']) && !isset($list_result[0])) {
             $objects = $list_result['objects'];
         } else {
@@ -909,9 +905,7 @@ function gojs_backup_execute_schedule($schedule) {
     );
 }
 
-/* ============================================================
-   A.4 Internal cron tick engine
-   ============================================================ */
+
 
 function gojs_internal_cron_tick(): array {
     $now = time();
@@ -961,7 +955,7 @@ function gojs_internal_cron_tick(): array {
         gojs_internal_cron_acme_renew_hook($stats);
     }
 
-    // Append one history entry per tick (shared by webcron.php and admin manual trigger; inherently deduplicated).
+    
     $history = gojs_webcron_history_load();
     $history[] = array(
         'id' => 'w_' . uniqid('', true),
@@ -992,7 +986,7 @@ function gojs_api_webcron_status() {
     $token = isset($config['internal_cron_token']) ? (string)$config['internal_cron_token'] : '';
     $token_set = ($token !== '');
 
-    // webcron trigger URL (token returned masked; used for display only).
+    
     $mask = '';
     $token_len = strlen($token);
     if ($token_len > 0) {
@@ -1004,7 +998,7 @@ function gojs_api_webcron_status() {
     }
     $webcron_url = $token !== '' ? 'webcron.php?token=' . urlencode($mask) : '';
 
-    // History (descending; first entry is the most recent trigger).
+    
     $history = gojs_webcron_history_load();
     usort($history, function($a, $b) {
         $ta = isset($a['tick_at']) ? (int)$a['tick_at'] : 0;
@@ -1016,7 +1010,7 @@ function gojs_api_webcron_status() {
         $last_triggered_at = (int)$history[0]['tick_at'];
     }
 
-    // Next backup run (min of next_run_at over enabled schedules with next_run_at > 0).
+    
     $next_backup_run_at = null;
     $schedules = gojs_schedules_load();
     foreach ($schedules as $s) {
@@ -1076,9 +1070,7 @@ function gojs_api_internal_cron_regenerate_token() {
     gojs_json_response(array('token' => $token));
 }
 
-/* ============================================================
-   A.5 Run log endpoints
-   ============================================================ */
+
 
 function gojs_api_backup_runs_list() {
     $schedule_id = gojs_get_param('schedule_id', '');

@@ -1,8 +1,4 @@
 <?php
-
-// File management: browsing, editing, CRUD, trash, upload, compression, search, download.
-// Split from api.php; keep original function signatures and behavior unchanged.
-
 function gojs_is_protected_path($full_path) {
     $real_path = rtrim(str_replace('\\', '/', realpath($full_path) ?: $full_path), '/');
     $gojs_dir = rtrim(str_replace('\\', '/', CONFIG_DIR), '/');
@@ -64,10 +60,6 @@ function gojs_resolve_files_root() {
     return !empty($root_path) ? $root_path : ROOT;
 }
 
-/**
- * Resolve a user-supplied relative path to a controlled absolute path with privilege-escalation
- * protection; returns false if the target lies outside the file-management root.
- */
 function gojs_safe_path($relative_path) {
     $files_root = gojs_resolve_files_root();
 
@@ -551,7 +543,6 @@ function gojs_trash_meta_path($trash_id) {
     return gojs_trash_dir() . '/' . $trash_id . '/meta.json';
 }
 
-// Recursive copy (used for trash cross-volume moves)
 function gojs_copy_recursive($src, $dst) {
     if (is_link($src)) {
         $target = @readlink($src);
@@ -577,7 +568,6 @@ function gojs_copy_recursive($src, $dst) {
     return @copy($src, $dst);
 }
 
-// Move the target into the trash; returns true on success, false on failure (and cleans up leftovers).
 function gojs_trash_move($safe_path, $original_path) {
     $trash_dir = gojs_trash_dir();
     if (!is_dir($trash_dir)) {
@@ -613,7 +603,7 @@ function gojs_trash_move($safe_path, $original_path) {
         return true;
     }
 
-    // Cross-volume (different mount / exFAT, etc.): recursively copy then delete the original path.
+    
     if (gojs_copy_recursive($safe_path, $target)) {
         if ($is_dir) {
             gojs_recursive_delete($safe_path);
@@ -656,7 +646,7 @@ function gojs_api_trash_list() {
         }
     }
 
-    // Sort by deletion time, descending
+    
     usort($items, function ($a, $b) {
         return $b['deleted_at'] - $a['deleted_at'];
     });
@@ -719,7 +709,7 @@ function gojs_api_trash_restore() {
         ), 404);
     }
 
-    // Auto-create the parent directory if it does not exist.
+    
     $parent = dirname($safe_path);
     if (!is_dir($parent)) {
         if (!@mkdir($parent, 0755, true)) {
@@ -771,7 +761,7 @@ function gojs_api_trash_purge() {
         gojs_json_response(array('success' => true));
     }
 
-    // No id: purge everything.
+    
     $purged = 0;
     if (is_dir($trash_dir)) {
         $handle = @opendir($trash_dir);
@@ -843,7 +833,7 @@ function gojs_api_file_delete() {
         ), 400);
     }
 
-    // Trash: trash_enabled defaults to on; move to trash for non-protected, non-root paths.
+    
     global $config;
     $trash_enabled = !isset($config['trash_enabled']) ? true : (bool)$config['trash_enabled'];
     if ($trash_enabled) {
@@ -1415,7 +1405,7 @@ function gojs_api_file_untargz() {
         $count = $phar->count();
 
         $base_phar_path = str_replace('\\', '/', realpath($safe_path));
-        $prefix = 'phar://' . $base_phar_path . '/';
+        $prefix = 'phar:
 
         foreach (new RecursiveIteratorIterator($phar) as $file) {
             $full_name = str_replace('\\', '/', $file->getPathname());
@@ -1776,7 +1766,7 @@ function gojs_api_upload() {
     }
     gojs_log_operation('file_upload', implode(', ', $uploaded_names), true);
 
-    // monitor: uploaded bytes count as panel inbound traffic
+    
     gojs_monitor_bump_bandwidth($uploaded_bytes, 0);
 
     gojs_json_response(array(
@@ -1888,7 +1878,7 @@ function gojs_api_upload_chunk() {
         ), 500);
     }
 
-    // monitor: chunked upload bytes count as panel inbound traffic
+    
     gojs_monitor_bump_bandwidth(strlen($chunk_data), 0);
 
     $received = 0;

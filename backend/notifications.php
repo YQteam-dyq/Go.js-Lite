@@ -1,7 +1,7 @@
 <?php
 
-// Notifications: channel CRUD, notification list/read/clear, and in-app delivery.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_api_notification_channels($method) {
     if ($method === 'GET') {

@@ -1,14 +1,14 @@
 <?php
 
-// Authentication and management: TOTP/2FA, install, login/logout, settings, key encryption tools.
-// Split from api.php; keep original function signatures and behavior unchanged.
 
-/** Generate a random Base32-encoded TOTP secret (default 20 random bytes). */
+
+
+
 function gojs_totp_generate_secret(int $bytes = 20): string {
     return GOJS_Base32::encode(random_bytes($bytes));
 }
 
-/** Compute the TOTP code for the given time slice (defaults to now, 6 digits, 30s step, sha1). */
+
 function gojs_totp_compute(string $secret, ?int $time = null, int $digits = 6, int $step = 30, string $algo = 'sha1'): string {
     if ($time === null) $time = time();
     $secretBin = GOJS_Base32::decode($secret);
@@ -22,7 +22,7 @@ function gojs_totp_compute(string $secret, ?int $time = null, int $digits = 6, i
     return str_pad((string)$code, $digits, '0', STR_PAD_LEFT);
 }
 
-/** Validate a user TOTP code, allowing a +/-window time-slice skew. */
+
 function gojs_totp_validate(string $secret, string $code, int $window = 1): bool {
     $time = time();
     $code = preg_replace('/\D/', '', $code);
@@ -33,7 +33,7 @@ function gojs_totp_validate(string $secret, string $code, int $window = 1): bool
     return false;
 }
 
-/** Generate a random uppercase alphanumeric string of the given length (for recovery codes). */
+
 function gojs_crypto_get_rand_alphanum(int $len): string {
     $bytes = random_bytes((int)ceil($len * 3 / 4));
     $hex = bin2hex($bytes);
@@ -364,7 +364,7 @@ function gojs_api_logout() {
     session_unset();
     session_destroy();
 
-    // Clear session cookie to prevent session resurrection
+    
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
         setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
@@ -466,7 +466,7 @@ function gojs_api_update_settings() {
         $config['log_retention'] = $log_retention;
     }
 
-    // Persist to config.php when any session-level or persistent setting changes.
+    
     if (isset($new_settings['sessionTimeout']) || isset($new_settings['logRetention'])) {
         $config_content = '<?php' . "\n" . 'return ' . var_export($config, true) . ';' . "\n";
         @file_put_contents(CONFIG_FILE, $config_content, LOCK_EX);

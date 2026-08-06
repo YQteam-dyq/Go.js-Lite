@@ -1,10 +1,6 @@
 <?php
 
-/**
- * GoJS_Router — lightweight router dispatcher (PHP 7.4 compatible).
- * Dispatch order: exact static path first, then prefixes in registration order; 404 if no match.
- * Non-matching method returns 405, byte-compatible with the pre-split behavior.
- */
+
 class GoJS_Router {
 
     private $routes = array();

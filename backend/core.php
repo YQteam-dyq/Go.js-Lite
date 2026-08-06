@@ -1,8 +1,4 @@
 <?php
-
-// Core framework: init, error/exception handling, JSON responses, request parsing, routing.
-// Split from api.php; keep original function signatures and behavior unchanged.
-
 function gojs_infer_cookie_path() {
     global $config;
 
@@ -35,10 +31,6 @@ function gojs_infer_cookie_path() {
     }
 }
 
-/**
- * Initialize the app environment: register error/exception handlers, load config, start session,
- * infer the file-management root, run migrations, then dispatch unless GOJS_SKIP_DISPATCH is set.
- */
 function gojs_init() {
     global $config, $installed, $root_path;
 
@@ -101,7 +93,7 @@ function gojs_init() {
 
     gojs_run_migration();
 
-    // Populate the injectable context, kept in sync with the legacy globals for testing and migration.
+    
     gojs_ctx()
         ->reset()
         ->setConfig(is_array($config) ? $config : array())
@@ -173,10 +165,6 @@ function gojs_exception_handler($exception) {
     exit(1);
 }
 
-/**
- * Emit a unified JSON response: ok=true with data on success, ok=false with error on failure.
- * Writes JSON Content-Type and security headers, bumps monitoring bandwidth, then terminates.
- */
 function gojs_json_response($data = null, $error = null, $status_code = 200) {
     if (!headers_sent()) {
         $sent_headers = array_map(function ($h) {
@@ -211,7 +199,7 @@ function gojs_json_response($data = null, $error = null, $status_code = 200) {
     $json = json_encode($response, JSON_UNESCAPED_UNICODE);
     echo $json;
 
-    // monitor: panel traffic proxy metric (outbound bytes = response body, inbound = CONTENT_LENGTH)
+    
     $in_bytes = 0;
     if (isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] !== '') {
         $in_bytes = (int)$_SERVER['CONTENT_LENGTH'];
@@ -230,7 +218,7 @@ function gojs_get_body() {
     static $body = null;
     if ($body !== null) return $body;
 
-    $raw = file_get_contents('php://input');
+    $raw = file_get_contents('php:
     if (!$raw) {
         $body = array();
         return $body;
@@ -258,10 +246,6 @@ function gojs_get_param($key, $default = null) {
     return $default;
 }
 
-/**
- * Dispatch entry: parse the action (via ?api= query or /api/<action> path), apply legacy aliases,
- * enforce auth and CSRF on non-public routes plus the API Token scope gate, then dispatch.
- */
 function gojs_dispatch() {
     $api = isset($_GET['api']) ? $_GET['api'] : '';
     if (!$api && isset($_REQUEST['api'])) {
@@ -279,7 +263,7 @@ function gojs_dispatch() {
 
     $api = ltrim($api, '/');
 
-    // legacy path aliases: map old frontend routes to current endpoints
+    
     $legacy_aliases = array(
         'files/list'            => 'files',
         'settings/get'          => 'settings',
@@ -309,7 +293,7 @@ function gojs_dispatch() {
         gojs_check_csrf();
     }
 
-    // Scope gate: requests authenticated via an API Token may only access api/* REST endpoints.
+    
     if (!empty($_SESSION['api_token_scopes']) && strpos($api, 'api/') !== 0) {
         gojs_json_response(null, array(
             'code' => 'token_not_allowed',
@@ -618,6 +602,19 @@ function gojs_build_router() {
             else { gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405); }
         }
     });
+
+    $r->add('GET', 'appstore/list', function () { gojs_appstore_list(); });
+    $r->add('POST', 'appstore/install', function () { gojs_appstore_install(); });
+    $r->add('POST', 'appstore/uninstall', function () { gojs_appstore_uninstall(); });
+
+    $r->add('POST', 'share/create', function () { gojs_share_create(); });
+    $r->add('GET', 'share/list', function () { gojs_share_list(); });
+    $r->add('POST', 'share/revoke', function () { gojs_share_revoke(); });
+
+    $r->add('GET', 'dir-protect/status', function () { gojs_dirprotect_status(); });
+    $r->add('POST', 'dir-protect/enable', function () { gojs_dirprotect_enable(); });
+    $r->add('POST', 'dir-protect/disable', function () { gojs_dirprotect_disable(); });
+    $r->add('POST', 'dir-protect/users', function () { gojs_dirprotect_users(); });
 
     return $r;
 }

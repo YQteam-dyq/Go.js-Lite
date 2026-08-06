@@ -62,20 +62,20 @@ export const alertRulesApi = {
   },
 
   update(id: string, patch: Partial<OperationLogAlertRule>) {
-    return apiFetch<OperationLogAlertRule>(`/alert-rules/${id}`, {
+    return apiFetch<OperationLogAlertRule>(`/alert-rules/$$id}`, {
       method: 'PUT',
       body: patch,
     })
   },
 
   remove(id: string) {
-    return apiFetch<{ ok: boolean }>(`/alert-rules/${id}`, {
+    return apiFetch<{ ok: boolean }>(`/alert-rules/$$id}`, {
       method: 'DELETE',
     })
   },
 
   test(id: string) {
-    return apiFetch<{ ok: boolean; fired: boolean }>(`/alert-rules/${id}/test`, {
+    return apiFetch<{ ok: boolean; fired: boolean }>(`/alert-rules/$$id}/test`, {
       method: 'POST',
     })
   },

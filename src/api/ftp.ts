@@ -37,20 +37,20 @@ export const ftpApi = {
   },
 
   update(id: string, data: FtpAccountUpdateInput) {
-    return apiFetch<{ account: FtpAccount }>(`/ftp/accounts/${id}`, {
+    return apiFetch<{ account: FtpAccount }>(`/ftp/accounts/$$id}`, {
       method: 'PUT',
       body: data,
     }).then((res) => res.account)
   },
 
   remove(id: string) {
-    return apiFetch<{ ok: boolean }>(`/ftp/accounts/${id}`, {
+    return apiFetch<{ ok: boolean }>(`/ftp/accounts/$$id}`, {
       method: 'DELETE',
     })
   },
 
   testLogin(id: string, password: string) {
-    return apiFetch<FtpTestLoginResponse>(`/ftp/accounts/${id}/test-login`, {
+    return apiFetch<FtpTestLoginResponse>(`/ftp/accounts/$$id}/test-login`, {
       method: 'POST',
       body: { password },
     })

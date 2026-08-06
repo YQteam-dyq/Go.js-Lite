@@ -1,0 +1,11 @@
+{
+  "id": "laravel",
+  "name": "Laravel",
+  "description": "Laravel is a web application framework with expressive, elegant syntax.",
+  "version": "11.x",
+  "website": "https://laravel.com",
+  "icon": "https://laravel.com/favicon.ico",
+  "category": "framework",
+  "dependencies": ["composer", "php"],
+  "install_type": "php"
+}

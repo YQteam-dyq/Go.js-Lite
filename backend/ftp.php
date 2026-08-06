@@ -1,8 +1,4 @@
 <?php
-
-// FTP accounts: CRUD, password hashing, proftpd/pureftpd sync.
-// Split from api.php; keep original function signatures and behavior unchanged.
-
 function gojs_ftp_capabilities(): array {
     global $config, $root_path;
 
@@ -58,8 +54,8 @@ function gojs_ftp_capabilities(): array {
     $default_uid = $posix_available ? posix_getuid() : 1000;
     $default_gid = $posix_available ? posix_getgid() : 1000;
 
-    // Degradation matrix: panel stays available (available=true), but limitations surface
-    // via degraded + reasons so the frontend never renders blank.
+    
+    
     $reasons = array();
     if (!$posix_available) {
         $reasons[] = array('code' => 'posix_unavailable', 'key' => 'ftp.degradePosix', 'severity' => 'warning');
@@ -69,12 +65,12 @@ function gojs_ftp_capabilities(): array {
     } elseif (!$can_write) {
         $reasons[] = array('code' => 'provider_not_writable', 'key' => 'ftp.degradeNotWritable', 'severity' => 'danger');
     }
-    // Account sync only writes the local passwd file and does not depend on the ftp extension; informational only.
+    
     if (!extension_loaded('ftp') && !function_exists('fsockopen')) {
         $reasons[] = array('code' => 'ftp_ext_unavailable', 'key' => 'ftp.degradeFtpExt', 'severity' => 'info');
     }
 
-    // Backward-compatible field for older frontends: degradation_reasons (key=code, message_key=key).
+    
     $degradation_reasons = array();
     foreach ($reasons as $r) {
         $degradation_reasons[] = array('key' => $r['code'], 'message_key' => $r['key']);
@@ -569,7 +565,3 @@ function gojs_api_ftp_export() {
     exit;
 }
 
-/* ============================================================
- * Generic HTTP fetch (curl preferred, stream context fallback)
- * Returns array('ok' => bool, 'body' => string, 'error' => string)
- * ============================================================ */

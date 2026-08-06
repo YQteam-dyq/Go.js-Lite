@@ -8,7 +8,7 @@ type DeepPath<T, Prefix extends string = ''> = T extends object
       [K in keyof T]: K extends string
         ? Prefix extends ''
           ? DeepPath<T[K], K> | K
-          : DeepPath<T[K], `${Prefix}.${K}`> | `${Prefix}.${K}`
+          : DeepPath<T[K], `$$Prefix}.$$K}`> | `$$Prefix}.$$K}`
         : never
     }[keyof T]
   : never
@@ -33,7 +33,7 @@ function getNestedValue(obj: unknown, path: string): string | undefined {
 function interpolate(text: string, params?: Record<string, string | number>): string {
   if (!params) return text
   return text.replace(/\{(\w+)\}/g, (_, key) => {
-    return params[key] !== undefined ? String(params[key]) : `{${key}}`
+    return params[key] !== undefined ? String(params[key]) : `{$$key}}`
   })
 }
 

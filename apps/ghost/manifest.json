@@ -1,0 +1,11 @@
+{
+  "id": "ghost",
+  "name": "Ghost",
+  "description": "Ghost is a powerful, open-source publishing platform for building newsletters, blogs, and websites.",
+  "version": "5.x",
+  "website": "https://ghost.org",
+  "icon": "https://ghost.org/favicon.ico",
+  "category": "blog",
+  "dependencies": ["node", "php"],
+  "install_type": "php"
+}

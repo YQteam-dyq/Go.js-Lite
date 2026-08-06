@@ -81,7 +81,7 @@ export default function EnvCheck() {
         </Card>
       ) : data ? (
         <>
-          {/* 摘要卡片 */}
+          {}
           <Card>
             <CardBody className="flex flex-col sm:flex-row sm:items-center gap-4">
               <div className="flex items-center gap-3 shrink-0">
@@ -102,7 +102,7 @@ export default function EnvCheck() {
                   <div
                     className="h-full transition-all duration-500"
                     style={{
-                      width: `${score}%`,
+                      width: `$$score}%`,
                       background:
                         score >= 80
                           ? 'hsl(var(--success))'
@@ -129,7 +129,7 @@ export default function EnvCheck() {
             </CardBody>
           </Card>
 
-          {/* 按 category 分组 */}
+          {}
           {CATEGORY_ORDER.map((cat) => {
             const items = grouped[cat]
             if (!items || items.length === 0) return null
@@ -137,14 +137,14 @@ export default function EnvCheck() {
               <div key={cat} className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-medium text-fg-muted">
                   <span className="text-accent">{CATEGORY_ICON[cat]}</span>
-                  <span>{t(`envCheck.${cat}`)}</span>
+                  <span>{t(`envCheck.$$cat}`)}</span>
                   <span className="text-fg-subtle text-xs">
                     {items.filter((i) => i.available).length}/{items.length}
                   </span>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {items.map((item) => (
-                    <EnvCheckCard key={`${item.category}-${item.name}`} item={item} />
+                    <EnvCheckCard key={`$$item.category}-$$item.name}`} item={item} />
                   ))}
                 </div>
               </div>
@@ -161,19 +161,19 @@ function EnvCheckCard({ item }: { item: EnvCheckItem }) {
   const [expanded, setExpanded] = useState(false)
 
   const relatedFeatureKey = item.feature_key
-    ? `envCheck.feature_${item.feature_key}`
+    ? `envCheck.feature_$$item.feature_key}`
     : null
   const relatedFeatureText = relatedFeatureKey && hasKey(relatedFeatureKey)
     ? t(relatedFeatureKey)
     : (item.related_feature ?? '')
 
-  const reasonKey = item.reason_key ? `envCheck.reason_${item.reason_key}` : null
+  const reasonKey = item.reason_key ? `envCheck.reason_$$item.reason_key}` : null
   const reasonText = reasonKey && hasKey(reasonKey)
     ? t(reasonKey, item.reason_params as Record<string, string | number> | undefined)
     : (item.reason ?? '')
 
   const suggestionKey = item.suggestion_key
-    ? `envCheck.suggestion_${item.suggestion_key}`
+    ? `envCheck.suggestion_$$item.suggestion_key}`
     : null
   const suggestionText = suggestionKey && hasKey(suggestionKey)
     ? t(suggestionKey, item.suggestion_params as Record<string, string | number> | undefined)
@@ -227,7 +227,7 @@ function EnvCheckCard({ item }: { item: EnvCheckItem }) {
               <span>{t('envCheck.viewDetails')}</span>
               <ChevronDown
                 size={14}
-                className={`transition-transform duration-200 ${expanded ? 'rotate-180' : ''}`}
+                className={`transition-transform duration-200 $$expanded ? 'rotate-180' : ''}`}
               />
             </button>
             {expanded && (

@@ -1,0 +1,11 @@
+{
+  "id": "nextcloud",
+  "name": "Nextcloud",
+  "description": "Nextcloud is a suite of client-server software for creating and using file hosting services.",
+  "version": "29.x",
+  "website": "https://nextcloud.com",
+  "icon": "https://nextcloud.com/favicon.ico",
+  "category": "cloud",
+  "dependencies": ["php", "mysql"],
+  "install_type": "php"
+}

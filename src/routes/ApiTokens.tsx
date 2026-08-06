@@ -186,7 +186,7 @@ export default function ApiTokens() {
         </CardBody>
       </Card>
 
-      {/* 创建 Token */}
+      {}
       <Modal
         open={showCreate}
         onClose={closeCreate}
@@ -250,7 +250,7 @@ export default function ApiTokens() {
         </div>
       </Modal>
 
-      {/* 创建成功：一次性展示 plain_token */}
+      {}
       <Modal
         open={createdToken !== null}
         onClose={() => setCreatedToken(null)}
@@ -278,7 +278,7 @@ export default function ApiTokens() {
         </div>
       </Modal>
 
-      {/* 撤销确认 */}
+      {}
       <Confirm
         open={revokeTarget !== null}
         title={t('apiTokens.revoke')}

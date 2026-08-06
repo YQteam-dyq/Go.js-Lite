@@ -1,7 +1,7 @@
 <?php
 
-// System information: dashboard, PHP info, health/environment checks, processes, disk, logs, alert rules.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_count_files($dir, $max_depth = 5, $depth = 0) {
     $count = 0;
@@ -872,7 +872,7 @@ function gojs_api_cron() {
     gojs_json_response($jobs);
 }
 
-// Detect whether Cron management is usable in this environment.
+
 function gojs_cron_capabilities() {
     $disabled = explode(',', (string)ini_get('disable_functions'));
     $disabled_list = array_map('trim', $disabled);
@@ -963,7 +963,7 @@ function gojs_cron_capabilities() {
     return $result;
 }
 
-// Read the crontab job list.
+
 function gojs_cron_list() {
     $caps = gojs_cron_capabilities();
     if (!$caps['available']) {
@@ -1020,7 +1020,7 @@ function gojs_cron_list() {
     return $jobs;
 }
 
-// Persist the crontab job list.
+
 function gojs_cron_save($jobs) {
     $caps = gojs_cron_capabilities();
     if (!$caps['available']) {
@@ -1083,7 +1083,7 @@ function gojs_api_cron_save() {
                 'message' => '缺少 expression 或 command',
             ), 400);
         }
-        // Basic cron expression validation (5 fields).
+        
         $fields = preg_split('/\s+/', trim($job['expression']));
         if (count($fields) !== 5) {
             return gojs_json_response(null, array(
@@ -1428,10 +1428,10 @@ function gojs_api_operation_log() {
         }
     }
 
-    // Newest first.
+    
     $logs = array_reverse($logs);
 
-    // Filtering.
+    
     $type = isset($_GET['type']) ? $_GET['type'] : '';
     $ip = isset($_GET['ip']) ? $_GET['ip'] : '';
     $user = isset($_GET['user']) ? $_GET['user'] : '';
@@ -1464,7 +1464,7 @@ function gojs_api_operation_log() {
         });
     }
 
-    // Pagination.
+    
     $page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
     $per_page = 50;
     $total = count($logs);

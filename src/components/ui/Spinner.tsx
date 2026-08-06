@@ -19,7 +19,7 @@ export function Spinner({ size = 'md', className = '' }: SpinnerProps) {
         inline-block rounded-full
         border-current border-t-transparent
         animate-spin text-accent
-        ${sizes[size]} ${className}
+        $$sizes[size]} $$className}
       `}
       role="status"
       aria-label={t('common.loading')}

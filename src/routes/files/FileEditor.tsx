@@ -83,7 +83,7 @@ export default function FileEditor() {
     <div className="h-full flex flex-col">
       <div className="flex items-center gap-3 px-4 md:px-5 py-3 border-b border-border shrink-0">
         <Link
-          to={`/files${path.substring(0, path.lastIndexOf('/')) || ''}`}
+          to={`/files$$path.substring(0, path.lastIndexOf('/')) || ''}`}
           className="p-1.5 -ml-1.5 rounded-md text-fg-muted hover:text-fg hover:bg-fg/5 transition-colors"
           aria-label={t('common.back')}
         >
@@ -143,7 +143,7 @@ export default function FileEditor() {
         ) : data.type === 'image' ? (
           <div className="h-full flex items-center justify-center p-4">
             <img
-              src={`data:${data.mime};base64,${data.content}`}
+              src={`data:$$data.mime};base64,$$data.content}`}
               alt={filename}
               className="max-w-full max-h-full object-contain rounded shadow-lg"
             />

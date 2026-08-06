@@ -37,7 +37,7 @@ function formatReleaseDate(value?: string): string {
   if (Number.isNaN(ts)) return value
   const d = new Date(ts)
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  return `$$d.getFullYear()}-$$pad(d.getMonth() + 1)}-$$pad(d.getDate())} $$pad(d.getHours())}:$$pad(d.getMinutes())}`
 }
 
 export default function Upgrade() {
@@ -119,7 +119,7 @@ export default function Upgrade() {
     }
   }
 
-  const currentVersion = checkResult?.current_version || '0.5.2'
+  const currentVersion = checkResult?.current_version || '0.6.0'
   const latestVersion = checkResult?.latest_version || '—'
   const updateAvailable = checkResult?.update_available === true
   const progressStep = progress?.step ?? null
@@ -205,10 +205,10 @@ export default function Upgrade() {
 
               <div className="h-2 rounded-full bg-bg-sunken overflow-hidden">
                 <div
-                  className={`h-full rounded-full transition-all duration-500 ${
+                  className={`h-full rounded-full transition-all duration-500 $$
                     failed ? 'bg-danger' : 'bg-accent'
                   }`}
-                  style={{ width: `${Math.min(100, Math.max(0, percent))}%` }}
+                  style={{ width: `$$Math.min(100, Math.max(0, percent))}%` }}
                 />
               </div>
 

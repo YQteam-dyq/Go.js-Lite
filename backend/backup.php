@@ -1,7 +1,7 @@
 <?php
 
-// Backup: create/list/download/delete/restore.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_backup_filename_valid($filename) {
     return is_string($filename) && preg_match('/^backup-[0-9]{8}-[0-9]{6}\.zip$/', $filename);
@@ -57,7 +57,7 @@ function gojs_api_backup_create() {
 
     $files_root = $GLOBALS['files_root'];
 
-    // Package site files.
+    
     if ($include_files && is_dir($files_root)) {
         $file_count = gojs_backup_add_dir($zip, $files_root, 'files/', $exclude_dirs);
         $metadata['files'] = array(
@@ -66,7 +66,7 @@ function gojs_api_backup_create() {
         );
     }
 
-    // Export each configured database connection.
+    
     if ($include_db) {
         $connections = gojs_load_db_connections();
         foreach ($connections as $conn) {
@@ -95,13 +95,13 @@ function gojs_api_backup_create() {
         }
     }
 
-    // Package the panel config.
+    
     if ($include_config && file_exists(CONFIG_FILE)) {
         $zip->addFile(CONFIG_FILE, 'config/config.php');
         $metadata['config'] = true;
     }
 
-    // Write metadata.
+    
     $zip->addFromString('backup.json', json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     $zip->close();
 
@@ -115,7 +115,7 @@ function gojs_api_backup_create() {
     ));
 }
 
-// Recursively add a directory to the zip, skipping exclude_dirs and protected paths.
+
 function gojs_backup_add_dir($zip, $dir, $zip_prefix, $exclude_dirs) {
     $count = 0;
     $items = @scandir($dir);
@@ -128,7 +128,7 @@ function gojs_backup_add_dir($zip, $dir, $zip_prefix, $exclude_dirs) {
         $path = $dir . '/' . $item;
         $zip_path = $zip_prefix . $item;
 
-        // Skip the panel's own sensitive files and the .gojs config dir.
+        
         if (gojs_is_protected_path($path)) continue;
 
         if (is_dir($path)) {
@@ -142,7 +142,7 @@ function gojs_backup_add_dir($zip, $dir, $zip_prefix, $exclude_dirs) {
     return $count;
 }
 
-// Export a single database connection to a SQL string, reusing existing connection/export helpers.
+
 function gojs_backup_export_db($conn_config) {
     $result = gojs_db_connect($conn_config);
     if (!$result['success']) {
@@ -279,7 +279,7 @@ function gojs_api_backup_list() {
         );
     }
 
-    // Newest first.
+    
     usort($backups, function ($a, $b) {
         return $b['created'] - $a['created'];
     });
@@ -306,7 +306,7 @@ function gojs_api_backup_download() {
 
     gojs_log_operation('backup_download', $filename, true);
 
-    // Clear all output buffers so binary output is not corrupted.
+    
     while (ob_get_level() > 0) {
         @ob_end_clean();
     }
@@ -353,7 +353,7 @@ function gojs_api_backup_delete() {
     gojs_json_response(array('success' => true));
 }
 
-// Restore from an existing backup archive: files, databases, and config.
+
 function gojs_api_backup_restore() {
     $filename = gojs_get_param('filename', '');
     if (!gojs_backup_filename_valid($filename)) {
@@ -393,7 +393,7 @@ function gojs_api_backup_restore() {
     $restored_db = 0;
     $db_errors = array();
 
-    // Restore site files.
+    
     for ($i = 0; $i < $zip->numFiles; $i++) {
         $entry = $zip->statIndex($i);
         if (!$entry) continue;
@@ -404,7 +404,7 @@ function gojs_api_backup_restore() {
         $relative = substr($name, strlen('files/'));
         if ($relative === '' || $relative === false) continue;
 
-        // Path-traversal protection: reject relative paths containing ".." segments.
+        
         $parts = explode('/', $relative);
         $traversal = false;
         foreach ($parts as $p) {
@@ -414,7 +414,7 @@ function gojs_api_backup_restore() {
 
         $dest = $files_root . '/' . $relative;
 
-        // Do not overwrite the panel's own sensitive files.
+        
         if (gojs_is_protected_path($dest)) continue;
 
         if (substr($name, -1) === '/') {
@@ -431,7 +431,7 @@ function gojs_api_backup_restore() {
         }
     }
 
-    // Restore databases, matching configured connections by connection id.
+    
     $connections = gojs_load_db_connections();
     $conn_by_id = array();
     foreach ($connections as $conn) {
@@ -496,7 +496,4 @@ function gojs_api_backup_restore() {
     ));
 }
 
-/**
- * SSL certificate status detection: uses stream_socket_client to inspect a domain's
- * SSL expiry time and link state; display-only, never auto-renews.
- */
+

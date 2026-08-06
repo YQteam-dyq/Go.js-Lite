@@ -1,7 +1,7 @@
 <?php
 
-// Monitoring and notification storage: system sampling, alerts, notification channel delivery.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_notifications_path(): string {
     return CONFIG_DIR . '/notifications.json';
@@ -144,7 +144,7 @@ function gojs_monitor_history_save(array $items): void {
 }
 
 function gojs_monitor_count_inodes(): array {
-    // Inode proxy: recursively count files+dirs under the root, with a hard cap to avoid timeouts.
+    
     $limit = 300000;
     $count = 0;
     $truncated = false;
@@ -209,7 +209,7 @@ function gojs_monitor_sample(): array {
     $bw_in = isset($bw['total_in']) ? (int)$bw['total_in'] : 0;
     $bw_out = isset($bw['total_out']) ? (int)$bw['total_out'] : 0;
 
-    // Bandwidth delta = bytes added since the last sampling snapshot.
+    
     $history = gojs_monitor_history_load();
     $last_bw_in = 0;
     $last_bw_out = 0;

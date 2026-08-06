@@ -1,7 +1,7 @@
 <?php
 
-// SSL/ACME: certificate issuance, renewal, domain management, ACME client.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_api_ssl_check() {
     $input = json_decode(file_get_contents('php://input'), true);
@@ -17,7 +17,7 @@ function gojs_api_ssl_check() {
         ), 400);
     }
 
-    // Validate domain format (allows localhost, IPs, and TLD-less intranet domains).
+    
     if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9\-\.]*(\.[a-zA-Z]{2,})?$/', $domain)) {
         gojs_json_response(null, array(
             'code' => 'invalid_domain',
@@ -103,11 +103,11 @@ function gojs_api_ssl_check() {
     $now = time();
     $days_remaining = (int)(($valid_to - $now) / 86400);
 
-    // Chain completeness.
+    
     $chain_complete = isset($params['options']['ssl']['peer_certificate_chain']) &&
                       count($params['options']['ssl']['peer_certificate_chain']) > 1;
 
-    // Certificate health status.
+    
     $cert_status = 'ok';
     if ($days_remaining < 0) {
         $cert_status = 'expired';
@@ -140,7 +140,7 @@ function gojs_api_ssl_list() {
     }
 
     $current_domain = isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : '';
-    // Strip the port, if present.
+    
     if ($current_domain && strpos($current_domain, ':') !== false) {
         $current_domain = substr($current_domain, 0, strpos($current_domain, ':'));
     }
@@ -253,7 +253,7 @@ function gojs_acme_dir(string $ca = 'letsencrypt'): array {
         return $cache[$ca];
     }
     $urls = array(
-        'letsencrypt' => 'https://acme-v02.api.letsencrypt.org/directory',
+        'letsencrypt' => 'https:
         'letsencrypt-staging' => 'https://acme-staging-v02.api.letsencrypt.org/directory',
     );
     $dir_url = isset($urls[$ca]) ? $urls[$ca] : $urls['letsencrypt'];
@@ -918,7 +918,7 @@ function gojs_acme_renew_all_due(): array {
     $paused = 0;
     $failed_records = array();
 
-    // Collect per-record field updates, then reload, apply by id, and save once after the loop.
+    
     $updates = array();
 
     foreach ($records as $i => $r) {
@@ -943,7 +943,7 @@ function gojs_acme_renew_all_due(): array {
         $email = isset($r['account_email']) ? $r['account_email'] : '';
         $ca = isset($r['ca']) ? $r['ca'] : 'letsencrypt';
 
-        // Cooldown debounce: skip auto-renewal after >= 5 consecutive failures to avoid repeated webcron triggering.
+        
         $renew_attempts = isset($r['renew_attempts']) ? (int)$r['renew_attempts'] : 0;
         if ($renew_attempts >= 5) {
             $paused++;
@@ -982,7 +982,7 @@ function gojs_acme_renew_all_due(): array {
                 }));
                 gojs_acme_save_certs($recs_reloaded);
             }
-            // On success: record success time and clear the failure counter (skipped naturally if the old record was deleted).
+            
             if ($id !== '') {
                 $updates[$id] = array(
                     'last_renew_ok_ts' => $now,
@@ -1010,7 +1010,7 @@ function gojs_acme_renew_all_due(): array {
         }
     }
 
-    // Reload after the loop and apply updates by id (already-deleted ids are skipped).
+    
     if (count($updates) > 0) {
         $records_now = gojs_acme_load_certs();
         $changed = false;
@@ -1106,7 +1106,7 @@ function gojs_api_ssl_acme_certificates_list(): void {
                 $status_derived = 'expiring_soon';
             }
         }
-        // Renewal-failed state: auto-paused (>= 5 consecutive failures) and cert not expired -> renew_failed.
+        
         if (($status_derived === 'valid' || $status_derived === 'expiring_soon') && $not_after > 0 && $now < $not_after) {
             $auto_paused = !empty($r['auto_paused']);
             $renew_attempts = isset($r['renew_attempts']) ? (int)$r['renew_attempts'] : 0;

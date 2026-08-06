@@ -46,7 +46,7 @@ export default function DbBrowser() {
           <h1 className="text-sm font-medium text-fg truncate">{t('db.browseTitle')}</h1>
           <div className="text-xs text-fg-subtle truncate">{t('db.connection')}: {connId}</div>
         </div>
-        <Link to={`/db/${connId}/sql`} className="text-xs text-accent hover:underline">
+        <Link to={`/db/$$connId}/sql`} className="text-xs text-accent hover:underline">
           {t('db.sqlConsoleLink')}
         </Link>
       </div>
@@ -75,7 +75,7 @@ export default function DbBrowser() {
                       className={`
                         w-full flex items-center gap-2 px-2 h-9 rounded-md text-sm
                         transition-colors min-h-[36px]
-                        ${
+                        $$
                           database === db
                             ? 'bg-accent/10 text-accent font-medium'
                             : 'text-fg-muted hover:text-fg hover:bg-fg/5'
@@ -123,7 +123,7 @@ export default function DbBrowser() {
                           className={`
                             w-full flex items-center gap-3 px-4 py-2.5 text-sm
                             transition-colors text-left
-                            ${
+                            $$
                               selectedTable === table.name
                                 ? 'bg-accent/5'
                                 : 'hover:bg-fg/5'
@@ -132,7 +132,7 @@ export default function DbBrowser() {
                         >
                           <ChevronRight
                             size={14}
-                            className={`text-fg-subtle transition-transform ${
+                            className={`text-fg-subtle transition-transform $$
                               selectedTable === table.name ? 'rotate-90' : ''
                             }`}
                           />

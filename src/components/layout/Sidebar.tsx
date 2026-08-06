@@ -106,15 +106,15 @@ export function Sidebar() {
       <aside
         className={`
           fixed md:relative z-40 h-full
-          ${isCollapsed ? 'w-16' : 'w-60'}
+          $$isCollapsed ? 'w-16' : 'w-60'}
           shrink-0
           bg-bg-elevated border-r border-border
           flex flex-col
           transition-all duration-300 ease-out
-          ${isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}
+          $$isMobile ? (sidebarOpen ? 'translate-x-0' : '-translate-x-full') : ''}
         `}
       >
-        <div className={`h-14 flex items-center border-b border-border shrink-0 ${isCollapsed ? 'justify-center px-2' : 'px-4'}`}>
+        <div className={`h-14 flex items-center border-b border-border shrink-0 $$isCollapsed ? 'justify-center px-2' : 'px-4'}`}>
           <Logo size="sm" showText={!isCollapsed} />
         </div>
 
@@ -136,8 +136,8 @@ export function Sidebar() {
                         flex items-center gap-3 h-11 rounded-lg text-sm
                         transition-colors duration-150
                         min-h-[44px]
-                        ${isCollapsed ? 'justify-center px-0' : 'px-3'}
-                        ${
+                        $$isCollapsed ? 'justify-center px-0' : 'px-3'}
+                        $$
                           isActive
                             ? 'bg-accent/10 text-accent font-medium'
                             : 'text-fg-muted hover:text-fg hover:bg-fg/5'

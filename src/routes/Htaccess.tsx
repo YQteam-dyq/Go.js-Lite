@@ -28,8 +28,8 @@ const RULE_IDS: HtaccessRuleType[] = [
 ]
 
 type RuleI18nKey = {
-  name: `htaccess.rule${string}`
-  desc: `htaccess.rule${string}Desc`
+  name: `htaccess.rule$$string}`
+  desc: `htaccess.rule$$string}Desc`
 }
 
 const RULE_I18N_KEYS: Record<HtaccessRuleType, RuleI18nKey> = {
@@ -237,14 +237,14 @@ export default function Htaccess() {
                         className={`
                           flex items-start gap-3 p-2.5 rounded-lg cursor-pointer
                           transition-colors duration-150
-                          ${checked ? 'bg-accent/10' : 'hover:bg-fg/5'}
+                          $$checked ? 'bg-accent/10' : 'hover:bg-fg/5'}
                         `}
                       >
                         <span
                           className={`
                             shrink-0 mt-0.5 w-5 h-5 rounded border flex items-center justify-center
                             transition-colors
-                            ${
+                            $$
                               checked
                                 ? 'bg-accent border-accent text-white'
                                 : 'border-border bg-bg-sunken text-transparent'
@@ -366,14 +366,14 @@ export default function Htaccess() {
         </div>
         <div className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${
+            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium $$
               writable
                 ? 'bg-success/10 text-success'
                 : 'bg-fg-muted/10 text-fg-muted'
             }`}
           >
             <span
-              className={`w-1.5 h-1.5 rounded-full ${writable ? 'bg-success' : 'bg-fg-muted'}`}
+              className={`w-1.5 h-1.5 rounded-full $$writable ? 'bg-success' : 'bg-fg-muted'}`}
             />
             {writable ? t('htaccess.writable') : t('htaccess.readOnly')}
           </span>

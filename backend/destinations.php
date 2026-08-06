@@ -1,7 +1,7 @@
 <?php
 
-// Backup destinations: S3/FTP/SFTP destination management and remote operations.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_unseal_secret($sealed) {
     if ($sealed === null || $sealed === '' || $sealed === '****') return false;
@@ -461,13 +461,9 @@ class GOJS_FTP_Destination {
         return array('ok' => true);
     }
 
-    /* ---------- Remote file operations (Task 3: browse / download loop) ----------
-     * Key semantics match gojs_backup_execute_schedule / gojs_retention_prune:
-     * the incoming key is the full remote key relative to the FTP server root (includes path_prefix).
-     * listObjects returns a plain array [{key,size,last_modified}].
-     */
+    
 
-    // Establish an FTP connection (ext path): login + passive mode, without changing directory.
+    
     private function connect_ext() {
         if (!extension_loaded('ftp')) return null;
         $conn = $this->use_tls ? @ftp_ssl_connect($this->host, $this->port, 15) : @ftp_connect($this->host, $this->port, 15);
@@ -480,7 +476,7 @@ class GOJS_FTP_Destination {
         return $conn;
     }
 
-    // Establish an FTP control connection (fsock path); returns array('fp'=>..., 'read'=>..., 'write'=>..., 'code'=>...).
+    
     private function connect_fsock() {
         $fp = @fsockopen($this->host, $this->port, $errno, $errstr, 15);
         if (!$fp) return null;
@@ -521,7 +517,7 @@ class GOJS_FTP_Destination {
         return array('fp' => $fp, 'read' => $read, 'write' => $write, 'code' => $code);
     }
 
-    // fsock passive-mode data connection.
+    
     private function fsock_data_conn($wrap) {
         $wrap['write']('PASV');
         $r = $wrap['read']();
@@ -535,7 +531,7 @@ class GOJS_FTP_Destination {
         return $dfp;
     }
 
-    // Close the fsock control connection.
+    
     private function fsock_close($wrap) {
         if (!$wrap || !is_resource($wrap['fp'])) return;
         @$wrap['write']('QUIT');
@@ -543,7 +539,7 @@ class GOJS_FTP_Destination {
         @fclose($wrap['fp']);
     }
 
-    // Parse one rawlist line (UNIX / DOS); size defaults to 0 and last_modified to '' when unparsable.
+    
     private function parse_rawlist_line($line) {
         $line = rtrim($line, "\r\n");
         if (preg_match('/^[bcdlps-][rwxst-]{9}\s+\d+\s+\S+\s+\S+\s+(\d+)\s+(\w{3})\s+(\d{1,2})\s+([\d:]{4,5}|\d{4})\s+(.+)$/', $line, $m)) {
@@ -578,7 +574,7 @@ class GOJS_FTP_Destination {
         return null;
     }
 
-    // Normalize an entry key: keys without a directory part are completed to the full key.
+    
     private function normalize_list_key($key, $prefix) {
         $key = trim($key);
         if ($key === '' || $key === '.' || $key === '..') return '';
@@ -608,7 +604,7 @@ class GOJS_FTP_Destination {
             return array('ok' => true);
         }
 
-        // fsock path: PASV + STOR.
+        
         $wrap = $this->connect_fsock();
         if (!$wrap) {
             return array('ok' => false, 'error' => 'ftp_connect_failed', 'error_key' => 'ftp_connect_failed');
@@ -653,7 +649,7 @@ class GOJS_FTP_Destination {
             return $items;
         }
 
-        // fsock path: PASV + NLST.
+        
         $wrap = $this->connect_fsock();
         if (!$wrap) return $items;
         $dfp = $this->fsock_data_conn($wrap);
@@ -729,7 +725,7 @@ class GOJS_FTP_Destination {
             return array('ok' => true, 'tmp_path' => $tmp_file);
         }
 
-        // fsock path: PASV + RETR.
+        
         $wrap = $this->connect_fsock();
         if (!$wrap) {
             return array('ok' => false, 'error' => 'ftp_connect_failed', 'error_key' => 'ftp_connect_failed');
@@ -892,13 +888,9 @@ class GOJS_SFTP_Destination {
         return array('ok' => true);
     }
 
-    /* ---------- Remote file operations (Task 3: browse / download loop) ----------
-     * Key semantics match gojs_backup_execute_schedule / gojs_retention_prune:
-     * the incoming key is the full remote key relative to the SFTP root (includes path_prefix).
-     * listObjects returns a plain array [{key,size,last_modified}].
-     */
+    
 
-    // Establish an ssh2 connection and authenticate; returns array('conn' => $conn, 'sftp' => $sftp), or null on failure.
+    
     private function connect_ssh2() {
         if (!extension_loaded('ssh2')) return null;
         $conn = @ssh2_connect($this->host, $this->port);
@@ -1273,19 +1265,17 @@ function gojs_api_backup_destinations_test() {
     gojs_json_response($result);
 }
 
-/* ============================================================
-   Remote backup browse / download (Task 3: remote restore loop)
-   ============================================================ */
 
-// Remote backup filename format (consistent with gojs_backup_execute_schedule upload and gojs_retention_prune cleanup).
+
+
 function gojs_remote_backup_key_valid($key) {
     if (!is_string($key) || $key === '') return false;
-    // Prevent path traversal: allow only fixed-format filenames (no / or ..).
+    
     $basename = basename($key);
     return preg_match('/^(gojs-backup-\d{8}_\d{6}|backup-\d{8}-\d{6})\.zip$/', $basename) === 1;
 }
 
-// List remote gojs-backup-*.zip backup files.
+
 function gojs_api_backup_destinations_browse() {
     $body = gojs_get_body();
     $dest_id = isset($body['dest_id']) ? (string)$body['dest_id'] : '';
@@ -1336,7 +1326,7 @@ function gojs_api_backup_destinations_browse() {
     }
 }
 
-// Pull a remote backup into local CONFIG_DIR/backups/; returns the local filename so the existing restore flow can be used.
+
 function gojs_api_backup_destinations_download() {
     $body = gojs_get_body();
     $dest_id = isset($body['dest_id']) ? (string)$body['dest_id'] : '';
@@ -1388,7 +1378,7 @@ function gojs_api_backup_destinations_download() {
             }
         }
 
-        // Local filename is normalized to the backup-YYYYmmdd-HHMMSS.zip format recognized by the existing restore flow.
+        
         $basename = basename($key);
         $local_name = $basename;
         if (strpos($local_name, 'gojs-backup-') === 0) {
@@ -1411,7 +1401,7 @@ function gojs_api_backup_destinations_download() {
         $size = @filesize($target);
         gojs_log_operation('backup_remote_download', $local_name, true);
 
-        // monitor: remote backup download counts as panel inbound traffic.
+        
         gojs_monitor_bump_bandwidth($size ? $size : 0, 0);
 
         gojs_json_response(array('filename' => $local_name, 'size' => $size, 'downloaded' => true));
@@ -1423,6 +1413,4 @@ function gojs_api_backup_destinations_download() {
     }
 }
 
-/* ============================================================
-   A.1 CRON expression parser + next_run_at calculator
-   ============================================================ */
+

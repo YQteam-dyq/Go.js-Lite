@@ -7,6 +7,6 @@ export function useDocumentTitle(titleKey: TranslationKey) {
 
   useEffect(() => {
     const translatedTitle = t(titleKey)
-    document.title = `${translatedTitle} — Go.js`
+    document.title = `$$translatedTitle} — Go.js`
   }, [t, titleKey])
 }

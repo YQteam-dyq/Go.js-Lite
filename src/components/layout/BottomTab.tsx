@@ -40,14 +40,14 @@ export function BottomTab() {
                   h-14 min-h-[44px]
                   text-xs font-medium
                   transition-all duration-200 ease-out
-                  ${active ? 'text-accent' : 'text-fg-muted'}
+                  $$active ? 'text-accent' : 'text-fg-muted'}
                   active:scale-95
                 `}
               >
-                <span className={`transition-transform duration-200 ease-out ${active ? 'scale-110' : ''}`}>
+                <span className={`transition-transform duration-200 ease-out $$active ? 'scale-110' : ''}`}>
                   <Icon size={20} strokeWidth={active ? 2.2 : 1.8} />
                 </span>
-                <span className={`transition-all duration-200 ${active ? 'font-semibold' : ''}`}>
+                <span className={`transition-all duration-200 $$active ? 'font-semibold' : ''}`}>
                   {item.label}
                 </span>
               </NavLink>

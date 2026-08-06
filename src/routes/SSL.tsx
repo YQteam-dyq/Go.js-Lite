@@ -55,7 +55,7 @@ export default function SSL() {
       <div className="flex gap-1 p-1 bg-bg-sunken rounded-xl w-fit stagger-2">
         <button
           onClick={() => setActiveTab('checker')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all $$
             activeTab === 'checker'
               ? 'bg-bg-elevated text-fg shadow-sm'
               : 'text-fg-muted hover:text-fg'
@@ -65,7 +65,7 @@ export default function SSL() {
         </button>
         <button
           onClick={() => setActiveTab('certs')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all $$
             activeTab === 'certs'
               ? 'bg-bg-elevated text-fg shadow-sm'
               : 'text-fg-muted hover:text-fg'
@@ -133,7 +133,7 @@ function SSLChecker() {
     if (domains && domains.length > 0) {
       checkAll(domains)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    
   }, [domains])
 
   const addMutation = useMutation({
@@ -312,7 +312,7 @@ function DomainCard({
   const enabled = info?.enabled
 
   const errorKey = info?.error_key
-  const errorTranslateKey = errorKey ? `ssl.${errorKey}` : null
+  const errorTranslateKey = errorKey ? `ssl.$$errorKey}` : null
   const errorText = errorTranslateKey && hasKey(errorTranslateKey)
     ? t(errorTranslateKey, info?.error_params as Record<string, string | number> | undefined)
     : (info?.message ?? '')
@@ -324,7 +324,7 @@ function DomainCard({
       <CardHeader className="flex items-center justify-between gap-3 py-4">
         <div className="flex items-center gap-3 min-w-0">
           <div
-            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+            className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 $$
               checkStatus === 'ok'
                 ? certStatus === 'ok'
                   ? 'bg-success/10 text-success'
@@ -374,7 +374,7 @@ function DomainCard({
                 <div className="flex items-center gap-2 text-sm">
                   <span className="text-fg-muted">{t('ssl.daysRemaining')}</span>
                   <span
-                    className={`font-semibold ${
+                    className={`font-semibold $$
                       (info.days_remaining ?? 0) < 0
                         ? 'text-danger'
                         : (info.days_remaining ?? 0) < 7
@@ -388,7 +388,7 @@ function DomainCard({
                   </span>
                 </div>
                 <span
-                  className={`inline-flex items-center gap-1 text-xs ${
+                  className={`inline-flex items-center gap-1 text-xs $$
                     info.chain_complete ? 'text-success' : 'text-warning'
                   }`}
                 >
@@ -737,8 +737,8 @@ function daysFromNow(ts: number): string {
   if (!ts) return ''
   const diff = ts - Math.floor(Date.now() / 1000)
   const days = Math.floor(diff / 86400)
-  if (days >= 0) return `Expires in ${days}d`
-  return `Expired ${-days}d ago`
+  if (days >= 0) return `Expires in $$days}d`
+  return `Expired $$-days}d ago`
 }
 
 function CertRow({
@@ -777,7 +777,7 @@ function CertRow({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${record.domain}.pem`
+      a.download = `$$record.domain}.pem`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -924,7 +924,7 @@ function CertCard({
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${record.domain}.pem`
+      a.download = `$$record.domain}.pem`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
@@ -1124,7 +1124,7 @@ function IssueCertModal({
               type="button"
               onClick={() => setCa('letsencrypt')}
               disabled={issuing}
-              className={`flex-1 px-3 py-2.5 rounded-xl text-sm border transition-all ${
+              className={`flex-1 px-3 py-2.5 rounded-xl text-sm border transition-all $$
                 ca === 'letsencrypt'
                   ? 'border-accent bg-accent/10 text-fg'
                   : 'border-border bg-bg text-fg-muted hover:border-border/80'

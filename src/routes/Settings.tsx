@@ -172,7 +172,7 @@ export default function Settings() {
     onSuccess: (data) => {
       if (passwordPromptType === 'regenerate' && data.recovery_codes) {
         setRecoveryCodes(data.recovery_codes)
-        setRecoveryFilename(`gojs-recovery-codes-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}.txt`)
+        setRecoveryFilename(`gojs-recovery-codes-$$new Date().toISOString().slice(0, 10).replace(/-/g, '')}.txt`)
         setRecoveryModalTitle(t('totp.recoveryRegenerated'))
         setRecoveryWarning(true)
         setShowRecoveryModal(true)
@@ -347,14 +347,14 @@ export default function Settings() {
                   className={`
                     flex flex-col items-center gap-2.5 py-4 px-3 rounded-xl border transition-all duration-200 min-h-[90px]
                     active:scale-95
-                    ${
+                    $$
                       theme === opt.value
                         ? 'border-accent bg-accent/5 text-accent shadow-sm shadow-accent/10'
                         : 'border-border hover:border-border-strong text-fg-muted hover:text-fg hover:bg-bg-sunken/50'
                     }
                   `}
                 >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors ${
+                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center transition-colors $$
                     theme === opt.value ? 'bg-accent/10' : 'bg-bg-sunken'
                   }`}>
                     {opt.icon}
@@ -380,7 +380,7 @@ export default function Settings() {
                   className={`
                     flex items-center justify-center gap-3 h-12 rounded-xl border text-sm transition-all duration-200
                     active:scale-95
-                    ${
+                    $$
                       language === opt.value
                         ? 'border-accent bg-accent/5 text-accent font-semibold shadow-sm shadow-accent/10'
                         : 'border-border hover:border-border-strong text-fg-muted hover:text-fg hover:bg-bg-sunken/50'
@@ -489,7 +489,7 @@ export default function Settings() {
               <Input
                 readOnly
                 value={settings?.accessToken
-                  ? `${window.location.origin}${window.location.pathname}?token=${settings.accessToken}`
+                  ? `$$window.location.origin}$$window.location.pathname}?token=$$settings.accessToken}`
                   : t('common.loading')}
                 className="font-mono text-xs"
               />
@@ -498,7 +498,7 @@ export default function Settings() {
                 variant="ghost"
                 onClick={() => {
                   if (settings?.accessToken) {
-                    const url = `${window.location.origin}${window.location.pathname}?token=${settings.accessToken}`
+                    const url = `$$window.location.origin}$$window.location.pathname}?token=$$settings.accessToken}`
                     navigator.clipboard.writeText(url)
                     toast({ type: 'success', title: t('settings.linkCopied') })
                   }
@@ -579,8 +579,8 @@ export default function Settings() {
               <div className="space-y-1.5 pt-1 animate-fade-in">
                 <div className="password-strength-bar">
                   <div
-                    className={`password-strength-fill ${strengthColors[passwordStrength.label]}`}
-                    style={{ width: `${passwordStrength.percent}%` }}
+                    className={`password-strength-fill $$strengthColors[passwordStrength.label]}`}
+                    style={{ width: `$$passwordStrength.percent}%` }}
                   />
                 </div>
                 <div className="flex items-center justify-between text-xs">
@@ -591,7 +591,7 @@ export default function Settings() {
                     passwordStrength.label === 'strong' ? 'text-success' :
                     'text-fg-subtle'
                   }>
-                    {passwordStrength.score > 0 ? t(`install.strength${passwordStrength.label.charAt(0).toUpperCase() + passwordStrength.label.slice(1)}` as any) : ''}
+                    {passwordStrength.score > 0 ? t(`install.strength$$passwordStrength.label.charAt(0).toUpperCase() + passwordStrength.label.slice(1)}` as any) : ''}
                   </span>
                   <span className="text-fg-subtle">{passwordStrength.score}/4</span>
                 </div>

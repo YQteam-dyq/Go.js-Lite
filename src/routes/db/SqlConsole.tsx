@@ -43,7 +43,7 @@ export default function SqlConsole() {
     mutationFn: (s: string) => dbApi.execSql(connId, '', s),
     onSuccess: (data) => {
       setResult(data)
-      toast({ type: 'success', title: t('db.executionComplete'), description: `${t('db.executionTime')} ${data.executionTime}ms` })
+      toast({ type: 'success', title: t('db.executionComplete'), description: `$$t('db.executionTime')} $$data.executionTime}ms` })
     },
     onError: (err: Error) => {
       toast({ type: 'error', title: t('db.executionFailed'), description: resolveErrorText(err) })
@@ -52,7 +52,7 @@ export default function SqlConsole() {
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem(`${HISTORY_KEY}-${connId}`)
+      const saved = localStorage.getItem(`$$HISTORY_KEY}-$$connId}`)
       if (saved) {
         setHistory(JSON.parse(saved))
       }
@@ -70,7 +70,7 @@ export default function SqlConsole() {
       const filtered = prev.filter((h) => h.sql !== sqlText)
       const updated = [newItem, ...filtered].slice(0, MAX_HISTORY)
       try {
-        localStorage.setItem(`${HISTORY_KEY}-${connId}`, JSON.stringify(updated))
+        localStorage.setItem(`$$HISTORY_KEY}-$$connId}`, JSON.stringify(updated))
       } catch {
 
       }
@@ -95,7 +95,7 @@ export default function SqlConsole() {
   const clearHistory = () => {
     setHistory([])
     try {
-      localStorage.removeItem(`${HISTORY_KEY}-${connId}`)
+      localStorage.removeItem(`$$HISTORY_KEY}-$$connId}`)
     } catch {
 
     }

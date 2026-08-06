@@ -277,11 +277,11 @@ export interface EnvCheckItem {
   name: string
   category: 'extension' | 'function' | 'system' | 'config'
   available: boolean
-  /** Backward-compatible legacy reason text; prefer reason_key + reason_params. */
+  
   reason: string
-  /** Backward-compatible legacy related-feature text; prefer feature_key. */
+  
   related_feature: string
-  /** Backward-compatible legacy suggestion text; prefer suggestion_key + suggestion_params. */
+  
   suggestion: string
   feature_key?: string
   reason_key?: string
@@ -310,13 +310,13 @@ export interface SSLInfo {
   valid_to?: string
   days_remaining?: number
   chain_complete?: boolean
-  /** Certificate health: ok / warning / critical / expired. */
+  
   cert_status?: 'ok' | 'warning' | 'critical' | 'expired'
-  /** Check execution status: pending / ok / failed / checking. */
+  
   status: 'pending' | 'ok' | 'failed' | 'checking'
-  /** Backward-compatible legacy error code/text; prefer error_key + error_params. */
+  
   error?: string
-  /** Backward-compatible legacy error detail; prefer error_key + error_params. */
+  
   message?: string
   error_key?: string
   error_params?: Record<string, string | number> | null
@@ -525,7 +525,7 @@ export interface FtpDegradationReason {
   severity: 'info' | 'warning' | 'danger';
 }
 
-/** Compatible with legacy backend degradation_reasons entries. */
+
 export interface FtpLegacyDegradationReason {
   key: string;
   message_key: string;
@@ -602,15 +602,15 @@ export interface AcmeCertificateRecord {
   issuer_url?: string
   chain_thumbprint?: string
   san_domains?: string[]
-  /** Error from the last auto-renew attempt (i18n key or raw text). */
+  
   last_renew_error?: string | null
-  /** Timestamp (seconds) of the last auto-renew attempt. */
+  
   last_renew_attempt_ts?: number | null
-  /** Timestamp (seconds) of the last successful auto-renew. */
+  
   last_renew_ok_ts?: number | null
-  /** Consecutive auto-renew failure count. */
+  
   renew_attempts?: number
-  /** Auto-paused when consecutive failures reach the limit. */
+  
   auto_paused?: boolean
 }
 

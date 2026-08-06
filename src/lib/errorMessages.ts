@@ -3,11 +3,7 @@ import { locales } from '@/i18n'
 import type { LocaleKey } from '@/i18n'
 import type { TranslationKey } from '@/hooks/useI18n'
 
-/**
- * Maps error codes to i18n translation keys. Displayed errors prefer the i18n
- * text keyed by error.code, falling back to the backend message when not found,
- * keeping backward compatibility with the backend JSON.
- */
+
 export const errorCodeToI18nKey: Record<string, TranslationKey> = {
   unauthorized: 'errors.unauthorized',
   forbidden: 'errors.forbidden',
@@ -37,11 +33,7 @@ function getNestedValue(obj: unknown, path: string): string | undefined {
   return typeof current === 'string' ? current : undefined
 }
 
-/**
- * Resolves the localized text to show for an error object (ApiError, backend error
- * field, or plain string), preferring the i18n key by code and falling back to the
- * backend message.
- */
+
 export function resolveErrorText(err: unknown): string {
   if (typeof err === 'string') {
     return err

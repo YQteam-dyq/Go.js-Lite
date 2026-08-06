@@ -1,8 +1,4 @@
 <?php
-
-// Upgrade & deploy: panel self-upgrade, one-click app deployment.
-// Split from api.php; keep original function signatures and behavior unchanged.
-
 function gojs_http_get($url, $timeout = 15, $headers = array()) {
     $result = array('ok' => false, 'body' => '', 'error' => '');
 
@@ -41,7 +37,7 @@ function gojs_http_get($url, $timeout = 15, $headers = array()) {
         return $result;
     }
 
-    // fallback: stream context (https)
+    
     $header_lines = "User-Agent: Go.js-Lite/" . VERSION . "\r\nAccept: */*\r\n";
     if (is_array($headers)) {
         foreach ($headers as $k => $v) {
@@ -83,9 +79,6 @@ function gojs_http_get($url, $timeout = 15, $headers = array()) {
     return $result;
 }
 
-/* ============================================================
- * Task 8: One-click upgrade wizard
- * ============================================================ */
 function gojs_upgrade_progress_write(array $data) {
     $data['updated_at'] = time();
     gojs_write_json_lock_safe(CONFIG_DIR . '/upgrade_progress.json', $data);
@@ -102,9 +95,9 @@ function gojs_upgrade_lock_acquire() {
         $lock_data = $raw ? json_decode($raw, true) : null;
         $ts = is_array($lock_data) && isset($lock_data['ts']) ? (int)$lock_data['ts'] : 0;
         if ($ts > 0 && (time() - $ts) < 600) {
-            return false; // Considered in-progress within 10 minutes; reject concurrent upgrades.
+            return false; 
         }
-        @unlink($lock_file); // Expired lock.
+        @unlink($lock_file); 
     }
     @file_put_contents($lock_file, json_encode(array('pid' => getmypid(), 'ts' => time())), LOCK_EX);
     return true;
@@ -195,7 +188,6 @@ function gojs_api_upgrade_progress() {
     gojs_json_response($progress);
 }
 
-// Back up the panel's own key files to the upgrade backup directory.
 function gojs_upgrade_backup_self($dest_dir) {
     if (!is_dir($dest_dir) && !@mkdir($dest_dir, 0700, true)) {
         return false;
@@ -216,7 +208,6 @@ function gojs_upgrade_backup_self($dest_dir) {
     return true;
 }
 
-// Safely extract the upgrade package to ROOT: skip the top-level gojs/ segment and .gojs/, forbid "..", only regular files/dirs.
 function gojs_upgrade_extract_to_root($zip_path) {
     $zip = new ZipArchive();
     if ($zip->open($zip_path) !== true) {
@@ -224,7 +215,7 @@ function gojs_upgrade_extract_to_root($zip_path) {
     }
     $count = $zip->numFiles;
 
-    // Guard against wrong packages: the zip must contain api.php.
+    
     $has_api = false;
     for ($i = 0; $i < $count; $i++) {
         $name = (string)$zip->getNameIndex($i);
@@ -244,7 +235,7 @@ function gojs_upgrade_extract_to_root($zip_path) {
         $name = str_replace('\\', '/', $name);
         $parts = explode('/', $name);
         if (isset($parts[0]) && $parts[0] === 'gojs') {
-            array_shift($parts); // Drop the top-level gojs/ segment.
+            array_shift($parts); 
         }
         $parts = array_values(array_filter($parts, function ($p) {
             return $p !== '' && $p !== '.';
@@ -252,9 +243,9 @@ function gojs_upgrade_extract_to_root($zip_path) {
         if (count($parts) === 0) continue;
 
         $rel = implode('/', $parts);
-        // Skip the .gojs config directory.
+        
         if ($rel === '.gojs' || strpos($rel, '.gojs/') === 0) continue;
-        // Forbid path traversal.
+        
         if (strpos($rel, '..') !== false) continue;
 
         $target = ROOT . '/' . $rel;
@@ -279,7 +270,7 @@ function gojs_upgrade_extract_to_root($zip_path) {
             return array('ok' => false, 'error' => '读取升级包条目失败: ' . $rel);
         }
 
-        // Atomic write: temp file in same dir + rename (copy fallback on failure).
+        
         $tmp = $target . '.gojs_tmp_' . bin2hex(random_bytes(4));
         if (@file_put_contents($tmp, $content, LOCK_EX) === false) {
             @unlink($tmp);
@@ -330,7 +321,7 @@ function gojs_api_upgrade_apply() {
             'error' => '',
         ));
 
-        // Reuse the asset URL from the most recent check within 10 minutes to avoid duplicate requests.
+        
         $check = null;
         if (
             isset($config['upgrade']['last_check_result'])
@@ -363,7 +354,7 @@ function gojs_api_upgrade_apply() {
             'error' => '',
         ));
 
-        // Back up the current version.
+        
         gojs_upgrade_progress_write(array(
             'step' => 'backup',
             'message_key' => 'upgrade.stepBackup',
@@ -383,7 +374,7 @@ function gojs_api_upgrade_apply() {
             'error' => '',
         ));
 
-        // Extract and overwrite.
+        
         gojs_upgrade_progress_write(array(
             'step' => 'extract',
             'message_key' => 'upgrade.stepExtract',
@@ -406,7 +397,7 @@ function gojs_api_upgrade_apply() {
             'error' => '',
         ));
 
-        // Migration: new code runs automatically on the next request load; no manual trigger needed.
+        
         gojs_upgrade_progress_write(array(
             'step' => 'migrate',
             'message_key' => 'upgrade.stepMigrate',
@@ -446,9 +437,6 @@ function gojs_api_upgrade_apply() {
     }
 }
 
-/* ============================================================
- * Task 11: One-click app deployment
- * ============================================================ */
 function gojs_deploy_apps() {
     if (isset($GLOBALS['GOJS_DEPLOY_APPS']) && is_array($GLOBALS['GOJS_DEPLOY_APPS'])) {
         return $GLOBALS['GOJS_DEPLOY_APPS'];
@@ -460,7 +448,7 @@ function gojs_deploy_apps() {
             'name_key' => 'deploy.appWordpress',
             'description_key' => 'deploy.descWordpress',
             'version' => 'latest',
-            'download_url' => 'https://wordpress.org/latest.zip',
+            'download_url' => 'https:
             'db_required' => true,
         ),
         array(
@@ -480,7 +468,6 @@ function gojs_api_deploy_apps() {
     gojs_json_response(array('apps' => gojs_deploy_apps()));
 }
 
-// Resolve and validate the deployment target directory (relative to files_root).
 function gojs_deploy_resolve_target($raw) {
     $files_root = $GLOBALS['files_root'];
     $relative = str_replace('\\', '/', trim((string)$raw));
@@ -500,14 +487,13 @@ function gojs_deploy_resolve_target($raw) {
     if ($full === $files_real) {
         return array('ok' => false, 'error' => '目标目录不能是站点根目录');
     }
-    // When the panel is installed in a subdirectory (files_root/gojs), forbid deploying into the panel directory.
+    
     if ($files_real !== $root_real && ($full === $root_real || strpos($full, $root_real . '/') === 0)) {
         return array('ok' => false, 'error' => '目标目录不能在面板目录内');
     }
     return array('ok' => true, 'full' => $full, 'relative' => $relative);
 }
 
-// Extract the app to extract_dir: strip the web-root prefix (shallowest index.php directory segment); extract_dir becomes the web root content.
 function gojs_deploy_extract_app($zip_path, $extract_dir) {
     $zip = new ZipArchive();
     if ($zip->open($zip_path) !== true) {
@@ -515,7 +501,7 @@ function gojs_deploy_extract_app($zip_path, $extract_dir) {
     }
     $count = $zip->numFiles;
 
-    // Find the shallowest index.php to determine the web-root prefix.
+    
     $prefix = '';
     $min_depth = PHP_INT_MAX;
     for ($i = 0; $i < $count; $i++) {
@@ -546,13 +532,13 @@ function gojs_deploy_extract_app($zip_path, $extract_dir) {
         $parts = explode('/', $trimmed);
         if (count($prefix_parts) > 0) {
             if (count($parts) < count($prefix_parts) || array_slice($parts, 0, count($prefix_parts)) !== $prefix_parts) {
-                continue; // Skip files outside the web root (readme, licenses, etc.).
+                continue; 
             }
             $parts = array_slice($parts, count($prefix_parts));
         }
         if (count($parts) === 0) continue;
         $rel = implode('/', $parts);
-        if (strpos($rel, '..') !== false) continue; // Prevent path traversal.
+        if (strpos($rel, '..') !== false) continue; 
 
         $target = $extract_dir . '/' . $rel;
         $is_dir = (substr($name, -1) === '/');
@@ -624,7 +610,6 @@ function gojs_deploy_typecho_config($db_name, $db_user, $db_pass, $db_host, $db_
     return $out;
 }
 
-// Write the DB config file; returns whether it was written (skipped if no DB info provided or a config already exists).
 function gojs_deploy_write_db_config($app_id, $target_dir, $body) {
     $db_name = isset($body['db_name']) ? trim((string)$body['db_name']) : '';
     $db_user = isset($body['db_user']) ? trim((string)$body['db_user']) : '';
@@ -682,7 +667,7 @@ function gojs_api_deploy_run() {
     $full_target = $target_info['full'];
     $relative_target = $target_info['relative'];
 
-    // Overwrite=true required when the target already exists and is non-empty.
+    
     $exists_non_empty = false;
     if (file_exists($full_target)) {
         if (is_file($full_target)) {
@@ -733,7 +718,7 @@ function gojs_api_deploy_run() {
             throw new RuntimeException('复制文件到目标目录失败');
         }
 
-        // DB config (not written when no DB info is provided; the app's own web installer handles it).
+        
         $db_configured = false;
         if (!empty($app['db_required'])) {
             $db_configured = gojs_deploy_write_db_config($app['id'], $full_target, $body);

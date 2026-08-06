@@ -71,17 +71,17 @@ function ToastItem({
       className={`
         pointer-events-auto
         bg-bg-elevated/95 backdrop-blur-medium
-        border ${bgClasses[toast.type]} rounded-xl
+        border $$bgClasses[toast.type]} rounded-xl
         shadow-xl shadow-black/10
         p-4 flex items-start gap-3
         will-change-transform
         transition-all duration-300 ease-out
-        ${show && !leaving ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95'}
+        $$show && !leaving ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-4 scale-95'}
       `}
-      style={{ animationDelay: `${index * 50}ms` }}
+      style={{ animationDelay: `$$index * 50}ms` }}
       role="status"
     >
-      <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+      <div className={`shrink-0 w-8 h-8 rounded-lg flex items-center justify-center $$
         toast.type === 'success' ? 'bg-success/10' :
         toast.type === 'error' ? 'bg-danger/10' :
         toast.type === 'warning' ? 'bg-warning/10' :

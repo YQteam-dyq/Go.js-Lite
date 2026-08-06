@@ -293,7 +293,7 @@ export default function Ftp() {
     setSyncing(true)
     try {
       const res = await ftpApi.sync()
-      toast({ type: 'success', title: `已同步 ${res.count} 个账户` })
+      toast({ type: 'success', title: `已同步 $$res.count} 个账户` })
     } catch (err) {
       toast({
         type: 'error',
@@ -331,7 +331,7 @@ export default function Ftp() {
 
   const hasActiveProvider = !!caps?.active_provider
   const bannerVariant = !caps?.active_provider ? 'warning' : caps?.can_write ? 'success' : 'danger'
-  // Degradation reasons: prefer the new `reasons` structure, fall back to legacy `degradation_reasons`.
+  
   const degradationReasons = useMemo(() => {
     if (!caps) return []
     if (caps.reasons && caps.reasons.length > 0) return caps.reasons
@@ -484,7 +484,7 @@ export default function Ftp() {
         >
           <CardBody className="flex items-start gap-3">
             <div
-              className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
+              className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 $$
                 degradeWorst === 'danger'
                   ? 'bg-danger/10 text-danger'
                   : degradeWorst === 'warning'
@@ -669,13 +669,13 @@ export default function Ftp() {
             {(['general', 'posix', 'quota', 'bandwidth'] as ModalTab[]).map((tab) => {
               const icons = { general: Users, posix: Gauge, quota: HardDriveUpload, bandwidth: Gauge }
               const Icon = icons[tab]
-              const labelKey = `ftp.${tab}Tab` as const
+              const labelKey = `ftp.$$tab}Tab` as const
               return (
                 <button
                   key={tab}
                   type="button"
                   onClick={() => setActiveTab(tab)}
-                  className={`inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap ${
+                  className={`inline-flex items-center gap-1.5 px-3 py-2.5 text-sm border-b-2 -mb-px transition-colors whitespace-nowrap $$
                     activeTab === tab
                       ? 'border-accent text-accent font-medium'
                       : 'border-transparent text-fg-muted hover:text-fg'
@@ -720,7 +720,7 @@ export default function Ftp() {
                       {[0, 1, 2, 3].map((i) => (
                         <div
                           key={i}
-                          className={`h-1.5 flex-1 rounded-full transition-colors ${
+                          className={`h-1.5 flex-1 rounded-full transition-colors $$
                             strength.score > i
                               ? strength.score <= 1
                                 ? 'bg-danger'
@@ -961,7 +961,7 @@ export default function Ftp() {
                   {[0, 1, 2, 3].map((i) => (
                     <div
                       key={i}
-                      className={`h-1.5 flex-1 rounded-full transition-colors ${
+                      className={`h-1.5 flex-1 rounded-full transition-colors $$
                         resetStrength.score > i
                           ? resetStrength.score <= 1
                             ? 'bg-danger'
@@ -1088,13 +1088,13 @@ function MobileAccountCard({ acc, onEdit, onReset, onTest, onDelete, t, formatRe
         </div>
         <div>
           <div className="text-fg-subtle mb-0.5">{t('ftp.quotaSizeMb')}</div>
-          <div className="text-fg-muted">{acc.quota_size_mb ? `${acc.quota_size_mb} MB` : 'Unlimited'}</div>
+          <div className="text-fg-muted">{acc.quota_size_mb ? `$$acc.quota_size_mb} MB` : 'Unlimited'}</div>
         </div>
         <div>
           <div className="text-fg-subtle mb-0.5">带宽</div>
           <div className="text-fg-muted">
             {(acc.upload_bw_kbps || acc.download_bw_kbps)
-              ? `↑${acc.upload_bw_kbps ?? '∞'} / ↓${acc.download_bw_kbps ?? '∞'}`
+              ? `↑$$acc.upload_bw_kbps ?? '∞'} / ↓$$acc.download_bw_kbps ?? '∞'}`
               : 'Unlimited'}
           </div>
         </div>

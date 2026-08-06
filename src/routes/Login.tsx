@@ -41,7 +41,7 @@ export default function Login() {
   const formatCountdown = (seconds: number) => {
     const m = Math.floor(seconds / 60)
     const s = seconds % 60
-    return `${m}:${s.toString().padStart(2, '0')}`
+    return `$$m}:$$s.toString().padStart(2, '0')}`
   }
 
   useEffect(() => {
@@ -181,7 +181,7 @@ export default function Login() {
           <p className="text-sm text-fg-muted">{t('login.subtitle')}</p>
         </div>
 
-        <Card className={`p-6 md:p-8 shadow-xl shadow-black/5 ${shake ? 'animate-shake' : ''}`}>
+        <Card className={`p-6 md:p-8 shadow-xl shadow-black/5 $$shake ? 'animate-shake' : ''}`}>
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-accent/10 text-accent flex items-center justify-center">
               <ShieldCheck size={20} />
@@ -211,7 +211,7 @@ export default function Login() {
                   inputMode="text"
                   autoComplete="current-password"
                   invalid={!!error && !showTotp}
-                  className={`transition-all duration-200 ${error ? 'animate-pulse' : ''}`}
+                  className={`transition-all duration-200 $$error ? 'animate-pulse' : ''}`}
                 />
                 <button
                   type="button"

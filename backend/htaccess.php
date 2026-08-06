@@ -1,14 +1,14 @@
 <?php
 
-// Apache config: .htaccess read/generate/reset.
-// Split from api.php; keep original function signatures and behavior unchanged.
+
+
 
 function gojs_htaccess_default_content() {
     return <<<'HTACCESS'
-# Go.js - 轻量级 PHP 服务器管理面板
-# Apache 配置文件
 
-# 禁止访问 .gojs 配置目录
+
+
+
 <DirectoryMatch "^.*/\.gojs/">
     Require all denied
 </DirectoryMatch>
@@ -17,76 +17,76 @@ function gojs_htaccess_default_content() {
     Require all denied
 </FilesMatch>
 
-# 禁止直接访问 PHP 文件（除了 api.php）
+
 <FilesMatch "\.php$">
     SetEnvIf Request_URI "^/api\.php$" allow_php=1
     Require env allow_php
 </FilesMatch>
 
-# 禁止访问配置文件
+
 <Files "config.php">
     Require all denied
 </Files>
 
-# 禁止访问 .htaccess
+
 <Files ".htaccess">
     Require all denied
 </Files>
 
-# 禁止访问 .log 文件
+
 <FilesMatch "\.log$">
     Require all denied
 </FilesMatch>
 
-# 禁止访问 .json 配置文件
+
 <FilesMatch "db_connections\.json$">
     Require all denied
 </FilesMatch>
 
-# 禁止访问 .md 文件
+
 <FilesMatch "\.md$">
     Require all denied
 </FilesMatch>
 
-# 默认入口：前端 SPA 优先
+
 DirectoryIndex index.html
 
-# 开启 URL 重写
+
 RewriteEngine On
 
-# 禁止直接访问 api.php（仅允许内部重写访问）
+
 RewriteRule ^api\.php$ - [R=404,L]
 
-# 如果请求的是真实存在的文件或目录，直接访问
+
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteRule ^ - [L]
 
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# API 路由重写：/api/xxx -> api.php?api=xxx
+
 RewriteRule ^api/(.*)$ api.php?api=$1 [QSA,L]
 
-# 前端页面路由：所有非文件请求指向 index.html（SPA）
+
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ index.html [L]
 
-# 安全头部
+
 <IfModule mod_headers.c>
-    # 阻止点击劫持
+    
     Header always set X-Frame-Options "SAMEORIGIN"
 
-    # MIME 类型嗅探保护
+    
     Header always set X-Content-Type-Options "nosniff"
 
-    # XSS 保护
+    
     Header always set X-XSS-Protection "1; mode=block"
 
-    # Referrer Policy
+    
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
-    # 禁止浏览器缓存敏感页面
+    
     <FilesMatch "\.(php)$">
         Header set Cache-Control "no-cache, no-store, must-revalidate"
         Header set Pragma "no-cache"
@@ -94,7 +94,7 @@ RewriteRule ^ index.html [L]
     </FilesMatch>
 </IfModule>
 
-# PHP 设置
+
 <IfModule mod_php.c>
     php_flag display_errors Off
     php_flag log_errors On
@@ -109,16 +109,16 @@ function gojs_htaccess_rule_template($rule, $from = '', $to = '') {
     switch ($rule) {
         case 'force_https':
             return <<<'HTACCESS'
-# 强制 HTTPS
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{HTTPS} off
-    RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+    RewriteRule ^(.*)$ https:
 </IfModule>
 HTACCESS;
         case 'block_sensitive':
             return <<<'HTACCESS'
-# 禁止访问敏感文件
+
 <FilesMatch "^\.">
     Require all denied
 </FilesMatch>
@@ -134,11 +134,11 @@ HTACCESS;
 HTACCESS;
         case 'prevent_hotlink':
             return <<<'HTACCESS'
-# 防盗链
+
 <IfModule mod_rewrite.c>
     RewriteEngine On
     RewriteCond %{HTTP_REFERER} !^$
-    RewriteCond %{HTTP_REFERER} !^https?://(www\.)?%{HTTP_HOST}/ [NC]
+    RewriteCond %{HTTP_REFERER} !^https?:
     RewriteRule \.(jpg|jpeg|png|gif|bmp|webp|svg|css|js)$ - [F,NC]
 </IfModule>
 HTACCESS;
@@ -148,14 +148,14 @@ HTACCESS;
             return "# 301 重定向\nRedirect 301 /" . $from_clean . " " . $to_clean;
         case 'gzip_compress':
             return <<<'HTACCESS'
-# Gzip 压缩
+
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/xml application/rss+xml application/javascript application/x-javascript application/json image/svg+xml
 </IfModule>
 HTACCESS;
         case 'browser_cache':
             return <<<'HTACCESS'
-# 浏览器缓存
+
 <IfModule mod_expires.c>
     ExpiresActive On
     ExpiresByType image/jpg "access plus 1 month"
@@ -180,7 +180,7 @@ HTACCESS;
 HTACCESS;
         case 'block_dir_browsing':
             return <<<'HTACCESS'
-# 禁止目录浏览
+
 Options -Indexes
 HTACCESS;
         default:
@@ -344,11 +344,4 @@ function gojs_api_htaccess_reset() {
     ));
 }
 
-/**
- * Backup and restore.
- * Backup archive layout:
- *   files/                Site directory files
- *   database/<conn_id>.sql  Per-connection database dumps
- *   config/config.php     Panel config
- *   backup.json           Metadata
- */
+

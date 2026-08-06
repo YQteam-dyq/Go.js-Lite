@@ -1,9 +1,6 @@
 <?php
 
-/**
- * GoJS_Context — injectable application context (PHP 7.4 compatible).
- * gojs_init() keeps it in sync with the legacy globals for backward compatibility.
- */
+
 class GoJS_Context {
 
     private static $instance = null;
