@@ -33,6 +33,7 @@ import { Confirm, Modal } from '@/components/ui/Modal'
 import { sslApi } from '@/api/ssl'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { truncate } from '@/lib/format'
 import type { SSLInfo, AcmeCapabilities, AcmeCertificateRecord, AcmeCertStatus } from '@shared/types'
@@ -108,8 +109,8 @@ function SSLChecker() {
           status: 'failed',
           error: 'request_failed',
           error_key: 'connect_failed',
-          error_params: { detail: err instanceof Error ? err.message : 'request_failed' },
-          message: err instanceof Error ? err.message : t('common.unknownError'),
+          error_params: { detail: err instanceof Error ? resolveErrorText(err) : 'request_failed' },
+          message: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
         },
       }))
     } finally {
@@ -143,7 +144,7 @@ function SSLChecker() {
       runCheck(domain)
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('ssl.addFailed'), description: err.message })
+      toast({ type: 'error', title: t('ssl.addFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -159,7 +160,7 @@ function SSLChecker() {
       queryClient.invalidateQueries({ queryKey: ['ssl-domains'] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('ssl.removeFailed'), description: err.message })
+      toast({ type: 'error', title: t('ssl.removeFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -200,7 +201,7 @@ function SSLChecker() {
   }
 
   if (error) {
-    return <EmptyError error={error instanceof Error ? error.message : t('common.unknownError')} onRetry={() => refetch()} />
+    return <EmptyError error={resolveErrorText(error) || t('common.unknownError')} onRetry={() => refetch()} />
   }
 
   const list = domains ?? []
@@ -651,7 +652,7 @@ function SSLCertificates() {
             toast({ type: 'success', title: t('common.deleted') })
             refreshList()
           } catch (err) {
-            toast({ type: 'error', title: t('common.deleteFailed'), description: err instanceof Error ? err.message : t('common.unknownError') })
+            toast({ type: 'error', title: t('common.deleteFailed'), description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError') })
           }
           setDeleteId(null)
         }}
@@ -763,7 +764,7 @@ function CertRow({
       toast({ type: 'success', title: t('ssl.acme.renewButton') })
       onRefresh()
     } catch (err) {
-      toast({ type: 'error', title: t('ssl.addFailed'), description: err instanceof Error ? err.message : t('common.unknownError') })
+      toast({ type: 'error', title: t('ssl.addFailed'), description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError') })
     } finally {
       setRenewing(false)
     }
@@ -782,7 +783,7 @@ function CertRow({
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (err) {
-      toast({ type: 'error', title: t('common.download') + ' ' + t('common.failure'), description: err instanceof Error ? err.message : t('common.unknownError') })
+      toast({ type: 'error', title: t('common.download') + ' ' + t('common.failure'), description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError') })
     } finally {
       setDownloading(false)
     }
@@ -795,7 +796,7 @@ function CertRow({
       toast({ type: 'success', title: t('common.updated') })
       queryClient.invalidateQueries({ queryKey: ['ssl-acme-certs'] })
     } catch (err) {
-      toast({ type: 'error', title: t('common.saveFailed'), description: err instanceof Error ? err.message : t('common.unknownError') })
+      toast({ type: 'error', title: t('common.saveFailed'), description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError') })
     } finally {
       setEditingAutoRenew(false)
     }
@@ -910,7 +911,7 @@ function CertCard({
       toast({ type: 'success', title: t('ssl.acme.renewButton') })
       onRefresh()
     } catch (err) {
-      toast({ type: 'error', title: t('ssl.addFailed'), description: err instanceof Error ? err.message : t('common.unknownError') })
+      toast({ type: 'error', title: t('ssl.addFailed'), description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError') })
     } finally {
       setRenewing(false)
     }
@@ -929,7 +930,7 @@ function CertCard({
       document.body.removeChild(a)
       URL.revokeObjectURL(url)
     } catch (err) {
-      toast({ type: 'error', title: t('common.download') + ' ' + t('common.failure'), description: err instanceof Error ? err.message : t('common.unknownError') })
+      toast({ type: 'error', title: t('common.download') + ' ' + t('common.failure'), description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError') })
     } finally {
       setDownloading(false)
     }
@@ -1048,7 +1049,7 @@ function IssueCertModal({
       toast({
         type: 'error',
         title: t('ssl.checkFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setIssuing(false)

@@ -11,6 +11,7 @@ import { errorLogApi } from '@/api/errorLog'
 import { toast } from '@/components/ui/Toast'
 import { formatBytes } from '@/lib/format'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { ErrorLogEntry } from '@shared/types'
 
 export default function ErrorLog() {
@@ -42,7 +43,7 @@ export default function ErrorLog() {
       toast({
         type: 'error',
         title: t('errorLog.clearFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setClearing(false)
@@ -129,7 +130,7 @@ export default function ErrorLog() {
             <div className="p-8 text-center text-danger">
               <AlertTriangle size={24} className="mx-auto mb-2" />
               <p className="text-sm">
-                {error instanceof Error ? error.message : t('common.error')}
+                {resolveErrorText(error) || t('common.error')}
               </p>
             </div>
           ) : !data?.found ? (

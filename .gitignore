@@ -41,5 +41,9 @@ checklist.md
 spec.md
 tasks.md
 
-# CI
-.github/workflows/
+# One-off refactor scripts
+refactor_*.py
+
+# Vendor / test artifacts
+vendor/
+.phpunit.result.cache

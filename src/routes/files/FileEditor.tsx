@@ -11,6 +11,7 @@ import { formatBytes } from '@/lib/format'
 import { toast } from '@/components/ui/Toast'
 import type { FileContent } from '@shared/types'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 const CodeEditor = lazy(() =>
   import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
@@ -44,7 +45,7 @@ export default function FileEditor() {
       queryClient.invalidateQueries({ queryKey: ['file-content', filePath] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('common.saveFailed'), description: err.message })
+      toast({ type: 'error', title: t('common.saveFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -68,7 +69,7 @@ export default function FileEditor() {
     return (
       <div className="p-6">
         <Card className="p-6 text-center text-danger">
-          {t('common.error')}：{error instanceof Error ? error.message : t('common.unknownError')}
+          {t('common.error')}：{resolveErrorText(error) || t('common.unknownError')}
         </Card>
       </div>
     )

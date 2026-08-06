@@ -11,6 +11,7 @@ import { dbApi } from '@/api/db'
 import { toast } from '@/components/ui/Toast'
 import type { SqlExecResponse } from '@shared/types'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 const CodeEditor = lazy(() =>
   import('@/components/editor/CodeEditor').then((m) => ({ default: m.CodeEditor })),
@@ -45,7 +46,7 @@ export default function SqlConsole() {
       toast({ type: 'success', title: t('db.executionComplete'), description: `${t('db.executionTime')} ${data.executionTime}ms` })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('db.executionFailed'), description: err.message })
+      toast({ type: 'error', title: t('db.executionFailed'), description: resolveErrorText(err) })
     },
   })
 

@@ -120,10 +120,6 @@ function BackupTabs({
   )
 }
 
-/* =========================================================
-   TAB 1: Archives (original content, untouched)
-   ========================================================= */
-
 function ArchivesTab() {
   const queryClient = useQueryClient()
   const { t } = useI18n()
@@ -581,10 +577,6 @@ function ArchivesTab() {
   )
 }
 
-/* =========================================================
-   远端备份浏览 + 下载恢复（Task 3 闭环）
-   ========================================================= */
-
 function RemoteRestoreModal({
   open,
   onClose,
@@ -769,10 +761,6 @@ function formatRemoteModified(iso: string) {
   if (Number.isNaN(ts)) return iso
   return new Date(ts).toLocaleString()
 }
-
-/* =========================================================
-   TAB 2: Destinations (Task 3 main scope)
-   ========================================================= */
 
 function DestinationsTab() {
   const { t } = useI18n()
@@ -1118,8 +1106,6 @@ function buildTestPayloadFromDest(dest: BackupDestination): BackupDestinationCre
   }
 }
 
-/* ---------- Destination Modal ---------- */
-
 function DestinationModal({
   open,
   editing,
@@ -1220,7 +1206,6 @@ function DestinationModal({
   })
 
   if (open && !testing && !testResult) {
-    // Re-sync forms when modal opens and editing changes
   }
 
   const collectPayload = (): BackupDestinationCreateInput | null => {
@@ -1631,10 +1616,6 @@ function FormField({
     </div>
   )
 }
-
-/* =========================================================
-   TAB 3: Schedules (Task 4 full implementation)
-   ========================================================= */
 
 type ScheduleModalTab = 'general' | 'schedule' | 'source' | 'destinations' | 'retention'
 const SCHEDULE_MODAL_TABS: ScheduleModalTab[] = ['general', 'schedule', 'source', 'destinations', 'retention']
@@ -2700,10 +2681,6 @@ function ScheduleModal({
     </Modal>
   )
 }
-
-/* =========================================================
-   Shared subcomponents (from original)
-   ========================================================= */
 
 interface ScopeCheckboxProps {
   checked: boolean

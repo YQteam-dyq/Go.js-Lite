@@ -854,6 +854,12 @@ const zh = {
     notFound: '资源不存在',
     serverError: '服务器错误',
     unknown: '未知错误',
+    rateLimited: '请求过于频繁，请稍后再试',
+    validationError: '输入数据校验失败',
+    badRequest: '请求参数错误',
+    uploadFailed: '上传失败',
+    aborted: '上传已取消',
+    timeout: '请求超时',
   },
   codeEditor: {
     lineCount: '{count} 行',

@@ -83,7 +83,7 @@ export default function Upgrade() {
     pollRef.current = window.setInterval(async () => {
       try {
         const p = await upgradeApi.progress()
-        if (!p.step) return // 尚未开始，继续等待
+        if (!p.step) return
         setProgress(p)
         if (p.step === 'done') {
           stopPolling()
@@ -98,7 +98,6 @@ export default function Upgrade() {
           toast({ type: 'error', title: t('upgrade.errorMessage'), description: msg })
         }
       } catch {
-        // 轮询请求失败则忽略，等待下一轮
       }
     }, 2000)
   }, [stopPolling, t])
@@ -108,7 +107,6 @@ export default function Upgrade() {
     setFailed('')
     setProgress({ step: 'download', message_key: 'upgrade.stepDownload', percent: 5 })
     setDone(false)
-    // 立即开始轮询进度，apply 请求与进度轮询并发执行
     poll()
     try {
       await upgradeApi.apply()
@@ -121,7 +119,7 @@ export default function Upgrade() {
     }
   }
 
-  const currentVersion = checkResult?.current_version || '0.5.0'
+  const currentVersion = checkResult?.current_version || '0.5.2'
   const latestVersion = checkResult?.latest_version || '—'
   const updateAvailable = checkResult?.update_available === true
   const progressStep = progress?.step ?? null

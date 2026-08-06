@@ -25,6 +25,7 @@ import { cronApi } from '@/api/cron'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useFormat } from '@/lib/format'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { CronJob, WebcronHistoryResult } from '@shared/types'
 
 interface Template {
@@ -69,7 +70,7 @@ function getNextRunTime(expression: string): Date | null {
   const next = new Date()
   next.setSeconds(0, 0)
   next.setMinutes(next.getMinutes() + 1)
-  // 最多检查 525600 分钟（一年）
+  // Check at most 525600 minutes (one year).
   for (let i = 0; i < 525600; i++) {
     if (
       matchCronField(min, next.getMinutes()) &&
@@ -152,7 +153,7 @@ export default function Cron() {
       queryClient.invalidateQueries({ queryKey: ['cron-jobs'] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('cron.saveFailed'), description: err.message })
+      toast({ type: 'error', title: t('cron.saveFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -258,7 +259,6 @@ export default function Cron() {
         </div>
       </div>
 
-      {/* crontab CLI 缺失警告横幅 */}
       {showCrontabMissing && (
         <Card className="border-warning/30">
           <CardBody className="flex items-start gap-3">
@@ -281,7 +281,6 @@ export default function Cron() {
         </Card>
       )}
 
-      {/* 能力检测卡片 */}
       {loadingCaps ? (
         <Card>
           <CardBody className="flex items-center justify-center py-8">
@@ -344,7 +343,6 @@ export default function Cron() {
         </Card>
       )}
 
-      {/* 任务列表 */}
       {available && (
         <Card>
           <CardHeader className="flex items-center justify-between gap-2">
@@ -366,7 +364,7 @@ export default function Cron() {
               <div className="p-6 text-center text-sm text-danger">
                 <XCircle size={24} className="mx-auto mb-2" />
                 <p>
-                  {error instanceof Error ? error.message : t('common.error')}
+                  {resolveErrorText(error) || t('common.error')}
                 </p>
                 <Button
                   variant="secondary"
@@ -438,7 +436,6 @@ export default function Cron() {
         </Card>
       )}
 
-      {/* Webcron 内部任务 */}
       <Card>
         <CardHeader className="flex items-center gap-2">
           <div className="flex items-center gap-2 min-w-0">
@@ -450,7 +447,6 @@ export default function Cron() {
           </div>
         </CardHeader>
         <CardBody className="space-y-4">
-          {/* 触发地址 + 复制 */}
           <div className="rounded-xl border border-border bg-bg-sunken/30 px-4 py-3 space-y-2">
             <div className="text-xs font-medium text-fg">{t('webcron.webcronUrl')}</div>
             <div className="flex items-center gap-2">
@@ -473,7 +469,6 @@ export default function Cron() {
             </div>
           </div>
 
-          {/* 上次触发 / 下次备份调度 */}
           <div className="grid grid-cols-2 gap-3">
             <div>
               <div className="text-[10px] uppercase tracking-wide text-fg-subtle">{t('webcron.lastTriggered')}</div>
@@ -495,7 +490,6 @@ export default function Cron() {
             </div>
           </div>
 
-          {/* 历史列表 */}
           <div>
             <div className="text-xs font-medium text-fg-muted mb-2">{t('webcron.history')}</div>
             {!webcronData || webcronData.history.length === 0 ? (
@@ -535,7 +529,6 @@ export default function Cron() {
         </CardBody>
       </Card>
 
-      {/* 添加 / 编辑模态框 */}
       <Modal
         open={editing}
         onClose={() => !saving && setEditing(false)}
@@ -557,7 +550,6 @@ export default function Cron() {
         }
       >
         <div className="space-y-4">
-          {/* 模板 */}
           <div>
             <label className="block text-xs font-medium text-fg-muted mb-1.5">
               {t('cron.templates')}
@@ -577,7 +569,6 @@ export default function Cron() {
             </div>
           </div>
 
-          {/* 表达式 */}
           <div>
             <label className="block text-xs font-medium text-fg-muted mb-1.5">
               {t('cron.expression')}
@@ -597,7 +588,6 @@ export default function Cron() {
             )}
           </div>
 
-          {/* 命令 */}
           <div>
             <label className="block text-xs font-medium text-fg-muted mb-1.5">
               {t('cron.command')}

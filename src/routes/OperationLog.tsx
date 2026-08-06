@@ -30,6 +30,7 @@ import { notificationChannelsApi } from '@/api/notifications'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type {
   OperationLogEntry,
   OperationLogAlertRule,
@@ -181,7 +182,7 @@ export default function OperationLog() {
       toast({
         type: 'error',
         title: t('operationLog.clearFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setClearing(false)
@@ -225,7 +226,7 @@ export default function OperationLog() {
       toast({
         type: 'error',
         title: t('oplog.exportFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setExporting(false)
@@ -271,7 +272,7 @@ export default function OperationLog() {
       toast({
         type: 'error',
         title: t('common.saveFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setSavingRule(false)
@@ -295,7 +296,7 @@ export default function OperationLog() {
         toast({
           type: 'error',
           title: t('oplog.alertRuleTest') + ' ' + t('common.failure'),
-          description: err instanceof Error ? err.message : t('common.unknownError'),
+          description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
         })
       }
       return
@@ -307,7 +308,7 @@ export default function OperationLog() {
       toast({
         type: 'error',
         title: t('oplog.alertRuleTest') + ' ' + t('common.failure'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     }
   }
@@ -640,7 +641,7 @@ export default function OperationLog() {
             <div className="p-8 text-center text-danger">
               <AlertTriangle size={24} className="mx-auto mb-2" />
               <p className="text-sm">
-                {error instanceof Error ? error.message : t('common.error')}
+                {resolveErrorText(error) || t('common.error')}
               </p>
             </div>
           ) : logs.length === 0 ? (

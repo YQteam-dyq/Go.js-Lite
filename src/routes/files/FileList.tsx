@@ -46,6 +46,7 @@ import { useUiStore } from '@/stores/uiStore'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { resolveErrorText } from '@/lib/errorMessages'
 import { useCapabilities } from '@/hooks/useCapabilities'
 
 type SortField = 'name' | 'size' | 'mtime'
@@ -205,7 +206,7 @@ export default function FileList() {
       setNewItemError('')
       invalidateFiles()
     } catch (err) {
-      setNewItemError(err instanceof Error ? err.message : t('files.createFailed'))
+      setNewItemError(resolveErrorText(err) || t('files.createFailed'))
     } finally {
       setCreating(false)
     }
@@ -237,7 +238,7 @@ export default function FileList() {
       } catch (err) {
         const message =
           err instanceof Error && err.message
-            ? err.message
+            ? resolveErrorText(err)
             : t('files.uploadFailed')
         uploadManager.setError(id, message)
       }
@@ -336,7 +337,7 @@ export default function FileList() {
       setRenameError('')
       invalidateFiles()
     } catch (err) {
-      setRenameError(err instanceof Error ? err.message : t('files.renameFailed'))
+      setRenameError(resolveErrorText(err) || t('files.renameFailed'))
     } finally {
       setRenaming(false)
     }
@@ -372,7 +373,7 @@ export default function FileList() {
       toast({
         type: 'error',
         title: t('files.deleteFailed'),
-        description: err instanceof Error ? err.message : undefined,
+        description: err instanceof Error ? resolveErrorText(err) : undefined,
       })
     } finally {
       setDeleting(false)
@@ -399,7 +400,7 @@ export default function FileList() {
       toast({
         type: 'error',
         title: t('files.downloadFailed'),
-        description: err instanceof Error ? err.message : undefined,
+        description: err instanceof Error ? resolveErrorText(err) : undefined,
       })
     }
   }
@@ -435,7 +436,7 @@ export default function FileList() {
         ...s,
         error:
           err instanceof Error
-            ? err.message
+            ? resolveErrorText(err)
             : pathPicker.mode === 'copy'
               ? t('files.copyFailed')
               : t('files.moveFailed'),
@@ -462,7 +463,7 @@ export default function FileList() {
     } catch (err) {
       setChmodModal((s) => ({
         ...s,
-        error: err instanceof Error ? err.message : t('files.chmodFailed'),
+        error: err instanceof Error ? resolveErrorText(err) : t('files.chmodFailed'),
       }))
     } finally {
       setChmodLoading(false)
@@ -500,7 +501,7 @@ export default function FileList() {
       toast({
         type: 'error',
         title: t('files.zipFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setZipping(false)
@@ -528,7 +529,7 @@ export default function FileList() {
       toast({
         type: 'error',
         title: t('files.unzipFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setZipping(false)
@@ -566,7 +567,7 @@ export default function FileList() {
       toast({
         type: 'error',
         title: t('files.targzFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setZipping(false)
@@ -595,7 +596,7 @@ export default function FileList() {
       toast({
         type: 'error',
         title: t('files.untargzFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setZipping(false)
@@ -735,7 +736,7 @@ export default function FileList() {
               <SkeletonTable rows={8} columns={4} />
             ) : error ? (
               <EmptyError
-                error={error instanceof Error ? error.message : t('common.unknownError')}
+                error={resolveErrorText(error) || t('common.unknownError')}
                 onRetry={() => refetch()}
                 className="py-16"
               />

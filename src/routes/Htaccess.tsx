@@ -10,6 +10,7 @@ import { Confirm } from '@/components/ui/Modal'
 import { htaccessApi } from '@/api/htaccess'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { HtaccessRuleType } from '@shared/types'
 
 const CodeEditor = lazy(() =>
@@ -70,7 +71,7 @@ export default function Htaccess() {
       queryClient.invalidateQueries({ queryKey: ['htaccess'] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('htaccess.saveFailed'), description: err.message })
+      toast({ type: 'error', title: t('htaccess.saveFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -85,7 +86,7 @@ export default function Htaccess() {
       toast({ type: 'success', title: t('htaccess.generateSuccess') })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('htaccess.generateFailed'), description: err.message })
+      toast({ type: 'error', title: t('htaccess.generateFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -131,7 +132,7 @@ export default function Htaccess() {
       toast({
         type: 'error',
         title: t('htaccess.resetFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setResetting(false)
@@ -210,7 +211,7 @@ export default function Htaccess() {
         <Card className="p-6 text-center text-danger">
           <AlertTriangle size={24} className="mx-auto mb-2" />
           <p className="text-sm">
-            {error instanceof Error ? error.message : t('htaccess.loadFailed')}
+            {resolveErrorText(error) || t('htaccess.loadFailed')}
           </p>
           <Button variant="secondary" size="sm" className="mt-3" onClick={() => refetch()}>
             {t('common.retry')}

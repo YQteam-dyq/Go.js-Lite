@@ -8,6 +8,7 @@ import { Card } from '@/components/ui/Card'
 import { authApi } from '@/api/auth'
 import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import { useAuthStore } from '@/stores/authStore'
 import { setCsrfToken } from '@/api/client'
 import { useAuthBootstrap } from '@/hooks/useAuth'
@@ -92,7 +93,7 @@ export default function Install() {
       toast({ type: 'success', title: t('install.success'), description: t('install.redirect') })
       setTimeout(() => navigate('/dashboard', { replace: true }), 5000)
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : t('install.fail')
+      const msg = err instanceof Error ? resolveErrorText(err) : t('install.fail')
       toast({ type: 'error', title: t('install.fail'), description: msg })
     } finally {
       setLoading(false)

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import { healthCheckApi } from '@/api/healthCheck'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { HealthCheckItem, CompatibilityItem } from '@shared/types'
 
 type TabKey = 'security' | 'performance' | 'compatibility'
@@ -53,7 +54,7 @@ export default function HealthCheck() {
         </div>
       ) : error ? (
         <Card className="p-6 text-center text-danger">
-          {t('common.error')}：{error instanceof Error ? error.message : t('common.unknownError')}
+          {t('common.error')}：{resolveErrorText(error) || t('common.unknownError')}
         </Card>
       ) : data ? (
         <>

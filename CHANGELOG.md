@@ -3,6 +3,21 @@
 > Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > Project language policy: this file is **English only** starting from v0.3.1; Chinese is no longer maintained here.
 
+## [0.5.2] - 2026-08-07
+
+### Changed
+- Architecture: split the monolithic `api.php` into modular `backend/` files and replace the global `switch` dispatch with a lightweight `GoJS_Router`, keeping `router.php`/`webcron.php` entry contracts unchanged.
+- Dependency injection: introduce `GoJS_Context` to centralize `config` / `files_root` global state, improving testability without breaking legacy entry points.
+- Versioning: unify the version to a single source (`shared/version.ts`, `api.php` `VERSION`/`APP_VERSION`, `package.json`) at 0.5.2.
+- Tooling: prune redundant Vite configs (keep `vite.config.ts` only).
+
+### Added
+- PHPUnit test suite covering auth, file operations / safe-path validation, database config, and the router (green).
+- GitHub Actions CI: PHP lint, PHPUnit, and frontend typecheck + build.
+- API documentation (`docs/api.md`) and a contributor guide (`CONTRIBUTING.md`).
+- Frontend error-code to i18n key mapping so errors render in the active language while staying backward-compatible with the backend JSON.
+- README performance notes for OPcache and on-demand module loading.
+
 ## [0.4.0] - 2026-08-02
 
 ### Added

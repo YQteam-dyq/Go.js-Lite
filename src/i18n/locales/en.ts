@@ -856,6 +856,12 @@ const en: Translation = {
     notFound: 'Resource not found',
     serverError: 'Server error — please try again later',
     unknown: 'An unexpected error occurred',
+    rateLimited: 'Too many requests — please try again later',
+    validationError: 'Input validation failed',
+    badRequest: 'Bad request',
+    uploadFailed: 'Upload failed',
+    aborted: 'Upload aborted',
+    timeout: 'Request timed out',
   },
   codeEditor: {
     lineCount: '{count} lines',

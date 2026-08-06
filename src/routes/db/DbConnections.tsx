@@ -12,6 +12,7 @@ import { Modal, Confirm } from '@/components/ui/Modal'
 import { Link } from 'react-router-dom'
 import type { DbConnection, DbConnectionInput } from '@shared/types'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 export default function DbConnections() {
   const { t } = useI18n()
@@ -79,7 +80,7 @@ export default function DbConnections() {
       toast({
         type: 'error',
         title: t('common.saveFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     } finally {
       setSaving(false)
@@ -97,7 +98,7 @@ export default function DbConnections() {
       toast({
         type: 'error',
         title: t('common.deleteFailed'),
-        description: err instanceof Error ? err.message : t('common.unknownError'),
+        description: err instanceof Error ? resolveErrorText(err) : t('common.unknownError'),
       })
     }
   }
@@ -126,7 +127,7 @@ export default function DbConnections() {
           </div>
           <p className="text-sm font-medium text-fg mb-1">{t('db.loadFailed')}</p>
           <p className="text-xs text-fg-muted mb-5">
-            {error instanceof Error ? error.message : t('common.unknownError')}
+            {resolveErrorText(error) || t('common.unknownError')}
           </p>
           <Button variant="secondary" size="sm" onClick={() => refetch()}>
             <RefreshCw size={16} />

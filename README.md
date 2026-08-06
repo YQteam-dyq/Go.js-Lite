@@ -211,6 +211,58 @@ public_html/
 
 ---
 
+## ⚡ Performance Tuning
+
+### OPcache
+
+Every request to the panel goes through `api.php`. Enabling **OPcache** lets PHP cache the compiled bytecode so scripts no longer need to be re-parsed on every request, which significantly reduces the per-request cost of `api.php`.
+
+Recommended `php.ini` settings:
+
+```ini
+opcache.enable = 1                    ; enable the opcode cache (on by default in production)
+opcache.enable_cli = 1                ; optional: also enable for CLI (e.g. cron) scenarios
+opcache.validate_timestamps = 1       ; re-check file mtimes to detect code changes
+opcache.revalidate_freq = 60          ; check for changed files at most once per 60s
+opcache.memory_consumption = 128      ; 128 MB of shared memory for cached opcodes
+opcache.max_accelerated_files = 10000 ; enough slots for the codebase
+```
+
+> 💡 **Tip**: In production, after deploying a new release you can either clear the cache (e.g. `opcache_reset()` / restart PHP-FPM) or briefly set `opcache.validate_timestamps = 0` while keeping `opcache.revalidate_freq` for development. If OPcache is not available, the panel still works correctly — it just parses files on every request.
+
+### On-demand Loading
+
+The backend logic has been split from a single monolithic `api.php` into modules under `backend/` (auth, files, database, ssl, backup, system, settings, cron, notifications, misc, …). A lightweight `autoload.php` loads only the modules needed for the current request, instead of parsing the whole file every time. This keeps the per-request parse footprint small and makes the codebase easier to maintain.
+
+<details><summary>📖 中文翻译</summary>
+
+## ⚡ 性能优化建议
+
+### OPcache
+
+面板的每次请求都会经过 `api.php`。开启 **OPcache** 后，PHP 会把编译后的字节码缓存起来，脚本无需在每次请求时重新解析，可显著降低每请求解析 `api.php` 的开销。
+
+推荐的 `php.ini` 配置：
+
+```ini
+opcache.enable = 1                    ; 开启操作码缓存（生产环境默认开启）
+opcache.enable_cli = 1                ; 可选：CLI（如 cron）场景也启用
+opcache.validate_timestamps = 1       ; 检查文件修改时间，感知代码变更
+opcache.revalidate_freq = 60          ; 每 60 秒最多检查一次文件是否变更
+opcache.memory_consumption = 128      ; 128 MB 共享内存用于缓存操作码
+opcache.max_accelerated_files = 10000 ; 足够的缓存槽位
+```
+
+> 💡 **提示**：生产环境发布新版本后，可通过清除缓存（如 `opcache_reset()` / 重启 PHP-FPM），或临时将 `opcache.validate_timestamps = 0` 来使新代码生效；开发环境保留 `opcache.revalidate_freq` 即可。若主机未提供 OPcache，面板仍能正常工作——只是每次请求都会重新解析文件。
+
+### 按需加载
+
+后端逻辑已从单一的大型 `api.php` 拆分到 `backend/` 下的各模块（auth、files、database、ssl、backup、system、settings、cron、notifications、misc 等）。轻量 `autoload.php` 只加载当前请求所需的模块，而非每次都解析整个文件，从而减小单请求的解析体积，也让代码更易维护。
+
+</details>
+
+---
+
 ## 📱 Feature Overview
 
 ### Core Features

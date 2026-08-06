@@ -35,6 +35,7 @@ import { toast } from '@/components/ui/Toast'
 import { useI18n } from '@/hooks/useI18n'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { useFormat } from '@/lib/format'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { FtpAccount, FtpProvider, FtpAccountCreateInput, FtpAccountUpdateInput } from '@shared/types'
 
 type ModalTab = 'general' | 'posix' | 'quota' | 'bandwidth'
@@ -123,7 +124,7 @@ export default function Ftp() {
       queryClient.invalidateQueries({ queryKey: ['ftp-accounts'] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('common.saveFailed'), description: err.message })
+      toast({ type: 'error', title: t('common.saveFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -134,7 +135,7 @@ export default function Ftp() {
       queryClient.invalidateQueries({ queryKey: ['ftp-accounts'] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('common.saveFailed'), description: err.message })
+      toast({ type: 'error', title: t('common.saveFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -145,7 +146,7 @@ export default function Ftp() {
       queryClient.invalidateQueries({ queryKey: ['ftp-accounts'] })
     },
     onError: (err: Error) => {
-      toast({ type: 'error', title: t('common.deleteFailed'), description: err.message })
+      toast({ type: 'error', title: t('common.deleteFailed'), description: resolveErrorText(err) })
     },
   })
 
@@ -272,7 +273,7 @@ export default function Ftp() {
       toast({
         type: 'error',
         title: t('ftp.testLoginFailed'),
-        description: err instanceof Error ? err.message : undefined,
+        description: err instanceof Error ? resolveErrorText(err) : undefined,
       })
     } finally {
       setTesting(false)
@@ -285,7 +286,6 @@ export default function Ftp() {
       await deleteMutation.mutateAsync(deleteId)
       setDeleteId(null)
     } catch {
-      // handled in onError
     }
   }
 
@@ -298,7 +298,7 @@ export default function Ftp() {
       toast({
         type: 'error',
         title: '同步失败',
-        description: err instanceof Error ? err.message : undefined,
+        description: err instanceof Error ? resolveErrorText(err) : undefined,
       })
     } finally {
       setSyncing(false)
@@ -322,7 +322,7 @@ export default function Ftp() {
       toast({
         type: 'error',
         title: '导出失败',
-        description: err instanceof Error ? err.message : undefined,
+        description: err instanceof Error ? resolveErrorText(err) : undefined,
       })
     } finally {
       setBusy(false)
@@ -331,7 +331,7 @@ export default function Ftp() {
 
   const hasActiveProvider = !!caps?.active_provider
   const bannerVariant = !caps?.active_provider ? 'warning' : caps?.can_write ? 'success' : 'danger'
-  // 降级原因：优先取新结构 reasons，兼容旧后端 degradation_reasons
+  // Degradation reasons: prefer the new `reasons` structure, fall back to legacy `degradation_reasons`.
   const degradationReasons = useMemo(() => {
     if (!caps) return []
     if (caps.reasons && caps.reasons.length > 0) return caps.reasons
@@ -418,7 +418,6 @@ export default function Ftp() {
         </div>
       </div>
 
-      {/* Capability banner */}
       {loadingCaps ? (
         <Card>
           <CardBody className="flex items-center justify-center py-6">
@@ -473,7 +472,6 @@ export default function Ftp() {
         </Card>
       )}
 
-      {/* Degradation reasons card */}
       {caps?.degraded && degradeWorst && (
         <Card
           className={
@@ -511,7 +509,6 @@ export default function Ftp() {
         </Card>
       )}
 
-      {/* Accounts list */}
       <Card>
         <CardHeader className="flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -531,7 +528,7 @@ export default function Ftp() {
           ) : error ? (
             <div className="p-6 text-center text-sm text-danger">
               <XCircle size={24} className="mx-auto mb-2" />
-              <p>{error instanceof Error ? error.message : t('common.error')}</p>
+              <p>{resolveErrorText(error) || t('common.error')}</p>
               <Button variant="secondary" size="sm" className="mt-3" onClick={() => refetch()}>
                 {t('common.retry')}
               </Button>
@@ -651,7 +648,6 @@ export default function Ftp() {
         </CardBody>
       </Card>
 
-      {/* New / Edit Modal */}
       <Modal
         open={editing}
         onClose={() => !saving && setEditing(false)}
@@ -669,7 +665,6 @@ export default function Ftp() {
         }
       >
         <div className="space-y-4">
-          {/* Tabs */}
           <div className="flex items-center gap-1 border-b border-border -mx-5 -mt-4 px-5 mb-4 overflow-x-auto">
             {(['general', 'posix', 'quota', 'bandwidth'] as ModalTab[]).map((tab) => {
               const icons = { general: Users, posix: Gauge, quota: HardDriveUpload, bandwidth: Gauge }
@@ -930,7 +925,6 @@ export default function Ftp() {
         </div>
       </Modal>
 
-      {/* Reset password modal */}
       <Modal
         open={resetAccount !== null}
         onClose={() => !saving && setResetAccount(null)}
@@ -995,7 +989,6 @@ export default function Ftp() {
         </div>
       </Modal>
 
-      {/* Test login modal */}
       <Modal
         open={testLoginAccount !== null}
         onClose={() => !testing && (setTestLoginAccount(null), setTestLoginPw(''))}

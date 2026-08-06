@@ -12,6 +12,7 @@ import { toast } from '@/components/ui/Toast'
 import { apiTokensApi } from '@/api/apiTokens'
 import { useFormat } from '@/lib/format'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { ApiToken, ApiTokenScope } from '@shared/types'
 
 const ALL_SCOPES: ApiTokenScope[] = ['backup:run', 'status:read', 'files:read']
@@ -73,7 +74,7 @@ export default function ApiTokens() {
       resetCreate()
       queryClient.invalidateQueries({ queryKey: ['api-tokens'] })
     } catch (err) {
-      setCreateFailed(err instanceof Error ? err.message : t('apiTokens.createFailed'))
+      setCreateFailed(err instanceof Error ? resolveErrorText(err) : t('apiTokens.createFailed'))
     } finally {
       setCreating(false)
     }
@@ -102,7 +103,7 @@ export default function ApiTokens() {
       toast({
         type: 'error',
         title: t('apiTokens.revokeFailed'),
-        description: err instanceof Error ? err.message : undefined,
+        description: err instanceof Error ? resolveErrorText(err) : undefined,
       })
     } finally {
       setRevoking(false)

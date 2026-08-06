@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { BootstrapData, Capabilities } from '@shared/types'
+import { VERSION } from '@shared/version'
 
 interface AuthState {
   bootstrapped: boolean
@@ -47,7 +48,7 @@ export const useAuthStore = create<AuthState>((set) => ({
   capabilities: null,
   user: null,
   backendVersion: '',
-  frontendVersion: import.meta.env.VITE_APP_VERSION || '0.4.0',
+  frontendVersion: import.meta.env.VITE_APP_VERSION || VERSION,
 
   setBootstrap: (data) =>
     set({
@@ -60,7 +61,7 @@ export const useAuthStore = create<AuthState>((set) => ({
       capabilities: data.capabilities,
       user: data.user || null,
       backendVersion: data.backendVersion,
-      frontendVersion: data.frontendVersion || '0.5.0',
+      frontendVersion: data.frontendVersion || VERSION,
     }),
 
   setBootstrapFailed: () =>

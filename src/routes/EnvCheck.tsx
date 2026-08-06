@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
 import { envCheckApi } from '@/api/envCheck'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { EnvCheckItem } from '@shared/types'
 
 type Category = 'extension' | 'function' | 'system' | 'config'
@@ -76,7 +77,7 @@ export default function EnvCheck() {
         </div>
       ) : error ? (
         <Card className="p-6 text-center text-danger">
-          {t('common.error')}：{error instanceof Error ? error.message : t('common.unknownError')}
+          {t('common.error')}：{resolveErrorText(error) || t('common.unknownError')}
         </Card>
       ) : data ? (
         <>

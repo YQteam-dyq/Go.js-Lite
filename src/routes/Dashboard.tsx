@@ -11,6 +11,7 @@ import { useFormat, getFileExtension, isImageFile, isTextFile } from '@/lib/form
 import { Link } from 'react-router-dom'
 import { Button } from '@/components/ui/Button'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 import type { FileEntry, MonitorReport } from '@shared/types'
 
 export default function Dashboard() {
@@ -40,7 +41,7 @@ export default function Dashboard() {
     return (
       <div className="p-4 md:p-6">
         <EmptyError
-          error={error instanceof Error ? error.message : t('common.unknownError')}
+          error={resolveErrorText(error) || t('common.unknownError')}
           onRetry={() => refetch()}
         />
       </div>
@@ -186,7 +187,7 @@ export default function Dashboard() {
             </div>
           ) : monitorQuery.isError ? (
             <EmptyError
-              error={monitorQuery.error instanceof Error ? monitorQuery.error.message : t('common.unknownError')}
+              error={resolveErrorText(monitorQuery.error) || t('common.unknownError')}
               onRetry={() => monitorQuery.refetch()}
             />
           ) : !monitorData || monitorData.history.length === 0 ? (

@@ -1,4 +1,5 @@
 import type { ApiResponse } from '@shared/types'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 let csrfToken = ''
 
@@ -134,5 +135,13 @@ export class ApiError extends Error {
     this.status = status
     this.retryAfter = retryAfter
     this.name = 'ApiError'
+  }
+
+  /**
+   * Returns the error message localized to the current language, preferring the i18n
+   * keyed by code and falling back to the backend message.
+   */
+  getLocalizedMessage(): string {
+    return resolveErrorText(this)
   }
 }

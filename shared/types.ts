@@ -277,11 +277,11 @@ export interface EnvCheckItem {
   name: string
   category: 'extension' | 'function' | 'system' | 'config'
   available: boolean
-  /** 向后兼容：原始原因文本（已过时，优先使用 reason_key + reason_params） */
+  /** Backward-compatible legacy reason text; prefer reason_key + reason_params. */
   reason: string
-  /** 向后兼容：原始关联功能文本（已过时，优先使用 feature_key） */
+  /** Backward-compatible legacy related-feature text; prefer feature_key. */
   related_feature: string
-  /** 向后兼容：原始建议文本（已过时，优先使用 suggestion_key + suggestion_params） */
+  /** Backward-compatible legacy suggestion text; prefer suggestion_key + suggestion_params. */
   suggestion: string
   feature_key?: string
   reason_key?: string
@@ -310,13 +310,13 @@ export interface SSLInfo {
   valid_to?: string
   days_remaining?: number
   chain_complete?: boolean
-  /** 证书健康状态：正常 / 即将到期 / 紧急 / 已过期 */
+  /** Certificate health: ok / warning / critical / expired. */
   cert_status?: 'ok' | 'warning' | 'critical' | 'expired'
-  /** 检测执行状态：待检测 / 检测成功 / 检测失败 / 检测中 */
+  /** Check execution status: pending / ok / failed / checking. */
   status: 'pending' | 'ok' | 'failed' | 'checking'
-  /** 向后兼容：原始错误码 / 错误文本（已过时，优先使用 error_key + error_params） */
+  /** Backward-compatible legacy error code/text; prefer error_key + error_params. */
   error?: string
-  /** 向后兼容：原始错误详情文本（已过时，优先使用 error_key + error_params） */
+  /** Backward-compatible legacy error detail; prefer error_key + error_params. */
   message?: string
   error_key?: string
   error_params?: Record<string, string | number> | null
@@ -525,7 +525,7 @@ export interface FtpDegradationReason {
   severity: 'info' | 'warning' | 'danger';
 }
 
-/** 兼容旧后端返回的 degradation_reasons 条目 */
+/** Compatible with legacy backend degradation_reasons entries. */
 export interface FtpLegacyDegradationReason {
   key: string;
   message_key: string;
@@ -602,15 +602,15 @@ export interface AcmeCertificateRecord {
   issuer_url?: string
   chain_thumbprint?: string
   san_domains?: string[]
-  /** 最近一次自动续期失败的错误（i18n key 或原始文本） */
+  /** Error from the last auto-renew attempt (i18n key or raw text). */
   last_renew_error?: string | null
-  /** 最近一次自动续期尝试时间戳（秒） */
+  /** Timestamp (seconds) of the last auto-renew attempt. */
   last_renew_attempt_ts?: number | null
-  /** 最近一次自动续期成功时间戳（秒） */
+  /** Timestamp (seconds) of the last successful auto-renew. */
   last_renew_ok_ts?: number | null
-  /** 连续自动续期失败次数 */
+  /** Consecutive auto-renew failure count. */
   renew_attempts?: number
-  /** 连续失败达到上限后自动暂停自动续期 */
+  /** Auto-paused when consecutive failures reach the limit. */
   auto_paused?: boolean
 }
 
@@ -638,8 +638,6 @@ export type SeverityBadgeVariant = 'accent'|'success'|'warning'|'danger'|'muted'
 export interface SecurityVulnItem { package:string; installed_version:string; fixed_version?:string; severity:'info'|'low'|'moderate'|'high'|'critical'; title:string; url?:string; severityBadgeVariant:SeverityBadgeVariant }
 export interface SecurityScanFrontendResult { available:boolean; reason_key?:string; scanned_at?:number; vulns:SecurityVulnItem[] }
 export interface SecurityScanBackendResult { available:boolean; reason_key?:string; scanned_at?:number; heuristicOnly:boolean; notice_key?:string; vulns:SecurityVulnItem[] }
-
-// ===== v0.5.0 types =====
 
 export interface RemoteArchiveItem {
   key: string

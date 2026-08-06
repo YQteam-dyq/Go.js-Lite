@@ -9,8 +9,8 @@ interface SparklineProps {
 }
 
 /**
- * 轻量内联 SVG 折线图（无第三方依赖）。
- * color 传入 tailwind 文本色类（如 'text-accent'），stroke/fill 使用 currentColor。
+ * Lightweight dependency-free inline SVG line chart. color expects a tailwind text
+ * color class (e.g. 'text-accent'); stroke/fill use currentColor.
  */
 export function Sparkline({ data, color = 'text-accent', height = 48, max, className = '' }: SparklineProps) {
   const gradId = useId()

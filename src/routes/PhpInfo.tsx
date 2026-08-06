@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/Button'
 import { toast } from '@/components/ui/Toast'
 import { phpInfoApi } from '@/api/phpinfo'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 export default function PhpInfo() {
   const { t } = useI18n()
@@ -55,7 +56,7 @@ export default function PhpInfo() {
         </div>
       ) : error ? (
         <Card className="p-6 text-center text-danger">
-          {t('common.error')}：{error instanceof Error ? error.message : t('common.unknownError')}
+          {t('common.error')}：{resolveErrorText(error) || t('common.unknownError')}
         </Card>
       ) : data ? (
         <>
