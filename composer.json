@@ -2,7 +2,7 @@
     "name": "gojs-lite/gojs-lite",
     "description": "Go.js-Lite lightweight shared-hosting management panel (backend)",
     "type": "project",
-    "license": "MIT",
+    "license": "Apache-2.0",
     "require": {
         "php": ">=7.4"
     },

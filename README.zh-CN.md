@@ -223,7 +223,9 @@ Go.js 会自动探测服务器环境，不可用的功能自动隐藏：
 
 ## 开源协议
 
-[MIT License](LICENSE)
+[Apache License 2.0](LICENSE)
+
+本项目同时附带 `NOTICE` 文件（Apache License 2.0 要求）。
 
 ---
 

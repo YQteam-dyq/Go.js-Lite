@@ -218,7 +218,9 @@ Go.js Lite automatically detects your server environment and hides unavailable f
 
 ## License
 
-[MIT License](LICENSE)
+[Apache License 2.0](LICENSE)
+
+This product also includes a `NOTICE` file as required by the Apache License, Version 2.0.
 
 ---
 
