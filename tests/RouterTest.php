@@ -5,12 +5,6 @@ namespace Gojs\Tests;
 use PHPUnit\Framework\TestCase;
 use GoJS_Router;
 
-/**
- * 路由类（backend/Router.php）单元测试：register/add/addPrefix/dispatch 及 405/404。
- *
- * 404/405 会调用 gojs_json_response()（内部引用了 header()/exit()），
- * 因此使用 @runInSeparateProcess 隔离，避免影响主测试进程。
- */
 class RouterTest extends TestCase
 {
     public function testAddRegistersAndDispatchesHandler(): void
@@ -78,18 +72,12 @@ class RouterTest extends TestCase
         $this->assertTrue($called);
     }
 
-    /**
-     * 未知路径应返回 404（gojs_json_response 内部会 exit，故在子进程执行并捕获输出）。
-     */
     public function testDispatchUnknownPathReturns404(): void
     {
         $output = $this->runDispatch('does-not-exist', 'GET');
         $this->assertStringContainsString('not_found', $output);
     }
 
-    /**
-     * 已知路径但方法不匹配应返回 405。
-     */
     public function testDispatchWrongMethodReturns405(): void
     {
         $output = $this->runDispatch('files', 'DELETE');

@@ -4,9 +4,6 @@ namespace Gojs\Tests;
 
 use PHPUnit\Framework\TestCase;
 
-/**
- * 数据库连接/元数据与配置读写（backend/database.php、backend/common.php）单元测试。
- */
 class DatabaseConfigTest extends TestCase
 {
     protected function setUp(): void
@@ -125,7 +122,6 @@ class DatabaseConfigTest extends TestCase
 
     public function testDbConnectReturnsFailureWithoutExtension(): void
     {
-        // 保持纯单元：不依赖真实 MySQL；若扩展缺失返回失败，若存在也会因连接失败返回失败
         $conn = array(
             'host' => '127.0.0.1',
             'port' => 1,

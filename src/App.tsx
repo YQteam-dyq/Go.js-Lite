@@ -121,7 +121,10 @@ export default function App() {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Spinner size="lg" />
+        <div className="text-center">
+          <Spinner size="lg" />
+          <p className="mt-4 text-muted">Loading...</p>
+        </div>
       </div>
     )
   }

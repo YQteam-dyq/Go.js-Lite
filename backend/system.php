@@ -899,7 +899,14 @@ function gojs_cron_capabilities() {
             $code2 = 0;
             @exec('crontab -l 2>&1', $out2, $code2);
             if ($code2 === 0 || $code2 === 1) {
-                $crontab_available = true;
+                $joined = strtolower(implode("\n", $out2));
+                if (
+                    strpos($joined, 'not recognized') === false
+                    && strpos($joined, 'no such file') === false
+                    && strpos($joined, 'command not found') === false
+                ) {
+                    $crontab_available = true;
+                }
             }
         }
 

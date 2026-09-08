@@ -514,7 +514,7 @@ export interface NotificationChannelMail extends NotificationChannelBase { type:
 export interface NotificationChannelSmtp extends NotificationChannelBase { type:'smtp'; host:string; port:number; username?:string; password_enc?:string; from_addr:string; use_tls?:boolean }
 export interface NotificationChannelWebhook extends NotificationChannelBase { type:'webhook'; url:string; method?:'POST'|'PUT'; headers_enc?:string }
 export type NotificationChannel = NotificationChannelMail | NotificationChannelSmtp | NotificationChannelWebhook;
-export type NotificationCategory = 'login_anomaly'|'backup'|'ssl'|'security'|'system';
+export type NotificationCategory = 'login_anomaly'|'backup'|'ssl'|'security'|'system'|'monitor';
 export type NotificationSeverity = 'info'|'success'|'warning'|'critical';
 export interface Notification { id:string; category:NotificationCategory; severity:NotificationSeverity; title_key:string; body_key?:string; body_params?:Record<string,string|number>; payload?:unknown; read_at?:number; created_at:number }
 export type FtpProvider = 'proftpd_authfile' | 'pureftpd_passwd';

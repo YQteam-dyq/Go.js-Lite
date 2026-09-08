@@ -14,16 +14,9 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
-      '/gojs/api': {
+      '/gojs/api/': {
         target: 'http://localhost:8080',
         changeOrigin: true,
-        rewrite: (path) => {
-          const cleanPath = path.replace(/^\/gojs\/api/, '')
-          const [pathPart, queryPart] = cleanPath.split('?')
-          const apiAction = pathPart.replace(/^\//, '')
-          const query = queryPart ? `&${queryPart}` : ''
-          return `/api.php?api=${apiAction}${query}`
-        },
       },
     },
   },

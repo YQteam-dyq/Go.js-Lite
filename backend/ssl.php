@@ -253,7 +253,7 @@ function gojs_acme_dir(string $ca = 'letsencrypt'): array {
         return $cache[$ca];
     }
     $urls = array(
-        'letsencrypt' => 'https:
+        'letsencrypt' => 'https://acme-v02.api.letsencrypt.org/directory',
         'letsencrypt-staging' => 'https://acme-staging-v02.api.letsencrypt.org/directory',
     );
     $dir_url = isset($urls[$ca]) ? $urls[$ca] : $urls['letsencrypt'];

@@ -4,17 +4,12 @@ namespace Gojs\Tests;
 
 use PHPUnit\Framework\TestCase;
 
-/**
- * 认证模块（backend/auth.php）纯逻辑单元测试。
- */
 class AuthTest extends TestCase
 {
     protected function setUp(): void
     {
         parent::setUp();
-        // 隔离上下文与全局状态
         \GoJS_Context::instance()->reset();
-        // 为密封/解密提供稳定的加密密钥
         $GLOBALS['config'] = array(
             'encryption_key' => 'test-encryption-key-0123456789abcdef',
         );
@@ -118,7 +113,6 @@ class AuthTest extends TestCase
 
     public function testCheckBruteForceNoLock(): void
     {
-        // 无 AUTH_LOG 时不应锁定
         $result = gojs_check_brute_force();
         $this->assertArrayHasKey('locked', $result);
         $this->assertFalse($result['locked']);

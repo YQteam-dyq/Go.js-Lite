@@ -218,7 +218,7 @@ function gojs_get_body() {
     static $body = null;
     if ($body !== null) return $body;
 
-    $raw = file_get_contents('php:
+    $raw = file_get_contents('php://input');
     if (!$raw) {
         $body = array();
         return $body;

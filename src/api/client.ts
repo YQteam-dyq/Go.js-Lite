@@ -1,144 +1,209 @@
-import type { ApiResponse } from '@shared/types'
-import { resolveErrorText } from '@/lib/errorMessages'
+const API_BASE = '/gojs/api'
 
-let csrfToken = ''
+export type ApiResponseType = 'json' | 'text' | 'blob'
 
-export function setCsrfToken(token: string) {
-  csrfToken = token
-}
-
-export function getCsrfToken() {
-  return csrfToken
-}
-
-interface FetchOptions extends Omit<RequestInit, 'body'> {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  params?: Record<string, string | number | boolean | undefined>
-  body?: unknown
-  json?: boolean
-  responseType?: 'json' | 'blob' | 'text'
+export interface ApiFetchOptions {
+  method?: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'
+  headers?: Record<string, string>
+  body?: any
+  signal?: AbortSignal
+  params?: Record<string, string | number | boolean | null | undefined>
+  responseType?: ApiResponseType
 }
 
 export async function apiFetch<T = unknown>(
   path: string,
-  options: FetchOptions = {},
+  options: ApiFetchOptions = {},
 ): Promise<T> {
-  const { method = 'GET', params, body, json = true, responseType = 'json' } = options
-
-  const base = (import.meta.env.BASE_URL || '/').replace(/\/$/, '')
-  let url = base + `/api${path.startsWith('/') ? path : '/' + path}`
-
-  if (params) {
-    const search = new URLSearchParams()
-    Object.entries(params).forEach(([k, v]) => {
-      if (v !== undefined && v !== null) {
-        search.append(k, String(v))
-      }
-    })
-    const qs = search.toString()
-    if (qs) url += '?' + qs
+  const method = options.method || 'GET'
+  const headers: Record<string, string> = {
+    Accept: 'application/json',
+    ...(options.headers || {}),
   }
 
-  const headers: Record<string, string> = {}
-
-  if (json && body !== undefined && !(body instanceof FormData)) {
-    headers['Content-Type'] = 'application/json'
+  let body: BodyInit | undefined
+  if (options.body !== undefined) {
+    if (
+      options.body instanceof FormData ||
+      options.body instanceof Blob ||
+      options.body instanceof ArrayBuffer
+    ) {
+      body = options.body as any
+    } else {
+      headers['Content-Type'] = headers['Content-Type'] || 'application/json'
+      body = JSON.stringify(options.body)
+    }
   }
 
-  if (csrfToken && method !== 'GET') {
-    headers['X-CSRF-Token'] = csrfToken
+  let url = path.startsWith('http') ? path : `${API_BASE}/${path.replace(/^\//, '')}`
+  if (options.params) {
+    const qs = new URLSearchParams()
+    for (const [k, v] of Object.entries(options.params)) {
+      if (v !== undefined && v !== null) qs.append(k, String(v))
+    }
+    const query = qs.toString()
+    if (query) url += (url.includes('?') ? '&' : '?') + query
+  }
+
+  const csrf = getCsrfToken()
+  if (csrf) {
+    headers['X-CSRF-Token'] = csrf
   }
 
   const res = await fetch(url, {
     method,
     headers,
-    body:
-      body === undefined
-        ? undefined
-        : body instanceof FormData
-          ? body
-          : JSON.stringify(body),
-    credentials: 'same-origin',
+    body,
+    credentials: 'include',
+    signal: options.signal,
   })
 
-  if (res.status === 401) {
-    window.dispatchEvent(new CustomEvent('auth:expired'))
-    throw new ApiError('unauthorized', '登录已过期', res.status)
-  }
-
-  if (res.status === 403) {
-    const data = await safeParseJson(res)
-    throw new ApiError(data?.error?.code || 'forbidden', data?.error?.message || '权限不足', res.status)
-  }
-
-  if (res.status === 404) {
-    const data = await safeParseJson(res)
-    if (data?.error?.code === 'not_found') {
-      window.dispatchEvent(new CustomEvent('access:denied'))
+  if (!res.ok) {
+    const text = await res.text()
+    let errBody: any = null
+    try {
+      errBody = text ? JSON.parse(text) : null
+    } catch {
+      errBody = null
     }
-    throw new ApiError(data?.error?.code || 'not_found', data?.error?.message || 'Not Found', res.status)
+    throw buildApiError(res.status, errBody, res.statusText)
   }
 
-  if (res.status === 429) {
-    const data = await safeParseJson(res)
-    const errCode = data?.error?.code || 'rate_limited'
-    const errMsg = data?.error?.message || '请求过于频繁，请稍后再试'
-    const retryAfter = typeof data?.error?.retry_after === 'number' ? data.error.retry_after : undefined
-    throw new ApiError(errCode, errMsg, res.status, retryAfter)
-  }
-
-  if (res.status >= 400 && res.status < 500) {
-    const data = await safeParseJson(res)
-    throw new ApiError(
-      data?.error?.code || 'bad_request',
-      data?.error?.message || '请求错误',
-      res.status,
-    )
-  }
-
-  if (res.status >= 500) {
-    throw new ApiError('server_error', '服务器错误', res.status)
-  }
+  const responseType = options.responseType || 'json'
 
   if (responseType === 'blob') {
-    return res.blob() as unknown as T
+    return (await res.blob()) as unknown as T
   }
   if (responseType === 'text') {
-    return res.text() as unknown as T
+    return (await res.text()) as unknown as T
   }
 
-  const data = (await res.json()) as ApiResponse<T>
-
-  if (!data.ok || data.error) {
-    throw new ApiError(data.error?.code || 'unknown', data.error?.message || '请求失败', res.status)
+  const contentType = res.headers.get('content-type') || ''
+  if (!contentType.includes('application/json')) {
+    return undefined as unknown as T
   }
 
-  return data.data as T
+  let data: any = null
+  try {
+    data = await res.json()
+  } catch {
+    return undefined as unknown as T
+  }
+
+  if (data && typeof data === 'object') {
+    if (data.ok === false) {
+      const errBody = data.error
+      const code = typeof errBody === 'string' ? errBody : errBody?.code
+      const message =
+        typeof errBody === 'string' ? errBody : errBody?.message || res.statusText || 'Request failed'
+      throw buildApiError(res.status, errBody, message, code)
+    }
+    if (data.ok === true && 'data' in data) {
+      return data.data as T
+    }
+  }
+  return data as T
 }
 
-async function safeParseJson(res: Response) {
-  try {
-    return await res.json()
-  } catch {
-    return null
+function buildApiError(
+  status: number,
+  errBody: any,
+  fallbackMessage: string,
+  fallbackCode?: string,
+): ApiError {
+  const raw = errBody && typeof errBody === 'object' ? errBody.error || errBody : errBody
+  const code =
+    (typeof raw === 'object' && (raw.code || fallbackCode)) ||
+    fallbackCode ||
+    httpErrorCode(status)
+  const message =
+    (typeof raw === 'object' && raw.message) ||
+    (typeof raw === 'string' && raw) ||
+    fallbackMessage ||
+    `HTTP ${status}`
+  const retryAfter =
+    (typeof raw === 'object' && (raw.retryAfter ?? raw.retry_after)) || undefined
+  return new ApiError(code, message, status, { retryAfter, ...(typeof raw === 'object' ? raw : {}) })
+}
+
+function httpErrorCode(status: number): string {
+  switch (status) {
+    case 400:
+      return 'bad_request'
+    case 401:
+      return 'unauthorized'
+    case 403:
+      return 'forbidden'
+    case 404:
+      return 'not_found'
+    case 409:
+      return 'conflict'
+    case 422:
+      return 'validation_error'
+    case 429:
+      return 'rate_limited'
+    default:
+      return status >= 500 ? 'server_error' : `http_${status}`
   }
+}
+
+export function getCsrfToken(): string {
+  if (typeof document === 'undefined') return ''
+  const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
+  if (meta?.content) return meta.content
+  const match = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+  return match ? decodeURIComponent(match[1]) : ''
+}
+
+export function setCsrfToken(token: string): void {
+  if (typeof document === 'undefined') return
+  if (!token) return
+
+  let meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
+  if (!meta) {
+    meta = document.createElement('meta')
+    meta.setAttribute('name', 'csrf-token')
+    document.head.appendChild(meta)
+  }
+  meta.setAttribute('content', token)
+
+  const oneYear = 60 * 60 * 24 * 365
+  document.cookie = `csrf_token=${encodeURIComponent(token)}; path=/; max-age=${oneYear}; SameSite=Lax`
+}
+
+export function clearCsrfToken(): void {
+  if (typeof document === 'undefined') return
+  const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
+  if (meta) meta.setAttribute('content', '')
+  document.cookie = 'csrf_token=; path=/; max-age=0; SameSite=Lax'
 }
 
 export class ApiError extends Error {
   code: string
-  status: number
+  status?: number
   retryAfter?: number
+  payload?: any
 
-  constructor(code: string, message: string, status: number, retryAfter?: number) {
+  constructor(
+    code: string | number,
+    message: string,
+    status?: number,
+    payload?: any,
+  ) {
     super(message)
-    this.code = code
-    this.status = status
-    this.retryAfter = retryAfter
     this.name = 'ApiError'
-  }
-
-  
-  getLocalizedMessage(): string {
-    return resolveErrorText(this)
+    if (typeof code === 'number') {
+      this.status = code
+      this.code = httpErrorCode(code)
+      this.payload = payload
+    } else {
+      this.code = code
+      this.status = status
+      this.payload = payload
+    }
+    const retry = payload && (payload.retryAfter ?? payload.retry_after)
+    if (typeof retry === 'number' && Number.isFinite(retry)) {
+      this.retryAfter = retry
+    }
   }
 }
