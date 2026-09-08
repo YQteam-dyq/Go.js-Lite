@@ -42,7 +42,7 @@
 ## [0.6.0] - 2026-09-08
 
 ### Changed
-- Routing contract: all API calls go through `/gojs/api/<action>` (path form), matching `router.php` and `.htaccess`. The previous `apiFetch` was rewritten to use this contract exclusively, with optional `params` query support and a normalized `ApiError(code, message, status?, payload?)` shape that auto-derives the error code from HTTP status when called with a number.
+- Routing contract: API calls are dispatched through `router.php` to `api.php` via the historical query form `/gojs/api?api=<action>`. The bundled frontend's `apiFetch` was rewritten on top of this contract, with optional `params` query support and a normalized `ApiError(code, message, status?, payload?)` shape that auto-derives the error code from HTTP status when called with a number. The path form `/gojs/api/<action>` is also accepted as an alias by `router.php` and `.htaccess` for third-party callers.
 - Frontend cleanup: removed the unused fake integration layer (`src/api/route-manager.ts`, `integration.ts`, `data-flow-manager.ts`, `index.ts`) and the dead demo routes (`ShareLinks`, `AppStore`, `DirProtect`). The frontend now talks to PHP through a single `apiFetch` only.
 - Removed the unused demo components (`PerformanceMonitor`, `SystemDiagnostics`, `DataFlowManager`, `RealTimeMonitor`, `PerformanceChart`) and the stale `src/core/`, `src/cache/`, `src/database/`, `src/deployment/`, `src/monitoring/`, `src/filemanager/`, `src/performance/` directories.
 - Removed all TypeScript / JSDoc comments from `src/**` and `tests/**` to keep the source noise-free. Behaviour is unchanged.

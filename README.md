@@ -14,7 +14,7 @@
 
 ## What's new in 0.7.0
 
-- **Unified REST contract** — only the path form `/gojs/api/<action>` is shipped; legacy query-form routes are removed.
+- **REST contract** — keeps the historical query form `/gojs/api?api=<action>` as the default, and adds the path form `/gojs/api/<action>` as an alias. Both forms are recognised by `router.php` and `.htaccess` and dispatched to the same handler.
 - **File manager** — per-save history snapshots, in-browser preview for images / video / audio / Markdown, bulk operations, optional per-file AES-256-GCM encryption.
 - **Database manager** — persistent connections, slow-query log.
 - **Monitoring** — CPU / memory / disk trend charts.
@@ -149,6 +149,17 @@ opcache.max_accelerated_files = 10000 ; enough slots for the codebase
 ### On-demand Loading
 
 The backend logic has been split from a single monolithic `api.php` into modules under `backend/` (auth, files, database, ssl, backup, system, settings, cron, notifications, misc, …). A lightweight `autoload.php` loads only the modules needed for the current request, instead of parsing the whole file every time. This keeps the per-request parse footprint small and makes the codebase easier to maintain.
+
+### API Routes
+
+The panel accepts both API call shapes; pick whichever suits your client:
+
+| Form | Example | Notes |
+|------|---------|-------|
+| Query form (default) | `/gojs/api?api=login` | The historical default used by the bundled frontend. |
+| Path form (alias) | `/gojs/api/login` | Recognised by `router.php` and `.htaccess`, dispatched to the same handler. |
+
+Both forms end up at the same `api.php` action handler — there is only one code path.
 
 ---
 
