@@ -7,7 +7,7 @@
 
 ### Changed
 - Versioning: unified `0.7.0` across `package.json`, `shared/version.ts`, `api.php` (`VERSION` / `APP_VERSION`) and `tests/bootstrap.php`.
-- Backend philosophy: drop the Laravel / Redis / Prometheus / Kubernetes shape from the aspirational SPEC. The product stays a single-file PHP entry (`api.php` + `router.php`) with modular `backend/` and an internal `webcron.php`. No new external services are required for 0.7.
+- Backend philosophy: stay as a single-file PHP entry (`api.php` + `router.php`) with modular `backend/` and an internal `webcron.php`. No new external services are introduced for 0.7.
 - API contract: only the path form `/gojs/api/<action>` is shipped. The query form `?api=` is removed from the Vite dev proxy; both Apache (`.htaccess`) and `router.php` already expect the path form, so this is a single-source-of-truth cleanup.
 
 ### Added

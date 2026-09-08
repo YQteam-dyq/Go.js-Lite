@@ -23,7 +23,7 @@
 - **Operations** — every write log now carries `request_id` / `trace_id`.
 - **Diagnostics** — `/.gojs/diagnostics/export` bundles a redacted runtime snapshot for support.
 
-The 0.7.0 release also drops the Laravel / Redis / Prometheus / Kubernetes shape from the aspirational SPEC and pins Go.js-Lite to its lightweight profile. See [CHANGELOG.md](CHANGELOG.md) for the full diff and migration notes.
+The 0.7.0 release keeps Go.js-Lite pinned to its lightweight profile — single-file PHP entry (`api.php` + `router.php`), modular `backend/`, internal `webcron.php`, no external services required. See [CHANGELOG.md](CHANGELOG.md) for the full diff and migration notes.
 
 ---
 

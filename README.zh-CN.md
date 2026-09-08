@@ -23,7 +23,7 @@
 - **运维追溯** — 所有写操作日志都带上 `request_id` / `trace_id`；30 天未活动会话自动清理，`auth.log` 归档。
 - **诊断导出** — `/.gojs/diagnostics/export` 一键打包脱敏后的运行时快照，方便排障。
 
-0.7.0 还把原本 SPEC 里设想过的 Laravel / Redis / Prometheus / Kubernetes 那一套「大而全」形态正式砍掉，让 Go.js Lite 彻底钉死在轻量级共享主机面板这条路上。完整变更与升级说明见 [CHANGELOG.md](CHANGELOG.md)。
+0.7.0 继续保持 Go.js Lite 的轻量级定位——单文件 PHP 入口（`api.php` + `router.php`），模块化的 `backend/`，内置 `webcron.php`，不引入任何外部服务。完整变更与升级说明见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
