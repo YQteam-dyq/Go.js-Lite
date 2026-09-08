@@ -15,11 +15,11 @@
 ## What's new in 0.7.0
 
 - **REST contract** — keeps the historical query form `/gojs/api?api=<action>` as the default, and adds the path form `/gojs/api/<action>` as an alias. Both forms are recognised by `router.php` and `.htaccess` and dispatched to the same handler.
-- **File manager** — per-save history snapshots, in-browser preview for images / video / audio / Markdown, bulk operations, optional per-file AES-256-GCM encryption.
-- **Database manager** — persistent connections, slow-query log.
-- **Monitoring** — CPU / memory / disk trend charts.
-- **Notifications** — Microsoft Teams and Slack incoming-webhook adapters (in addition to email / DingTalk / Lark / Telegram).
-- **Security** — IP + UA + country triple on brute-force lockout.
+- **File manager** — per-save history snapshots, in-browser preview for images / video / audio / Markdown / PDF / CSV, bulk operations, optional per-file AES-256-GCM encryption.
+- **Database manager** — persistent connections, slow-query log, schema snapshots, sensitive-column masking on SQL export.
+- **Monitoring** — CPU / memory / disk trend charts with 5m / 1h / 24h windows.
+- **Notifications** — Microsoft Teams and Slack incoming-webhook adapters (in addition to email / SMTP / webhook / DingTalk / Lark / Telegram).
+- **Security** — IP + UA + country triple on brute-force lockout, per-user / per-endpoint rate limiting.
 - **Operations** — every write log now carries `request_id` / `trace_id`.
 - **Diagnostics** — `/.gojs/diagnostics/export` bundles a redacted runtime snapshot for support.
 
@@ -27,14 +27,14 @@ The 0.7.0 release also drops the Laravel / Redis / Prometheus / Kubernetes shape
 
 ---
 
-## �� Quick Start
+## Quick Start
 
 ### For Users (Deployment)
 
 Download the latest `gojs-lite-VERSION.zip` from [Releases](https://github.com/YQteam-dyq/Go.js-Lite/releases). Extract, then **upload the `gojs/` directory** as a whole to your web root.
 
 - Panel URL: `https://your-domain.com/gojs/`
-- All panel files are isolated inside `gojs/` — they will never interfere with your existing site ✅
+- All panel files are isolated inside `gojs/` — they will never interfere with your existing site.
 
 ### For Developers (Local Development)
 
@@ -57,30 +57,30 @@ Visit http://localhost:5173/gojs/ to start developing.
 
 ---
 
-## ✨ Features
+## Features
 
-- �� **Decoupled deployment** — All panel files ship inside the standalone `gojs/` subdirectory. Your web root stays clean.
-- �� **Secret access URL** — Access the panel via a token-based URL to hide its existence from public discovery.
-- �� **Shared hosting friendly** — Automatically detects `disable_functions`, gracefully degrades based on available capabilities.
-- �� **Mobile-first** — Responsive design, perfect on phones, tablets, and desktops. Touch-friendly.
-- �� **Secure & reliable** — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection.
-- �� **File management** — Browse / edit / upload / download files online, permission changes supported.
-- ��️ **Zip / Tar archives** — Compress & extract zip / tar.gz archives online ✅
-- ��️ **Database management** — MySQL connections, SQL console, table structure browser, **.sql import & export** ✅
-- �� **PHP error log viewer** — Auto-detects log paths, categorised filtering, live refresh ✅
-- �� **Health check** — One-click PHP security / performance / compatibility audit.
-- �� **Disk analysis** — Visualises per-directory usage and identifies large files.
-- ℹ️ **System info** — PHP info, server environment, disk usage, **memory monitor**, process CPU ✅
-- �� **Resource trends** — CPU / memory / disk trend charts in the dashboard ✅
-- ��️ **Brute-force lockout** — IP + UA + country triple check ✅
-- �� **Operation log** — Every write log carries `request_id` / `trace_id` for traceability ✅
-- �� **Bilingual (EN/ZH)** — Built-in i18n, supports both Chinese and English.
-- �� **Light / dark themes** — Supports light / dark / system preference.
-- ⚡ **Modern frontend** — React + TypeScript + Vite + Tailwind CSS.
+- **[Deploy]** Decoupled deployment — All panel files ship inside the standalone `gojs/` subdirectory. Your web root stays clean.
+- **[Access]** Secret access URL — Access the panel via a token-based URL to hide its existence from public discovery.
+- **[Hosting]** Shared hosting friendly — Automatically detects `disable_functions`, gracefully degrades based on available capabilities.
+- **[Mobile]** Mobile-first — Responsive design, perfect on phones, tablets, and desktops. Touch-friendly.
+- **[Security]** Secure & reliable — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection.
+- **[Files]** File management — Browse / edit / upload / download files online, permission changes supported.
+- **[Archives]** Zip / Tar archives — Compress & extract zip / tar.gz archives online.
+- **[Database]** Database management — MySQL connections, SQL console, table structure browser, **.sql import & export**.
+- **[Logs]** PHP error log viewer — Auto-detects log paths, categorised filtering, live refresh.
+- **[Health]** Health check — One-click PHP security / performance / compatibility audit.
+- **[Disk]** Disk analysis — Visualises per-directory usage and identifies large files.
+- **[System]** System info — PHP info, server environment, disk usage, **memory monitor**, process CPU.
+- **[Trends]** Resource trends — CPU / memory / disk trend charts in the dashboard.
+- **[Lockout]** Brute-force lockout — IP + UA + country triple check.
+- **[Audit]** Operation log — Every write log carries `request_id` / `trace_id` for traceability.
+- **[i18n]** Bilingual (EN/ZH) — Built-in i18n, supports both Chinese and English.
+- **[Theme]** Light / dark themes — Supports light / dark / system preference.
+- **[Stack]** Modern frontend — React + TypeScript + Vite + Tailwind CSS.
 
 ---
 
-## �� Requirements & Deployment
+## Requirements & Deployment
 
 ### Requirements
 
@@ -97,18 +97,18 @@ Visit http://localhost:5173/gojs/ to start developing.
 2. **Extract** the archive — you get a single standalone `gojs/` folder
 3. **Upload** the `gojs/` folder to your web root (e.g. `public_html/gojs/`, `wwwroot/gojs/`)
 4. **Visit** `https://your-domain.com/gojs/` — the setup wizard starts automatically
-5. **Set** an admin password, save your secret access URL, and you're done ✅
+5. **Set** an admin password, save your secret access URL, and you are done.
 
-> �� **Note**: All panel assets live inside `gojs/`. Zero pollution to the rest of your site.
+> **Note**: All panel assets live inside `gojs/`. Zero pollution to the rest of your site.
 
 ### Directory Structure
 
 After deployment on the server:
 
 ```
-public_html/              ← Your user site (panel never touches it)
-├── index.html / index.php ← Keep your original content as-is
-└── gojs/                  ← Panel lives here, access through this path
+public_html/              <- Your user site (panel never touches it)
+├── index.html / index.php <- Keep your original content as-is
+└── gojs/                  <- Panel lives here, access through this path
     ├── api.php            # Backend API (single file)
     ├── .htaccess          # Apache rewrite rules (RewriteBase /gojs/)
     └── dist/              # Frontend build
@@ -127,7 +127,7 @@ public_html/
 
 ---
 
-## ⚡ Performance Tuning
+## Performance Tuning
 
 ### OPcache
 
@@ -144,7 +144,7 @@ opcache.memory_consumption = 128      ; 128 MB of shared memory for cached opcod
 opcache.max_accelerated_files = 10000 ; enough slots for the codebase
 ```
 
-> �� **Tip**: In production, after deploying a new release you can either clear the cache (e.g. `opcache_reset()` / restart PHP-FPM) or briefly set `opcache.validate_timestamps = 0` while keeping `opcache.revalidate_freq` for development. If OPcache is not available, the panel still works correctly — it just parses files on every request.
+> **Tip**: In production, after deploying a new release you can either clear the cache (e.g. `opcache_reset()` / restart PHP-FPM) or briefly set `opcache.validate_timestamps = 0` while keeping `opcache.revalidate_freq` for development. If OPcache is not available, the panel still works correctly — it just parses files on every request.
 
 ### On-demand Loading
 
@@ -163,28 +163,28 @@ Both forms end up at the same `api.php` action handler — there is only one cod
 
 ---
 
-## �� Feature Overview
+## Feature Overview
 
 ### Core Features
 
 | Feature | Description | Status |
 |---------|-------------|--------|
-| �� Auth System | Setup wizard, login/logout, change password, session timeout, brute-force lockout | ✅ |
-| �� Secret Access | Token-based access URL, hides panel existence | ✅ |
-| �� Dashboard | System overview, disk usage, file stats, recently modified files | ✅ |
-| �� File Manager | Directory browser, file editor, upload/download, create/delete/rename, permissions, history snapshots, in-browser preview | ✅ |
-| ��️ Zip / Tar | Compress to zip/tar.gz, extract any archive | ✅ |
-| ��️ Database Mgmt | MySQL connections, database/table/column browser, SQL console | ✅ |
-| �� SQL Import/Export | One-click full/single-table export, chunked .sql import | ✅ |
-| �� PHP Error Log | Auto-detects log path, categorised filtering, live refresh | ✅ |
-| �� Health Check | One-click PHP security / performance / compatibility audit | ✅ |
-| �� Disk Analysis | Per-directory size visualisation, large files list | ✅ |
-| ℹ️ PHP Info | Version, extensions, ini directives, one-click copy php.ini path | ✅ |
-| �� System Info | Disk, load, uptime, memory usage, process CPU, Cron | ✅ |
-| �� Resource Trends | CPU / memory / disk trend charts | ✅ |
-| �� Notifications | Email / DingTalk / Lark / Telegram / Microsoft Teams / Slack incoming webhooks | ✅ |
-| �� Operation Log | Every write log carries `request_id` / `trace_id` | ✅ |
-| ⚙️ Settings | Theme / language switch, session settings, password change, access URL i18n | ✅ |
+| Auth System | Setup wizard, login/logout, change password, session timeout, brute-force lockout | OK |
+| Secret Access | Token-based access URL, hides panel existence | OK |
+| Dashboard | System overview, disk usage, file stats, recently modified files | OK |
+| File Manager | Directory browser, file editor, upload/download, create/delete/rename, permissions, history snapshots, in-browser preview | OK |
+| Zip / Tar | Compress to zip/tar.gz, extract any archive | OK |
+| Database Mgmt | MySQL connections, database/table/column browser, SQL console | OK |
+| SQL Import/Export | One-click full/single-table export, chunked .sql import | OK |
+| PHP Error Log | Auto-detects log path, categorised filtering, live refresh | OK |
+| Health Check | One-click PHP security / performance / compatibility audit | OK |
+| Disk Analysis | Per-directory size visualisation, large files list | OK |
+| PHP Info | Version, extensions, ini directives, one-click copy php.ini path | OK |
+| System Info | Disk, load, uptime, memory usage, process CPU, Cron | OK |
+| Resource Trends | CPU / memory / disk trend charts | OK |
+| Notifications | Email / SMTP / Webhook / DingTalk / Lark / Telegram / Microsoft Teams / Slack incoming webhooks | OK |
+| Operation Log | Every write log carries `request_id` / `trace_id` | OK |
+| Settings | Theme / language switch, session settings, password change, access URL i18n | OK |
 
 ### Capability-based Degradation
 
@@ -200,7 +200,7 @@ Go.js Lite automatically detects your server environment and hides unavailable f
 
 ---
 
-## �� Security
+## Security
 
 - Admin password hashed with `password_hash(PASSWORD_BCRYPT)` — one-way, irreversible.
 - Database connection passwords encrypted with `AES-256-CBC`.
@@ -210,27 +210,35 @@ Go.js Lite automatically detects your server environment and hides unavailable f
 - Config directory `.gojs/` blocked from direct web access via `.htaccess`.
 - CSRF token validation — cross-site request forgery protection. Server-side rate limiting enforces `X-CSRF-Token` on writes.
 - Session / Cookie scope shrunk to `/gojs/` — never leaks to sibling apps in the web root.
-- �� **Secret access URL** — Panel requires a token in the URL, hiding its existence.
-- ��️ **Subdirectory isolation** — Panel owns the `/gojs/` path and nothing else.
-- ��️ **Brute-force lockout** — IP + UA + country triple check (configurable thresholds).
+- **[Access]** Secret access URL — Panel requires a token in the URL, hiding its existence.
+- **[Isolation]** Subdirectory isolation — Panel owns the `/gojs/` path and nothing else.
+- **[Lockout]** Brute-force lockout — IP + UA + country triple check (configurable thresholds).
 
 ---
 
-## �� License
+## License
 
 [MIT License](LICENSE)
 
 ---
 
-## �� Developers
+## Developers
 
 **YQteam-dyq** — Crafted with care, lightweight & efficient.
 
 ---
 
-## �� Acknowledgments
+## Acknowledgments
 
 - [React](https://react.dev)
 - [Vite](https://vitejs.dev)
 - [Tailwind CSS](https://tailwindcss.com)
-- [Lucide Icons](https://lucide.dev
+- [Lucide Icons](https://lucide.dev)
+- [TanStack Query](https://tanstack.com/query)
+- [Zustand](https://github.com/pmndrs/zustand)
+
+---
+
+<p align="center">
+  Made with ❤️ by YQteam-dyq
+</p>
