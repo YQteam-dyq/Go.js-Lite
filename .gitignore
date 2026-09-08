@@ -47,3 +47,19 @@ refactor_*.py
 # Vendor / test artifacts
 vendor/
 .phpunit.result.cache
+.phpunit.cache
+
+# One-off scratch / helper scripts (write-then-delete during a task)
+scripts/_*.cjs
+scripts/_*.mjs
+scripts/_*.js
+scripts/_*.ps1
+scripts/_*.sh
+scripts/_*.md
+
+# Temporary TypeScript / build artifacts
+tsc-errors.txt
+*.tsbuildinfo
+
+# Temporary preview / scratch dirs
+preview/
