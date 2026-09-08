@@ -17,7 +17,8 @@ import type { FileEntry, MonitorReport } from '@shared/types'
 export default function Dashboard() {
   const { t } = useI18n()
   const { formatDate, formatNumber, formatBytes, formatRelativeTime } = useFormat()
-  const { data, isLoading, error, refetch } = useQuery({
+
+  const { data: dashboardData, isLoading: isLoadingDashboard, error: dashboardError, refetch: refetchDashboard } = useQuery({
     queryKey: ['dashboard'],
     queryFn: () => dashboardApi.get(),
   })
@@ -29,7 +30,7 @@ export default function Dashboard() {
   })
   const monitorData: MonitorReport | undefined = monitorQuery.data
 
-  if (isLoading) {
+  if (isLoadingDashboard) {
     return (
       <div className="p-4 md:p-6">
         <SkeletonDashboard />
@@ -37,20 +38,20 @@ export default function Dashboard() {
     )
   }
 
-  if (error) {
+  if (dashboardError) {
     return (
       <div className="p-4 md:p-6">
         <EmptyError
-          error={resolveErrorText(error) || t('common.unknownError')}
-          onRetry={() => refetch()}
+          error={resolveErrorText(dashboardError) || t('common.unknownError')}
+          onRetry={() => refetchDashboard()}
         />
       </div>
     )
   }
 
-  if (!data) return null
+  if (!dashboardData) return null
 
-  const diskPercent = data.diskTotal > 0 ? (data.diskUsed / data.diskTotal) * 100 : 0
+  const diskPercent = dashboardData.diskTotal > 0 ? (dashboardData.diskUsed / dashboardData.diskTotal) * 100 : 0
 
   const getDiskColor = () => {
     if (diskPercent >= 90) return 'from-danger to-danger/70'
@@ -79,6 +80,7 @@ export default function Dashboard() {
         </Link>
       </div>
 
+      {/* Original Dashboard Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 stagger-2">
         <Card className="card-hover">
           <CardHeader className="flex items-center gap-3 py-4">
@@ -91,12 +93,12 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardBody className="space-y-2.5 text-sm">
-            <InfoRow label={t('dashboard.phpVersion')} value={data.phpVersion} />
-            <InfoRow label={t('dashboard.sapi')} value={data.sapi} />
-            <InfoRow label={t('dashboard.webServer')} value={data.webServer} />
-            <InfoRow label={t('dashboard.hostname')} value={data.hostname} />
-            <InfoRow label={t('dashboard.timezone')} value={data.timezone} />
-            <InfoRow label={t('dashboard.currentTime')} value={formatDate(data.now)} />
+            <InfoRow label={t('dashboard.phpVersion')} value={dashboardData.phpVersion} />
+            <InfoRow label={t('dashboard.sapi')} value={dashboardData.sapi} />
+            <InfoRow label={t('dashboard.webServer')} value={dashboardData.webServer} />
+            <InfoRow label={t('dashboard.hostname')} value={dashboardData.hostname} />
+            <InfoRow label={t('dashboard.timezone')} value={dashboardData.timezone} />
+            <InfoRow label={t('dashboard.currentTime')} value={formatDate(dashboardData.now)} />
           </CardBody>
         </Card>
 
@@ -114,11 +116,11 @@ export default function Dashboard() {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-fg-muted">{t('dashboard.used')}</span>
-                <span className={`font-semibold ${getDiskTextColor()}`}>{formatBytes(data.diskUsed)}</span>
+                <span className={`font-semibold ${getDiskTextColor()}`}>{formatBytes(dashboardData.diskUsed)}</span>
               </div>
               <div
                 className="h-2.5 bg-bg-sunken rounded-full overflow-hidden cursor-help"
-                title={`${t('dashboard.memUsedTotal', { used: formatBytes(data.diskUsed), total: formatBytes(data.diskTotal) })}\n${t('dashboard.memPercentage', { pct: diskPercent.toFixed(1) })}`}
+                title={`${t('dashboard.memUsedTotal', { used: formatBytes(dashboardData.diskUsed), total: formatBytes(dashboardData.diskTotal) })}\n${t('dashboard.memPercentage', { pct: diskPercent.toFixed(1) })}`}
               >
                 <div
                   className={`h-full bg-gradient-to-r ${getDiskColor()} rounded-full transition-all duration-700 ease-out`}
@@ -126,14 +128,14 @@ export default function Dashboard() {
                 />
               </div>
               <div className="flex justify-between text-xs text-fg-subtle">
-                <span>{t('dashboard.total')} {formatBytes(data.diskTotal)}</span>
+                <span>{t('dashboard.total')} {formatBytes(dashboardData.diskTotal)}</span>
                 <span className={`font-medium ${getDiskTextColor()}`}>{diskPercent.toFixed(1)}%</span>
               </div>
             </div>
             <div className="pt-2 border-t border-border/50 space-y-2.5">
-              <InfoRow label={t('dashboard.free')} value={formatBytes(data.diskFree)} />
-              <InfoRow label={t('dashboard.fileCount')} value={formatNumber(data.fileCount)} />
-              <InfoRow label={t('dashboard.totalSize')} value={formatBytes(data.totalSize)} />
+              <InfoRow label={t('dashboard.free')} value={formatBytes(dashboardData.diskFree)} />
+              <InfoRow label={t('dashboard.fileCount')} value={formatNumber(dashboardData.fileCount)} />
+              <InfoRow label={t('dashboard.totalSize')} value={formatBytes(dashboardData.totalSize)} />
             </div>
           </CardBody>
         </Card>
@@ -149,10 +151,10 @@ export default function Dashboard() {
             </div>
           </CardHeader>
           <CardBody className="space-y-2.5 text-sm">
-            <InfoRow label={t('dashboard.uploadLimit')} value={formatBytes(data.maxUpload)} />
-            <InfoRow label={t('dashboard.postLimit')} value={formatBytes(data.maxPost)} />
-            <InfoRow label={t('dashboard.memoryLimit')} value={formatBytes(data.memoryLimit)} />
-            <InfoRow label={t('dashboard.rootPath')} value={<code className="text-xs bg-bg-sunken px-1.5 py-0.5 rounded">{data.rootPath}</code>} />
+            <InfoRow label={t('dashboard.uploadLimit')} value={formatBytes(dashboardData.maxUpload)} />
+            <InfoRow label={t('dashboard.postLimit')} value={formatBytes(dashboardData.maxPost)} />
+            <InfoRow label={t('dashboard.memoryLimit')} value={formatBytes(dashboardData.memoryLimit)} />
+            <InfoRow label={t('dashboard.rootPath')} value={<code className="text-xs bg-bg-sunken px-1.5 py-0.5 rounded">{dashboardData.rootPath}</code>} />
           </CardBody>
         </Card>
       </div>
@@ -236,10 +238,10 @@ export default function Dashboard() {
               <div className="text-xs text-fg-subtle">{t('dashboard.recentFilesSubtitle')}</div>
             </div>
           </div>
-          <Badge variant="muted">{data.recentFiles.length}{t('dashboard.fileCountBadge')}</Badge>
+          <Badge variant="muted">{dashboardData.recentFiles.length}{t('dashboard.fileCountBadge')}</Badge>
         </CardHeader>
         <CardBody className="p-0">
-          {data.recentFiles.length === 0 ? (
+          {dashboardData.recentFiles.length === 0 ? (
             <div className="p-12 text-center">
               <div className="w-16 h-16 mx-auto mb-3 rounded-2xl bg-bg-sunken flex items-center justify-center text-fg-subtle">
                 <FileText size={28} />
@@ -248,7 +250,7 @@ export default function Dashboard() {
             </div>
           ) : (
             <ul className="divide-y divide-border/60">
-              {data.recentFiles.map((f, index) => (
+              {dashboardData.recentFiles.map((f, index) => (
                 <li
                   key={f.path}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-fg/[0.03] transition-colors group"

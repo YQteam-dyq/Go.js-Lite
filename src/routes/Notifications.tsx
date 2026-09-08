@@ -48,6 +48,7 @@ const CATEGORY_META: Record<NotificationCategory, { icon: typeof Bell; origin: s
   ssl: { icon: Lock, origin: '/ssl' },
   security: { icon: AlertTriangle, origin: null },
   system: { icon: Activity, origin: null },
+  monitor: { icon: Activity, origin: '/dashboard' },
 }
 
 const CHANNEL_TYPE_ICONS: Record<'email' | 'smtp' | 'webhook', typeof Mail> = {
@@ -136,10 +137,13 @@ export default function Notifications() {
     onError: (e: Error) => toast({ type: 'error', title: t('common.saveFailed'), description: e.message }),
   })
 
+  const toCamel = (s: string) =>
+    s.split('_').filter(Boolean).map((p) => p.charAt(0).toUpperCase() + p.slice(1)).join('')
+
   const catLabel = (c: NotificationCategory | 'all') =>
     c === 'all'
       ? t('notify.catAll', { defaultValue: '全部' })
-      : t((`notify.category${c.charAt(0).toUpperCase() + c.slice(1)}`) as never, { defaultValue: c })
+      : t((`notify.category${toCamel(c)}`) as never, { defaultValue: c })
 
   const sevBadge = (s: NotificationSeverity) => NOTIFY_SEVERITY_BADGE[s]
   const sevLabel = (s: NotificationSeverity) =>

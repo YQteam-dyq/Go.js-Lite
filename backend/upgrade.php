@@ -448,7 +448,7 @@ function gojs_deploy_apps() {
             'name_key' => 'deploy.appWordpress',
             'description_key' => 'deploy.descWordpress',
             'version' => 'latest',
-            'download_url' => 'https:
+            'download_url' => 'https://wordpress.org/latest.zip',
             'db_required' => true,
         ),
         array(

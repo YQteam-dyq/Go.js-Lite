@@ -137,8 +137,9 @@ export default function Cron() {
   })
 
   const execAvailable = caps?.exec_available ?? caps?.available ?? false
-  const disabled = !execAvailable || !caps?.available
+  const disabled = !execAvailable || !caps?.available || caps?.crontab_available === false
   const showCrontabMissing = caps?.available === true && caps?.crontab_available === false
+  const fullyAvailable = caps?.available === true && caps?.crontab_available === true
 
   const { data: jobs, isLoading: loadingJobs, error, refetch } = useQuery({
     queryKey: ['cron-jobs'],
@@ -311,6 +312,22 @@ export default function Cron() {
             </div>
           </CardBody>
         </Card>
+      ) : !fullyAvailable ? (
+        <Card className="border-warning/30">
+          <CardBody className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-lg bg-warning/10 text-warning flex items-center justify-center shrink-0">
+              <AlertTriangle size={20} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-medium text-fg">{t('cron.partiallyAvailable')}</span>
+              </div>
+              <p className="text-xs text-fg-muted mt-1 leading-relaxed">
+                {t('cron.partiallyAvailableDesc')}
+              </p>
+            </div>
+          </CardBody>
+        </Card>
       ) : (
         <Card>
           <CardBody className="flex items-start gap-3">
@@ -343,7 +360,7 @@ export default function Cron() {
         </Card>
       )}
 
-      {available && (
+      {fullyAvailable && (
         <Card>
           <CardHeader className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">

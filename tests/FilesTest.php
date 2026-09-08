@@ -4,15 +4,8 @@ namespace Gojs\Tests;
 
 use PHPUnit\Framework\TestCase;
 
-/**
- * 文件操作与安全路径校验（backend/files.php）单元测试。
- *
- * 通过 GoJS_Context::instance()->setFilesRoot(...) 注入虚拟文件根目录，
- * 不依赖真实 HTTP 服务器。
- */
 class FilesTest extends TestCase
 {
-    /** @var string 临时文件根目录 */
     private $filesRoot;
 
     protected function setUp(): void
@@ -82,7 +75,6 @@ class FilesTest extends TestCase
 
     public function testSafePathRejectsNonExistentParentOutsideRoot(): void
     {
-        // parent 目录在根之外且不存在 -> 应被拒绝
         $resolved = gojs_safe_path('../../etc/passwd');
         $this->assertFalse($resolved);
     }
@@ -97,7 +89,6 @@ class FilesTest extends TestCase
     public function testSafePathRejectsDoubleDotInBasename(): void
     {
         $resolved = gojs_safe_path('sub/..hidden');
-        // basename 含 '..' 的新建路径应被拒绝
         $this->assertFalse($resolved);
     }
 

@@ -6,7 +6,6 @@ $raw_uri = urldecode($raw_uri);
 $is_panel = false;
 $strip_prefix = '';
 
-// Dynamic mount prefix: deployment directory name (e.g. /gojs/, /panel/), empty prefix when deployed at root.
 $panel_dir = basename(__DIR__);
 $reserved_dirs = array('public_html', 'htdocs', 'www', 'wwwroot', 'html', 'web', '.');
 $panel_base = in_array($panel_dir, $reserved_dirs, true) ? '' : '/' . $panel_dir;

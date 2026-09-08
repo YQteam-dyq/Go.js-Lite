@@ -1,12 +1,3 @@
-# Go.js-Lite Smoke Test (v0.5.0)
-# Usage:
-#   powershell -ExecutionPolicy Bypass -File scripts\smoke-test.ps1 -BaseUrl http://127.0.0.1:8080/gojs -Password admin1234 -AutoInstall
-# Options:
-#   -BaseUrl     Panel base URL including mount prefix, e.g. http://host/gojs
-#   -Password    Admin password (used to install if not installed and -AutoInstall)
-#   -AutoInstall Auto-install the panel when bootstrap reports "not installed"
-# Exit code: 0 = all pass, 1 = any fail
-
 param(
     [string]$BaseUrl = "http://127.0.0.1:8080/gojs",
     [string]$Password = "admin1234",
@@ -64,7 +55,6 @@ Write-Host "=== Go.js-Lite v0.5.0 Smoke Test ===" -ForegroundColor Cyan
 Write-Host ("Base URL: " + $BaseUrl)
 Write-Host ""
 
-# 1. Bootstrap
 $boot = Invoke-Api -Method "GET" -Path "bootstrap"
 Write-Test "bootstrap reachable" ($boot.Status -eq 200) ("status=" + $boot.Status)
 if ($boot.Status -ne 200) { $boot.Raw }
@@ -150,7 +140,6 @@ foreach ($ep in $legacyAliases) {
     Write-Test ("GET " + $ep) $ok ("status=" + $r.Status)
 }
 
-# 6. Logout then verify session is dead
 Write-Host ""
 $logout = Invoke-Api -Method "POST" -Path "logout"
 Write-Test "logout" ($logout.Status -eq 200) ("status=" + $logout.Status)
@@ -158,7 +147,6 @@ Write-Test "logout" ($logout.Status -eq 200) ("status=" + $logout.Status)
 $after = Invoke-Api -Method "GET" -Path "dashboard"
 Write-Test "dashboard after logout -> 401" ($after.Status -eq 401) ("status=" + $after.Status)
 
-# 7. Summary
 Write-Host ""
 $passCount = @($script:Results | Where-Object { $_.Ok }).Count
 $failCount = @($script:Results | Where-Object { -not $_.Ok }).Count
