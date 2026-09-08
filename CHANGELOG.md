@@ -8,7 +8,7 @@
 ### Changed
 - Versioning: unified `0.7.0` across `package.json`, `shared/version.ts`, `api.php` (`VERSION` / `APP_VERSION`) and `tests/bootstrap.php`.
 - Backend philosophy: stay as a single-file PHP entry (`api.php` + `router.php`) with modular `backend/` and an internal `webcron.php`. No new external services are introduced for 0.7.
-- API contract: only the path form `/gojs/api/<action>` is shipped. The query form `?api=` is removed from the Vite dev proxy; both Apache (`.htaccess`) and `router.php` already expect the path form, so this is a single-source-of-truth cleanup.
+- API contract: keep the **query form** `/gojs/api?api=<action>` as the historical default. The **path form** `/gojs/api/<action>` is also supported as an alias — `router.php` recognises both shapes and dispatches them to the same handler, so existing query-form callers and any path-form callers (e.g. third-party scripts) both keep working.
 
 ### Added
 - File manager: history snapshots per save at `.gojs/file-history/<hash>.json`, UI rollback and diff entry.
