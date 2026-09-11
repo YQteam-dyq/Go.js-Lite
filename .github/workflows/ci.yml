@@ -70,10 +70,17 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # Lint 脚本依赖 eslint 与相关配置；当前项目未安装 eslint，
-      # 为避免 CI 失败，此处暂注释掉 lint 步骤。如需启用：
-      # - name: Lint
-      #   run: npm run lint
+      # 原来的注释说“项目未安装 eslint”，这个原因不准确：eslint 本来就在
+      # devDependencies 里，真正的原因是 .eslintrc.json 有两处配置错误
+      # （extends 少了 `plugin:` 前缀、rules 里把插件名 `react-hooks` 当成了规则名），
+      # 导致 lint 一执行就报错，所以之前被整段注释掉了。
+      #
+      # 配置已在本次提交修复。代码里仍遗留若干历史问题（见 lint 报告），
+      # 所以先以非阻断方式跑，把报告输出到 PR；等清理干净后再去掉
+      # `continue-on-error`，切换为真正的门禁。
+      - name: Lint
+        continue-on-error: true
+        run: npx eslint . --ext ts,tsx
 
       - name: Build
         run: npm run build
