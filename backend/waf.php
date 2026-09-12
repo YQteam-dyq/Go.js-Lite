@@ -287,22 +287,42 @@ function gojs_waf_sql_injection_patterns() {
     );
 }
 
-function gojs_waf_check_sql_injection($get_data, $post_data, $request_uri) {
-    $patterns = gojs_waf_sql_injection_patterns();
-    
-    $data = array_merge($get_data, $post_data, array($request_uri));
-    
-    foreach ($data as $value) {
-        if (is_string($value)) {
-            foreach ($patterns as $pattern) {
-                if (preg_match($pattern, $value)) {
-                    return true;
-                }
+function gojs_waf_collect_scalar_values($data, $depth = 0) {
+    if ($depth > 10) {
+        return array();
+    }
+
+    $values = array();
+
+    foreach ((array) $data as $value) {
+        if (is_array($value)) {
+            foreach (gojs_waf_collect_scalar_values($value, $depth + 1) as $nested) {
+                $values[] = $nested;
+            }
+        } elseif (is_scalar($value)) {
+            $values[] = (string) $value;
+        }
+    }
+
+    return $values;
+}
+
+function gojs_waf_any_pattern_matches($values, $patterns) {
+    foreach ($values as $value) {
+        foreach ($patterns as $pattern) {
+            if (preg_match($pattern, $value)) {
+                return true;
             }
         }
     }
-    
+
     return false;
+}
+
+function gojs_waf_check_sql_injection($get_data, $post_data, $request_uri) {
+    $values = gojs_waf_collect_scalar_values(array($get_data, $post_data, $request_uri));
+
+    return gojs_waf_any_pattern_matches($values, gojs_waf_sql_injection_patterns());
 }
 
 function gojs_waf_check_xss($get_data, $post_data, $request_uri) {
@@ -322,19 +342,9 @@ function gojs_waf_check_xss($get_data, $post_data, $request_uri) {
         '/window\.location/i'
     );
     
-    $data = array_merge($get_data, $post_data, array($request_uri));
-    
-    foreach ($data as $value) {
-        if (is_string($value)) {
-            foreach ($patterns as $pattern) {
-                if (preg_match($pattern, $value)) {
-                    return true;
-                }
-            }
-        }
-    }
-    
-    return false;
+    $values = gojs_waf_collect_scalar_values(array($get_data, $post_data, $request_uri));
+
+    return gojs_waf_any_pattern_matches($values, $patterns);
 }
 
 function gojs_waf_check_command_injection($get_data, $post_data, $request_uri) {
@@ -353,19 +363,9 @@ function gojs_waf_check_command_injection($get_data, $post_data, $request_uri) {
         '/\.exe\s/i'
     );
     
-    $data = array_merge($get_data, $post_data, array($request_uri));
-    
-    foreach ($data as $value) {
-        if (is_string($value)) {
-            foreach ($patterns as $pattern) {
-                if (preg_match($pattern, $value)) {
-                    return true;
-                }
-            }
-        }
-    }
-    
-    return false;
+    $values = gojs_waf_collect_scalar_values(array($get_data, $post_data, $request_uri));
+
+    return gojs_waf_any_pattern_matches($values, $patterns);
 }
 
 function gojs_waf_log_attack($type, $ip, $uri) {

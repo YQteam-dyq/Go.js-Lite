@@ -138,6 +138,68 @@ class WafTest extends TestCase
         }
     }
 
+    public function testNestedArrayParametersAreInspected()
+    {
+        $sqlPayloads = [
+            ['filter' => ['id' => "1' OR '1'='1"]],
+            ['filter' => ['nested' => ['id' => '1 union select password from users']]],
+            ['filter' => ['id' => ['1 OR 1=1']]]
+        ];
+
+        foreach ($sqlPayloads as $payload) {
+            $this->assertTrue(gojs_waf_check_sql_injection($payload, [], ''), 'SQL injection bypassed through nested array');
+        }
+
+        $xssPayloads = [
+            ['filter' => ['q' => '<script>alert("xss")</script>']],
+            ['filter' => ['nested' => ['q' => '<img src=x onerror=alert("xss")>']]]
+        ];
+
+        foreach ($xssPayloads as $payload) {
+            $this->assertTrue(gojs_waf_check_xss($payload, [], ''), 'XSS bypassed through nested array');
+        }
+
+        $commandPayloads = [
+            ['filter' => ['cmd' => 'test; rm -rf /']],
+            ['filter' => ['nested' => ['cmd' => 'test | cat /etc/passwd']]]
+        ];
+
+        foreach ($commandPayloads as $payload) {
+            $this->assertTrue(gojs_waf_check_command_injection($payload, [], ''), 'Command injection bypassed through nested array');
+        }
+
+        $this->assertFalse(gojs_waf_check_sql_injection(['filter' => ['id' => 'normal input']], [], ''));
+        $this->assertFalse(gojs_waf_check_xss(['filter' => ['q' => 'normal text']], [], ''));
+        $this->assertFalse(gojs_waf_check_command_injection(['filter' => ['cmd' => 'hello world']], [], ''));
+    }
+
+    public function testNestedArrayPayloadIsBlockedByInterceptor()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        gojs_waf_save_rules([
+            'sql_injection' => true,
+            'xss' => true,
+            'command_injection' => true
+        ]);
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export(CONFIG_DIR, true) . ');'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . '$_SERVER["REMOTE_ADDR"] = "192.0.2.77";'
+            . '$_SERVER["REQUEST_URI"] = "/index.php";'
+            . '$_SERVER["REQUEST_METHOD"] = "GET";'
+            . '$_POST = array();'
+            . '$_GET = array("filter" => array("id" => "1 OR 1=1"));'
+            . 'gojs_waf_check_request();'
+            . 'echo "ALLOWED";';
+
+        $output = $this->runProbe($probe);
+        $this->assertStringNotContainsString('ALLOWED', $output);
+        $this->assertStringContainsString('SQL injection detected', $output);
+    }
+
     public function testRateLimiting()
     {
         $this->assertFalse(gojs_waf_check_rate_limit($this->testIp));
