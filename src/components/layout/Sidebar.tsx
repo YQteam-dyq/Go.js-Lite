@@ -16,17 +16,32 @@ import {
   ChevronRight,
   CalendarClock,
   Shield,
-  Users,
+  Users as UsersIcon,
+  UserCog,
+  User as UserIcon,
+  Activity,
   Bell,
   ShieldAlert,
   PackageCheck,
   KeyRound,
   Rocket,
+  FolderTree,
+  MailPlus,
+  Laptop,
+  BellRing,
+  ShieldCheck,
+  Gauge,
+  Puzzle,
+  Server,
+  Timer,
+  FileCog,
+  ArrowUpCircle,
 } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { useCapabilities } from '@/hooks/useCapabilities'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { useUiStore } from '@/stores/uiStore'
+import { useAuthStore } from '@/stores/authStore'
 import { useEffect } from 'react'
 import { useI18n } from '@/hooks/useI18n'
 
@@ -47,6 +62,8 @@ export function Sidebar() {
   const toggleCollapsed = useUiStore((s) => s.toggleSidebarCollapsed)
   const location = useLocation()
   const { t } = useI18n()
+  const userRole = useAuthStore((s) => s.user?.role)
+  const isAdmin = userRole === 'admin'
 
   useEffect(() => {
     if (isMobile) setSidebar(false)
@@ -75,7 +92,7 @@ export function Sidebar() {
       icon: <HardDrive size={18} />,
       show: caps.disk,
     },
-    { to: '/ftp', label: t('nav.ftp'), icon: <Users />, show: caps.ftp ?? true },
+    { to: '/ftp', label: t('nav.ftp'), icon: <UsersIcon />, show: caps.ftp ?? true },
     { to: '/error-log', label: t('nav.errorLog'), icon: <Bug size={18} />, show: true },
     { to: '/operation-log', label: t('nav.operationLog'), icon: <History size={18} />, show: true },
     { to: '/notifications', label: t('nav.notifications'), icon: <Bell size={18} />, show: true },
@@ -88,6 +105,25 @@ export function Sidebar() {
     { to: '/upgrade', label: t('nav.upgrade'), icon: <PackageCheck size={18} />, show: true },
     { to: '/api-tokens', label: t('nav.apiTokens'), icon: <KeyRound size={18} />, show: true },
     { to: '/deploy', label: t('nav.deploy'), icon: <Rocket size={18} />, show: true },
+    { to: '/users', label: t('nav.users'), icon: <UserCog size={18} />, show: isAdmin },
+    { to: '/sessions', label: t('nav.sessions'), icon: <Shield size={18} />, show: isAdmin },
+    { to: '/user-activity', label: t('nav.userActivity'), icon: <Activity size={18} />, show: isAdmin },
+    { to: '/profile', label: t('nav.profile'), icon: <UserIcon size={18} />, show: true },
+    { to: '/groups', label: t('nav.groups'), icon: <FolderTree size={18} />, show: isAdmin },
+    { to: '/tokens', label: t('nav.tokens'), icon: <KeyRound size={18} />, show: isAdmin || userRole === 'operator' },
+    { to: '/invitations', label: t('nav.invitations'), icon: <MailPlus size={18} />, show: isAdmin },
+    { to: '/devices', label: t('nav.devices'), icon: <Laptop size={18} />, show: true },
+    { to: '/notification-preferences', label: t('nav.notificationPrefs'), icon: <BellRing size={18} />, show: true },
+    { to: '/approvals', label: t('nav.approvals'), icon: <ShieldCheck size={18} />, show: isAdmin },
+    { to: '/composer', label: t('nav.composer'), icon: <PackageCheck size={18} />, show: isAdmin },
+    { to: '/php-opcache', label: t('nav.phpOpcache'), icon: <Gauge size={18} />, show: isAdmin },
+    { to: '/php-extensions', label: t('nav.phpExtensions'), icon: <Puzzle size={18} />, show: isAdmin },
+    { to: '/php-errors', label: t('nav.phpErrors'), icon: <Bug size={18} />, show: isAdmin },
+    { to: '/php-fpm', label: t('nav.phpFpm'), icon: <Server size={18} />, show: isAdmin },
+    { to: '/php-bench', label: t('nav.phpBench'), icon: <Timer size={18} />, show: isAdmin },
+    { to: '/php-ini', label: t('nav.phpIni'), icon: <FileCog size={18} />, show: isAdmin },
+    { to: '/php-processes', label: t('nav.phpProcesses'), icon: <Cpu size={18} />, show: isAdmin },
+    { to: '/php-upgrade', label: t('nav.phpUpgrade'), icon: <ArrowUpCircle size={18} />, show: isAdmin },
     { to: '/settings', label: t('nav.settings'), icon: <Settings size={18} />, show: true },
   ]
 

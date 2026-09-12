@@ -8,7 +8,7 @@ import { EmptyState } from '@/components/ui/EmptyState'
 import { Spinner } from '@/components/ui/Spinner'
 import { toast } from '@/components/ui/Toast'
 import { trashApi } from '@/api/trash'
-import { ApiError } from '@/api/client'
+import { ApiError, isApprovalPending } from '@/api/client'
 import { useFormat } from '@/lib/format'
 import { useI18n } from '@/hooks/useI18n'
 
@@ -83,11 +83,15 @@ export function TrashModal({ open, onClose, onChanged }: TrashModalProps) {
       toast({ type: 'success', title: t('trash.purged') })
       handleChanged()
     } catch (err) {
-      toast({
-        type: 'error',
-        title: t('trash.purgeFailed'),
-        description: err instanceof Error ? err.message : undefined,
-      })
+      if (isApprovalPending(err)) {
+        toast({ type: 'info', title: t('approvals.pendingToastTitle'), description: t('approvals.pendingToastDesc') })
+      } else {
+        toast({
+          type: 'error',
+          title: t('trash.purgeFailed'),
+          description: err instanceof Error ? err.message : undefined,
+        })
+      }
     } finally {
       setBusyId(null)
     }
@@ -101,11 +105,16 @@ export function TrashModal({ open, onClose, onChanged }: TrashModalProps) {
       setPurgeAllConfirm(false)
       handleChanged()
     } catch (err) {
-      toast({
-        type: 'error',
-        title: t('trash.purgeFailed'),
-        description: err instanceof Error ? err.message : undefined,
-      })
+      if (isApprovalPending(err)) {
+        toast({ type: 'info', title: t('approvals.pendingToastTitle'), description: t('approvals.pendingToastDesc') })
+        setPurgeAllConfirm(false)
+      } else {
+        toast({
+          type: 'error',
+          title: t('trash.purgeFailed'),
+          description: err instanceof Error ? err.message : undefined,
+        })
+      }
     } finally {
       setPurgeBusy(false)
     }
