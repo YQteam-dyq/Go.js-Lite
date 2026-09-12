@@ -223,11 +223,79 @@ class WafTest extends TestCase
     public function testFilePermissions()
     {
         gojs_waf_add_ip_rule($this->testIp, 'block');
-        
-        $this->assertFileExists(WAF_IP_RULES_FILE);
-        
-        $filePermissions = fileperms(WAF_IP_RULES_FILE);
-        $this->assertEquals(0600, $filePermissions & 0777);
+        gojs_waf_save_rules([
+            'sql_injection' => true,
+            'xss' => true,
+            'command_injection' => true
+        ]);
+        gojs_waf_save_geo_blocks([$this->testCountry]);
+        gojs_waf_check_rate_limit($this->testIp);
+        gojs_waf_log_attack('TEST_ATTACK', $this->testIp, '/test');
+
+        $files = [
+            WAF_IP_RULES_FILE,
+            WAF_RULES_FILE,
+            WAF_GEO_BLOCK_FILE,
+            WAF_RATE_LIMIT_FILE,
+            WAF_ATTACK_LOG_FILE
+        ];
+
+        foreach ($files as $file) {
+            $this->assertFileExists($file);
+            $this->assertEquals(0600, fileperms($file) & 0777, $file);
+        }
+    }
+
+    public function testRuleConfigurationControlsDetection()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export(CONFIG_DIR, true) . ');'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . '$_SERVER["REMOTE_ADDR"] = "192.0.2.55";'
+            . '$_SERVER["REQUEST_URI"] = "/index.php";'
+            . '$_SERVER["REQUEST_METHOD"] = "GET";'
+            . '$_POST = array();'
+            . '$_GET = array("id" => "1 OR 1=1");'
+            . 'gojs_waf_check_request();'
+            . 'echo "ALLOWED";';
+
+        gojs_waf_save_rules([
+            'sql_injection' => false,
+            'xss' => true,
+            'command_injection' => true
+        ]);
+
+        $output = $this->runProbe($probe);
+        $this->assertSame('ALLOWED', $output);
+
+        gojs_waf_save_rules([
+            'command_injection' => false
+        ]);
+
+        $output = $this->runProbe($probe);
+        $this->assertStringNotContainsString('ALLOWED', $output);
+        $this->assertStringContainsString('SQL injection detected', $output);
+
+        gojs_waf_save_rules([
+            'sql_injection' => true,
+            'xss' => true,
+            'command_injection' => true
+        ]);
+
+        $output = $this->runProbe($probe);
+        $this->assertStringNotContainsString('ALLOWED', $output);
+        $this->assertStringContainsString('SQL injection detected', $output);
+    }
+
+    private function runProbe($code)
+    {
+        $lines = array();
+        exec(PHP_BINARY . ' -r ' . escapeshellarg($code) . ' 2>&1', $lines);
+
+        return trim(implode("\n", $lines));
     }
 
     public function testWafModuleDoesNotRedefineSharedConstants()

@@ -13,17 +13,33 @@ define('WAF_GEO_BLOCK_FILE', CONFIG_DIR . '/waf_geo_blocks.json');
 define('WAF_GEO_CACHE_FILE', CONFIG_DIR . '/ip_geo_cache.json');
 define('WAF_ATTACK_LOG_FILE', CONFIG_DIR . '/waf_attack_log.txt');
 
+function gojs_waf_write_file($file, $content, $flags = 0) {
+    $directory = dirname($file);
+
+    if (!is_dir($directory)) {
+        @mkdir($directory, 0700, true);
+    }
+
+    $result = @file_put_contents($file, $content, $flags | LOCK_EX);
+
+    if ($result !== false) {
+        @chmod($file, 0600);
+    }
+
+    return $result !== false;
+}
+
 function gojs_waf_init() {
     if (!is_dir(CONFIG_DIR)) {
         @mkdir(CONFIG_DIR, 0700, true);
     }
     
     if (!file_exists(WAF_IP_RULES_FILE)) {
-        file_put_contents(WAF_IP_RULES_FILE, json_encode(array(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        gojs_waf_write_file(WAF_IP_RULES_FILE, json_encode(array(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
     
     if (!file_exists(WAF_RULES_FILE)) {
-        file_put_contents(WAF_RULES_FILE, json_encode(array(
+        gojs_waf_write_file(WAF_RULES_FILE, json_encode(array(
             'sql_injection' => true,
             'xss' => true,
             'command_injection' => true
@@ -31,21 +47,20 @@ function gojs_waf_init() {
     }
     
     if (!file_exists(WAF_RATE_LIMIT_FILE)) {
-        file_put_contents(WAF_RATE_LIMIT_FILE, json_encode(array(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        gojs_waf_write_file(WAF_RATE_LIMIT_FILE, json_encode(array(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
     
     if (!file_exists(WAF_GEO_BLOCK_FILE)) {
-        file_put_contents(WAF_GEO_BLOCK_FILE, json_encode(array(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+        gojs_waf_write_file(WAF_GEO_BLOCK_FILE, json_encode(array(), JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
     }
 }
 
 function gojs_waf_check_request() {
     $ip = $_SERVER['REMOTE_ADDR'];
-    $user_agent = $_SERVER['HTTP_USER_AGENT'] ?? '';
     $request_uri = $_SERVER['REQUEST_URI'];
-    $request_method = $_SERVER['REQUEST_METHOD'];
     $post_data = $_POST;
     $get_data = $_GET;
+    $rules = gojs_waf_load_rules();
     
     if (gojs_waf_is_ip_blocked($ip)) {
         gojs_waf_log_attack('IP_BLOCKED', $ip, $request_uri);
@@ -69,19 +84,19 @@ function gojs_waf_check_request() {
         exit('Access denied: Geographic restriction');
     }
     
-    if (gojs_waf_check_sql_injection($get_data, $post_data, $request_uri)) {
+    if (!empty($rules['sql_injection']) && gojs_waf_check_sql_injection($get_data, $post_data, $request_uri)) {
         gojs_waf_log_attack('SQL_INJECTION', $ip, $request_uri);
         header('HTTP/1.1 403 Forbidden');
         exit('SQL injection detected');
     }
     
-    if (gojs_waf_check_xss($get_data, $post_data, $request_uri)) {
+    if (!empty($rules['xss']) && gojs_waf_check_xss($get_data, $post_data, $request_uri)) {
         gojs_waf_log_attack('XSS', $ip, $request_uri);
         header('HTTP/1.1 403 Forbidden');
         exit('XSS attack detected');
     }
     
-    if (gojs_waf_check_command_injection($get_data, $post_data, $request_uri)) {
+    if (!empty($rules['command_injection']) && gojs_waf_check_command_injection($get_data, $post_data, $request_uri)) {
         gojs_waf_log_attack('COMMAND_INJECTION', $ip, $request_uri);
         header('HTTP/1.1 403 Forbidden');
         exit('Command injection detected');
@@ -120,25 +135,62 @@ function gojs_waf_match_ip($ip, $rule) {
 }
 
 function gojs_waf_check_rate_limit($ip) {
-    $limits = gojs_waf_load_rate_limits();
+    $directory = dirname(WAF_RATE_LIMIT_FILE);
+
+    if (!is_dir($directory)) {
+        @mkdir($directory, 0700, true);
+    }
+
+    $handle = @fopen(WAF_RATE_LIMIT_FILE, 'c+');
+
+    if ($handle === false) {
+        return false;
+    }
+
+    @chmod(WAF_RATE_LIMIT_FILE, 0600);
+
+    if (!flock($handle, LOCK_EX)) {
+        fclose($handle);
+        return false;
+    }
+
+    $raw = stream_get_contents($handle);
+    $limits = json_decode((string) $raw, true);
+
+    if (!is_array($limits)) {
+        $limits = array();
+    }
+
     $current_time = time();
     $window_start = $current_time - 3600;
-    
-    if (!isset($limits[$ip])) {
+
+    if (!isset($limits[$ip]) || !is_array($limits[$ip])) {
         $limits[$ip] = array();
     }
-    
-    $limits[$ip] = array_filter($limits[$ip], function($timestamp) use ($window_start) {
-        return $timestamp > $window_start;
-    });
-    
-    if (count($limits[$ip]) >= 1000) {
-        return true;
+
+    $limits[$ip] = array_values(array_filter($limits[$ip], function($timestamp) use ($window_start) {
+        return is_numeric($timestamp) && (int) $timestamp > $window_start;
+    }));
+
+    $exceeded = count($limits[$ip]) >= 1000;
+
+    if (!$exceeded) {
+        $limits[$ip][] = $current_time;
     }
-    
-    $limits[$ip][] = $current_time;
-    gojs_waf_save_rate_limits($limits);
-    return false;
+
+    $encoded = json_encode($limits, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+
+    if ($encoded !== false) {
+        ftruncate($handle, 0);
+        rewind($handle);
+        fwrite($handle, $encoded);
+        fflush($handle);
+    }
+
+    flock($handle, LOCK_UN);
+    fclose($handle);
+
+    return $exceeded;
 }
 
 function gojs_waf_normalize_country($country) {
@@ -210,7 +262,7 @@ function gojs_waf_get_ip_country($ip) {
     }
 
     $cache[$ip] = $code;
-    @file_put_contents(WAF_GEO_CACHE_FILE, json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+    gojs_waf_write_file(WAF_GEO_CACHE_FILE, json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 
     return $code;
 }
@@ -317,10 +369,10 @@ function gojs_waf_check_command_injection($get_data, $post_data, $request_uri) {
 }
 
 function gojs_waf_log_attack($type, $ip, $uri) {
-    $log_file = WAF_ATTACK_LOG_FILE;
     $timestamp = date('Y-m-d H:i:s');
     $log_entry = "[{$timestamp}] [{$type}] [{$ip}] [{$uri}]\n";
-    file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
+
+    gojs_waf_write_file(WAF_ATTACK_LOG_FILE, $log_entry, FILE_APPEND);
 }
 
 function gojs_waf_load_ip_rules() {
@@ -333,12 +385,7 @@ function gojs_waf_load_ip_rules() {
 }
 
 function gojs_waf_save_ip_rules($rules) {
-    $content = json_encode($rules, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    $result = @file_put_contents(WAF_IP_RULES_FILE, $content, LOCK_EX);
-    if ($result !== false) {
-        @chmod(WAF_IP_RULES_FILE, 0600);
-    }
-    return $result !== false;
+    return gojs_waf_write_file(WAF_IP_RULES_FILE, json_encode($rules, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
 
 function gojs_waf_add_ip_rule($ip, $type) {
@@ -374,12 +421,7 @@ function gojs_waf_load_rate_limits() {
 }
 
 function gojs_waf_save_rate_limits($limits) {
-    $content = json_encode($limits, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    $result = @file_put_contents(WAF_RATE_LIMIT_FILE, $content, LOCK_EX);
-    if ($result !== false) {
-        @chmod(WAF_RATE_LIMIT_FILE, 0600);
-    }
-    return $result !== false;
+    return gojs_waf_write_file(WAF_RATE_LIMIT_FILE, json_encode($limits, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
 
 function gojs_waf_load_geo_blocks() {
@@ -392,12 +434,7 @@ function gojs_waf_load_geo_blocks() {
 }
 
 function gojs_waf_save_geo_blocks($blocks) {
-    $content = json_encode($blocks, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    $result = @file_put_contents(WAF_GEO_BLOCK_FILE, $content, LOCK_EX);
-    if ($result !== false) {
-        @chmod(WAF_GEO_BLOCK_FILE, 0600);
-    }
-    return $result !== false;
+    return gojs_waf_write_file(WAF_GEO_BLOCK_FILE, json_encode($blocks, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
 
 function gojs_waf_add_geo_block($country) {
@@ -435,29 +472,29 @@ function gojs_waf_remove_geo_block($country) {
 }
 
 function gojs_waf_load_rules() {
-    $content = @file_get_contents(WAF_RULES_FILE);
-    if (!$content) {
-        return array(
-            'sql_injection' => true,
-            'xss' => true,
-            'command_injection' => true
-        );
-    }
-    $data = json_decode($content, true);
-    return is_array($data) ? $data : array(
+    $defaults = array(
         'sql_injection' => true,
         'xss' => true,
         'command_injection' => true
     );
+
+    $content = @file_get_contents(WAF_RULES_FILE);
+
+    if (!$content) {
+        return $defaults;
+    }
+
+    $data = json_decode($content, true);
+
+    if (!is_array($data)) {
+        return $defaults;
+    }
+
+    return array_merge($defaults, $data);
 }
 
 function gojs_waf_save_rules($rules) {
-    $content = json_encode($rules, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
-    $result = @file_put_contents(WAF_RULES_FILE, $content, LOCK_EX);
-    if ($result !== false) {
-        @chmod(WAF_RULES_FILE, 0600);
-    }
-    return $result !== false;
+    return gojs_waf_write_file(WAF_RULES_FILE, json_encode($rules, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
 }
 
 gojs_waf_init();
