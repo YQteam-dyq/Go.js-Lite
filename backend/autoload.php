@@ -1,11 +1,38 @@
 <?php
 
+$gojs_vendor_autoload = dirname(__DIR__) . '/vendor/autoload.php';
+if (!class_exists('Composer\\Autoload\\ClassLoader', false) && file_exists($gojs_vendor_autoload)) {
+    require_once $gojs_vendor_autoload;
+}
 
 require_once __DIR__ . '/Context.php';
 require_once __DIR__ . '/Router.php';
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/common.php';
 require_once __DIR__ . '/monitor.php';
+require_once __DIR__ . '/users.php';
+require_once __DIR__ . '/acl.php';
+require_once __DIR__ . '/quota.php';
+require_once __DIR__ . '/users_api.php';
+require_once __DIR__ . '/groups.php';
+require_once __DIR__ . '/tokens.php';
+require_once __DIR__ . '/invitations.php';
+require_once __DIR__ . '/devices.php';
+require_once __DIR__ . '/exports.php';
+require_once __DIR__ . '/notification_prefs.php';
+require_once __DIR__ . '/approvals.php';
+require_once __DIR__ . '/composer.php';
+require_once __DIR__ . '/php_ini.php';
+require_once __DIR__ . '/php_opcache.php';
+require_once __DIR__ . '/php_extensions.php';
+require_once __DIR__ . '/php_errors.php';
+require_once __DIR__ . '/php_fpm.php';
+require_once __DIR__ . '/php_bench.php';
+require_once __DIR__ . '/php_processes.php';
+require_once __DIR__ . '/php_upgrade.php';
+require_once __DIR__ . '/php_include_path.php';
+require_once __DIR__ . '/php_autoload_audit.php';
+require_once __DIR__ . '/user_activity.php';
 require_once __DIR__ . '/auth.php';
 require_once __DIR__ . '/files.php';
 require_once __DIR__ . '/system.php';
@@ -22,4 +49,3 @@ require_once __DIR__ . '/upgrade.php';
 require_once __DIR__ . '/appstore.php';
 require_once __DIR__ . '/share.php';
 require_once __DIR__ . '/dirprotect.php';
-

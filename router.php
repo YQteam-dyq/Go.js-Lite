@@ -14,8 +14,8 @@ $candidates = array();
 if ($panel_base !== '') {
     $candidates[] = $panel_base;
 }
-$candidates[] = '/gojs'; // Compatibility with the historical hardcoded prefix.
-$candidates[] = '';      // Deployed at root.
+$candidates[] = '/gojs';
+$candidates[] = '';
 
 foreach ($candidates as $cand) {
     if ($cand === '') {

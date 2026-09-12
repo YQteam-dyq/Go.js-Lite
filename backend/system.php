@@ -1457,7 +1457,8 @@ function gojs_api_operation_log() {
     }
     if ($user !== '') {
         $logs = array_filter($logs, function($l) use ($user) {
-            return isset($l['user']) && strpos($l['user'], $user) !== false;
+            $u = isset($l['user_id']) ? $l['user_id'] : (isset($l['user']) ? $l['user'] : '');
+            return $u !== '' && strpos($u, $user) !== false;
         });
     }
     if ($date_from > 0) {
@@ -1632,7 +1633,7 @@ function gojs_api_operation_log_export() {
                 if (strpos($ip, $ip_like) === false) return false;
             }
             if ($user_like !== '') {
-                $u = isset($l['user']) ? $l['user'] : '';
+                $u = isset($l['user_id']) ? $l['user_id'] : (isset($l['user']) ? $l['user'] : '');
                 if (strpos($u, $user_like) === false) return false;
             }
             if ($from_ts > 0) {
@@ -1705,7 +1706,7 @@ function gojs_api_operation_log_export() {
                 'detail' => isset($l['detail']) ? $l['detail'] : (isset($l['target']) ? $l['target'] : ''),
                 'target' => isset($l['target']) ? $l['target'] : '',
                 'result' => isset($l['result']) ? (bool)$l['result'] : true,
-                'user' => isset($l['user']) ? $l['user'] : 'admin',
+                'user_id' => isset($l['user_id']) ? $l['user_id'] : (isset($l['user']) ? $l['user'] : 'admin'),
             );
         }
         $export_json = json_encode($arr, JSON_UNESCAPED_UNICODE);

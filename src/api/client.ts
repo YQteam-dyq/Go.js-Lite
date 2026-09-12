@@ -99,7 +99,11 @@ export async function apiFetch<T = unknown>(
       throw buildApiError(res.status, errBody, message, code)
     }
     if (data.ok === true && 'data' in data) {
-      return data.data as T
+      const payload = data.data as any
+      if (payload && typeof payload === 'object' && payload.status === 'approval_pending') {
+        throw new ApprovalPendingError(payload.approval ?? payload)
+      }
+      return payload as T
     }
   }
   return data as T
@@ -176,6 +180,30 @@ export function clearCsrfToken(): void {
   const meta = document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement | null
   if (meta) meta.setAttribute('content', '')
   document.cookie = 'csrf_token=; path=/; max-age=0; SameSite=Lax'
+}
+
+export interface ApprovalPendingPayload {
+  id: string
+  action?: string
+  api?: string
+  status?: string
+  expires_at?: number
+  requester?: string
+  created_at?: number
+}
+
+export class ApprovalPendingError extends Error {
+  name = 'ApprovalPendingError'
+  approval: ApprovalPendingPayload
+
+  constructor(approval: ApprovalPendingPayload) {
+    super('approval_pending')
+    this.approval = approval
+  }
+}
+
+export function isApprovalPending(err: unknown): err is ApprovalPendingError {
+  return err instanceof ApprovalPendingError
 }
 
 export class ApiError extends Error {
