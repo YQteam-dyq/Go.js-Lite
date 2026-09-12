@@ -1,7 +1,11 @@
 <?php
 
-define('ROOT', dirname(__FILE__, 2));
-define('CONFIG_DIR', ROOT . '/.gojs');
+if (!defined('ROOT')) {
+    define('ROOT', dirname(__FILE__, 2));
+}
+if (!defined('CONFIG_DIR')) {
+    define('CONFIG_DIR', ROOT . '/.gojs');
+}
 define('WAF_IP_RULES_FILE', CONFIG_DIR . '/waf_ip_rules.json');
 define('WAF_RULES_FILE', CONFIG_DIR . '/waf_rules.json');
 define('WAF_RATE_LIMIT_FILE', CONFIG_DIR . '/waf_rate_limits.json');
