@@ -1,0 +1,11 @@
+{
+  "id": "vue-template",
+  "name": "Vue 模板",
+  "description": "Vue 3 + Vite 项目模板，支持TypeScript和现代前端开发",
+  "version": "3.3.0",
+  "website": "https://vuejs.org",
+  "icon": "https://vuejs.org/favicon.ico",
+  "category": "frontend",
+  "dependencies": ["node", "npm"],
+  "install_type": "node"
+}

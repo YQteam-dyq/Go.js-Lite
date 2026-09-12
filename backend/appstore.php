@@ -134,3 +134,233 @@ function gojs_appstore_uninstall() {
 
     gojs_json_response(array('app_id' => $app_id, 'success' => true));
 }
+
+function gojs_appstore_check_updates() {
+    $app_id = gojs_get_param('app_id');
+    if (!$app_id) {
+        gojs_json_response(null, array('code' => 'missing_param', 'message' => 'Missing app_id'), 400);
+        return;
+    }
+
+    $app_dir = gojs_appstore_app_dir($app_id);
+    if ($app_dir === false) {
+        gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
+        return;
+    }
+
+    $manifest = $app_dir . '/manifest.json';
+    if (!is_file($manifest)) {
+        gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
+        return;
+    }
+
+    $meta = json_decode(file_get_contents($manifest), true);
+    if (!is_array($meta)) {
+        gojs_json_response(null, array('code' => 'invalid_manifest', 'message' => 'Invalid manifest'), 500);
+        return;
+    }
+
+    $install_file = $app_dir . '/.installed';
+    $current_version = null;
+    $has_update = false;
+
+    if (is_file($install_file)) {
+        $install_info = json_decode(file_get_contents($install_file), true);
+        if (is_array($install_info) && isset($install_info['version'])) {
+            $current_version = $install_info['version'];
+        }
+        if (isset($meta['version']) && $current_version !== $meta['version']) {
+            $has_update = true;
+        }
+    }
+
+    gojs_json_response(array(
+        'app_id' => $app_id,
+        'current_version' => $current_version,
+        'latest_version' => isset($meta['version']) ? $meta['version'] : null,
+        'has_update' => $has_update,
+        'update_info' => $has_update ? array(
+            'changelog' => isset($meta['changelog']) ? $meta['changelog'] : 'No changelog available',
+            'update_time' => isset($meta['update_time']) ? $meta['update_time'] : date('c')
+        ) : null
+    ));
+}
+
+function gojs_appstore_update() {
+    $app_id = gojs_get_param('app_id');
+    if (!$app_id) {
+        gojs_json_response(null, array('code' => 'missing_param', 'message' => 'Missing app_id'), 400);
+        return;
+    }
+
+    $app_dir = gojs_appstore_app_dir($app_id);
+    if ($app_dir === false) {
+        gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
+        return;
+    }
+
+    $manifest = $app_dir . '/manifest.json';
+    if (!is_file($manifest)) {
+        gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
+        return;
+    }
+
+    $meta = json_decode(file_get_contents($manifest), true);
+    if (!is_array($meta)) {
+        gojs_json_response(null, array('code' => 'invalid_manifest', 'message' => 'Invalid manifest'), 500);
+        return;
+    }
+
+    $install_file = $app_dir . '/.installed';
+    if (!is_file($install_file)) {
+        gojs_json_response(null, array('code' => 'not_installed', 'message' => 'App is not installed'), 400);
+        return;
+    }
+
+    $update_script = $app_dir . '/update.sh';
+    $update_php = $app_dir . '/update.php';
+
+    $result = array('app_id' => $app_id, 'success' => true, 'steps' => array());
+
+    if (is_file($update_php)) {
+        include $update_php;
+        $fn = 'gojs_app_update_' . str_replace('-', '_', $app_id);
+        if (function_exists($fn)) {
+            $result['steps'] = $fn();
+        }
+    } elseif (is_file($update_script)) {
+        $output = array();
+        $exit_code = 0;
+        exec('bash ' . escapeshellarg($update_script) . ' 2>&1', $output, $exit_code);
+        $result['steps'][] = array('script' => 'update.sh', 'output' => $output, 'exit_code' => $exit_code);
+        if ($exit_code !== 0) {
+            $result['success'] = false;
+        }
+    } else {
+        $result['steps'][] = array('message' => 'No update script available, skipping update');
+    }
+
+    if ($result['success']) {
+        $install_info = array(
+            'version' => isset($meta['version']) ? $meta['version'] : 'latest',
+            'updated_at' => date('c')
+        );
+        file_put_contents($install_file, json_encode($install_info), LOCK_EX);
+    }
+
+    gojs_json_response($result);
+}
+
+function gojs_appstore_clone() {
+    $source_app_id = gojs_get_param('source_app_id');
+    $target_app_id = gojs_get_param('target_app_id');
+    
+    if (!$source_app_id || !$target_app_id) {
+        gojs_json_response(null, array('code' => 'missing_param', 'message' => 'Missing source_app_id or target_app_id'), 400);
+        return;
+    }
+
+    $source_app_dir = gojs_appstore_app_dir($source_app_id);
+    if ($source_app_dir === false) {
+        gojs_json_response(null, array('code' => 'source_app_not_found', 'message' => 'Source app not found'), 404);
+        return;
+    }
+
+    $target_app_dir = gojs_appstore_app_dir($target_app_id);
+    if ($target_app_dir !== false) {
+        gojs_json_response(null, array('code' => 'target_app_exists', 'message' => 'Target app already exists'), 400);
+        return;
+    }
+
+    $apps_root = realpath(ROOT . '/apps');
+    $new_target_dir = $apps_root . '/' . $target_app_id;
+    
+    if (!is_dir($apps_root)) {
+        gojs_json_response(null, array('code' => 'apps_dir_not_found', 'message' => 'Apps directory not found'), 500);
+        return;
+    }
+
+    if (!is_writable($apps_root)) {
+        gojs_json_response(null, array('code' => 'permission_denied', 'message' => 'Permission denied'), 403);
+        return;
+    }
+
+    $result = array('source_app_id' => $source_app_id, 'target_app_id' => $target_app_id, 'success' => true, 'steps' => array());
+
+    try {
+        if (!is_dir($new_target_dir)) {
+            mkdir($new_target_dir, 0755, true);
+            $result['steps'][] = array('action' => 'create_directory', 'path' => $new_target_dir);
+        }
+
+        $source_files = scandir($source_app_dir);
+        foreach ($source_files as $file) {
+            if ($file === '.' || $file === '..') continue;
+            
+            $source_file = $source_app_dir . '/' . $file;
+            $target_file = $new_target_dir . '/' . $file;
+            
+            if (is_dir($source_file)) {
+                if (!is_dir($target_file)) {
+                    mkdir($target_file, 0755, true);
+                    $result['steps'][] = array('action' => 'create_directory', 'path' => $target_file);
+                }
+                
+                $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source_file, RecursiveDirectoryIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
+                foreach ($iterator as $item) {
+                    $target_item = $new_target_dir . '/' . $iterator->getSubPathName();
+                    if ($item->isDir()) {
+                        if (!is_dir($target_item)) {
+                            mkdir($target_item, 0755, true);
+                        }
+                    } else {
+                        copy($item->getPathname(), $target_item);
+                        $result['steps'][] = array('action' => 'copy_file', 'from' => $item->getPathname(), 'to' => $target_item);
+                    }
+                }
+            } else {
+                copy($source_file, $target_file);
+                $result['steps'][] = array('action' => 'copy_file', 'from' => $source_file, 'to' => $target_file);
+            }
+        }
+
+        if (file_exists($source_app_dir . '/.installed')) {
+            $install_info = json_decode(file_get_contents($source_app_dir . '/.installed'), true);
+            if (is_array($install_info)) {
+                $install_info['cloned_from'] = $source_app_id;
+                $install_info['cloned_at'] = date('c');
+                file_put_contents($new_target_dir . '/.installed', json_encode($install_info), LOCK_EX);
+                $result['steps'][] = array('action' => 'create_install_marker', 'app_id' => $target_app_id);
+            }
+        }
+
+        $manifest = $new_target_dir . '/manifest.json';
+        if (file_exists($manifest)) {
+            $meta = json_decode(file_get_contents($manifest), true);
+            if (is_array($meta)) {
+                $meta['id'] = $target_app_id;
+                $meta['name'] = $meta['name'] . ' (Clone)';
+                $meta['description'] = $meta['description'] . ' (Cloned from ' . $source_app_id . ')';
+                file_put_contents($manifest, json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+                $result['steps'][] = array('action' => 'update_manifest', 'app_id' => $target_app_id);
+            }
+        }
+
+    } catch (Exception $e) {
+        if (is_dir($new_target_dir)) {
+            $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($new_target_dir, RecursiveDirectoryIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+            foreach ($iterator as $item) {
+                if ($item->isDir()) {
+                    rmdir($item->getPathname());
+                } else {
+                    unlink($item->getPathname());
+                }
+            }
+            rmdir($new_target_dir);
+        }
+        $result['success'] = false;
+        $result['error'] = $e->getMessage();
+    }
+
+    gojs_json_response($result);
+}
