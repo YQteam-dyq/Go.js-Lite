@@ -1,13 +1,8 @@
 <?php
 
-
-
-
-
 function gojs_totp_generate_secret(int $bytes = 20): string {
     return GOJS_Base32::encode(random_bytes($bytes));
 }
-
 
 function gojs_totp_compute(string $secret, ?int $time = null, int $digits = 6, int $step = 30, string $algo = 'sha1'): string {
     if ($time === null) $time = time();
@@ -22,7 +17,6 @@ function gojs_totp_compute(string $secret, ?int $time = null, int $digits = 6, i
     return str_pad((string)$code, $digits, '0', STR_PAD_LEFT);
 }
 
-
 function gojs_totp_validate(string $secret, string $code, int $window = 1): bool {
     $time = time();
     $code = preg_replace('/\D/', '', $code);
@@ -32,7 +26,6 @@ function gojs_totp_validate(string $secret, string $code, int $window = 1): bool
     }
     return false;
 }
-
 
 function gojs_crypto_get_rand_alphanum(int $len): string {
     $bytes = random_bytes((int)ceil($len * 3 / 4));
@@ -96,9 +89,15 @@ function gojs_api_bootstrap() {
     );
 
     if ($authenticated) {
-        $data['user'] = array(
-            'username' => 'admin',
-        );
+        $curUser = function_exists('gojs_current_user') ? gojs_current_user() : null;
+        $data['user'] = $curUser
+            ? array(
+                'id' => $curUser['id'],
+                'username' => $curUser['username'],
+                'role' => isset($curUser['role']) ? $curUser['role'] : 'admin',
+                'path_allowlist' => isset($curUser['path_allowlist']) ? $curUser['path_allowlist'] : array(),
+            )
+            : array('username' => 'admin', 'role' => 'admin', 'path_allowlist' => array());
 
         $settings = isset($_SESSION['settings']) ? $_SESSION['settings'] : array();
         if (!$settings) {
@@ -282,7 +281,18 @@ function gojs_api_login() {
     $totp = gojs_get_param('totp', null);
     $recoveryCode = gojs_get_param('recovery_code', null);
 
-    if ($username !== 'admin') {
+    $matched_user = null;
+    if (function_exists('gojs_users_find')) {
+        $store = gojs_users_ensure_default();
+        foreach ($store['users'] as $u) {
+            if (isset($u['username']) && $u['username'] === $username) {
+                $matched_user = $u;
+                break;
+            }
+        }
+    }
+
+    if ($matched_user === null && $username !== 'admin') {
         gojs_log_auth_attempt(false);
         gojs_json_response(null, array(
             'code' => 'invalid_credentials',
@@ -290,8 +300,51 @@ function gojs_api_login() {
         ), 401);
     }
 
-    if (empty($config['password_hash']) || !password_verify($password, $config['password_hash'])) {
-        gojs_log_auth_attempt(false);
+    if ($matched_user !== null && function_exists('gojs_users_lockout_check')) {
+        $lock = gojs_users_lockout_check($matched_user);
+        if (!empty($lock['locked'])) {
+            header('Retry-After: ' . (int)$lock['retry_after']);
+            gojs_json_response(null, array(
+                'code' => 'locked_out',
+                'message' => 'Account is temporarily locked, please try again later',
+                'retry_after' => (int)$lock['retry_after'],
+            ), 423);
+        }
+    }
+
+    if ($matched_user !== null && !empty($matched_user['password_expires_at']) && time() > (int)$matched_user['password_expires_at']) {
+        gojs_log_auth_attempt(false, isset($matched_user['id']) ? $matched_user['id'] : null);
+        gojs_json_response(null, array(
+            'code' => 'password_expired',
+            'message' => 'Password has expired; use the password change flow',
+        ), 401);
+    }
+
+    if ($matched_user !== null && !empty($matched_user['disabled'])) {
+        gojs_log_auth_attempt(false, isset($matched_user['id']) ? $matched_user['id'] : null);
+        gojs_json_response(null, array(
+            'code' => 'invalid_credentials',
+            'message' => 'Invalid username or password',
+        ), 401);
+    }
+
+    $password_ok = false;
+    if ($matched_user !== null && !empty($matched_user['password_hash'])) {
+        $password_ok = password_verify($password, $matched_user['password_hash']);
+    } else {
+        $password_ok = !empty($config['password_hash']) && password_verify($password, $config['password_hash']);
+    }
+    if (!$password_ok) {
+        gojs_log_auth_attempt(false, $matched_user !== null && isset($matched_user['id']) ? $matched_user['id'] : null);
+
+        if ($matched_user !== null && function_exists('gojs_users_upsert')) {
+            $matched_user['failed_attempts'] = isset($matched_user['failed_attempts']) ? ((int)$matched_user['failed_attempts'] + 1) : 1;
+            if ($matched_user['failed_attempts'] >= 5) {
+                $matched_user['lockout_until'] = time() + 15 * 60;
+                $matched_user['failed_attempts'] = 0;
+            }
+            gojs_users_upsert($matched_user);
+        }
         gojs_json_response(null, array(
             'code' => 'invalid_credentials',
             'message' => '用户名或密码错误',
@@ -299,6 +352,10 @@ function gojs_api_login() {
     }
 
     $totpEnabled = !empty($config['totp']['enabled']);
+    $perUserTotp = function_exists('gojs_user_totp_get') ? gojs_user_totp_get($matched_user) : null;
+    if (is_array($perUserTotp)) {
+        $totpEnabled = !empty($perUserTotp['enabled']);
+    }
     $hasTotp = $totp !== null && $totp !== '';
     $hasRecovery = $recoveryCode !== null && $recoveryCode !== '';
 
@@ -315,9 +372,14 @@ function gojs_api_login() {
     }
 
     if ($hasTotp) {
-        $secret = isset($config['totp']['secret_enc']) ? $config['totp']['secret_enc'] : '';
+        $secret = '';
+        if (is_array($perUserTotp) && isset($perUserTotp['secret_enc'])) {
+            $secret = $perUserTotp['secret_enc'];
+        } else {
+            $secret = isset($config['totp']['secret_enc']) ? $config['totp']['secret_enc'] : '';
+        }
         if (!$secret || !gojs_totp_validate($secret, $totp, 1)) {
-            gojs_log_auth_attempt(false);
+            gojs_log_auth_attempt(false, $matched_user !== null && isset($matched_user['id']) ? $matched_user['id'] : null);
             gojs_json_response(null, array(
                 'code' => 'totp_invalid',
                 'message' => '双因素验证码错误或已过期',
@@ -325,9 +387,15 @@ function gojs_api_login() {
             ), 401);
         }
     } elseif ($hasRecovery) {
-        $recoveryCodesEnc = isset($config['totp']['recovery_codes_enc']) && is_array($config['totp']['recovery_codes_enc']) ? $config['totp']['recovery_codes_enc'] : array();
-        $usedCodes = isset($config['totp']['used_codes']) && is_array($config['totp']['used_codes']) ? $config['totp']['used_codes'] : array();
-        $codesFormat = isset($config['totp']['codes_format']) ? $config['totp']['codes_format'] : (count($recoveryCodesEnc) > 0 ? 'hash_legacy' : 'enc');
+        $recoveryCodesEnc = is_array($perUserTotp) && isset($perUserTotp['recovery_codes_enc']) && is_array($perUserTotp['recovery_codes_enc'])
+            ? $perUserTotp['recovery_codes_enc']
+            : (isset($config['totp']['recovery_codes_enc']) && is_array($config['totp']['recovery_codes_enc']) ? $config['totp']['recovery_codes_enc'] : array());
+        $usedCodes = is_array($perUserTotp) && isset($perUserTotp['used_codes']) && is_array($perUserTotp['used_codes'])
+            ? $perUserTotp['used_codes']
+            : (isset($config['totp']['used_codes']) && is_array($config['totp']['used_codes']) ? $config['totp']['used_codes'] : array());
+        $codesFormat = is_array($perUserTotp) && isset($perUserTotp['codes_format'])
+            ? $perUserTotp['codes_format']
+            : (isset($config['totp']['codes_format']) ? $config['totp']['codes_format'] : (count($recoveryCodesEnc) > 0 ? 'hash_legacy' : 'enc'));
         $cleanRecovery = strtoupper(str_replace('-', '', $recoveryCode));
         $matched = false;
         $matchedKey = '';
@@ -362,7 +430,7 @@ function gojs_api_login() {
         }
 
         if (isset($usedCodes[$matchedKey])) {
-            gojs_log_auth_attempt(false);
+            gojs_log_auth_attempt(false, $matched_user !== null && isset($matched_user['id']) ? $matched_user['id'] : null);
             gojs_json_response(null, array(
                 'code' => 'recovery_code_already_used',
                 'message' => '该恢复码已被使用过',
@@ -370,20 +438,44 @@ function gojs_api_login() {
             ), 401);
         }
 
-        $config['totp']['used_codes'][$matchedKey] = time();
-        gojs_save_config();
+        $usedCodes[$matchedKey] = time();
+
+        if (is_array($perUserTotp)) {
+            $newTotp = $perUserTotp;
+            $newTotp['used_codes'] = $usedCodes;
+            if (function_exists('gojs_user_totp_set')) gojs_user_totp_set($newTotp);
+        } else {
+            $config['totp']['used_codes'] = $usedCodes;
+            gojs_save_config();
+        }
     }
 
-    gojs_log_auth_attempt(true);
+    gojs_log_auth_attempt(true, $matched_user !== null && isset($matched_user['id']) ? $matched_user['id'] : null);
 
     gojs_clear_auth_attempts(gojs_get_client_ip());
 
     session_regenerate_id(true);
 
     $_SESSION['authenticated'] = true;
-    $_SESSION['username'] = 'admin';
+    $_SESSION['username'] = $username;
+    $_SESSION['user_id'] = ($matched_user !== null && isset($matched_user['id'])) ? $matched_user['id'] : 'admin';
+    $_SESSION['user_role'] = ($matched_user !== null && isset($matched_user['role'])) ? $matched_user['role'] : 'admin';
     $_SESSION['last_activity'] = time();
+    $_SESSION['login_at'] = time();
+    $_SESSION['login_ip'] = gojs_get_client_ip();
+    $_SESSION['login_ua'] = isset($_SERVER['HTTP_USER_AGENT']) ? (string)$_SERVER['HTTP_USER_AGENT'] : '';
     $csrf_token = gojs_generate_csrf_token();
+
+    if ($matched_user !== null && function_exists('gojs_users_upsert')) {
+        $matched_user['last_login_at'] = time();
+        $matched_user['failed_attempts'] = 0;
+        $matched_user['lockout_until'] = 0;
+        if (empty($matched_user['password_changed_at'])) {
+            $matched_user['password_changed_at'] = time();
+            $matched_user['password_expires_at'] = time() + 90 * 86400;
+        }
+        gojs_users_upsert($matched_user);
+    }
 
     $capabilities = gojs_get_capabilities();
 
@@ -394,9 +486,14 @@ function gojs_api_login() {
         'capabilities' => $capabilities,
         'backendVersion' => VERSION,
         'frontendVersion' => VERSION,
-        'user' => array(
-            'username' => 'admin',
-        ),
+        'user' => $matched_user
+            ? array(
+                'id' => $matched_user['id'],
+                'username' => $matched_user['username'],
+                'role' => isset($matched_user['role']) ? $matched_user['role'] : 'admin',
+                'path_allowlist' => isset($matched_user['path_allowlist']) ? $matched_user['path_allowlist'] : array(),
+            )
+            : array('username' => $username, 'role' => 'admin', 'path_allowlist' => array()),
     );
 
     $settings = isset($_SESSION['settings']) ? $_SESSION['settings'] : array();
@@ -413,16 +510,55 @@ function gojs_api_login() {
 }
 
 function gojs_api_logout() {
+
+    if (!empty($_COOKIE[session_name()])) {
+        $sid = $_COOKIE[session_name()];
+        $revoked_file = CONFIG_DIR . '/session_revoked.json';
+        $revoked = array();
+        if (file_exists($revoked_file)) {
+            $raw = @file_get_contents($revoked_file);
+            if ($raw) {
+                $revoked = json_decode($raw, true);
+                if (!is_array($revoked)) $revoked = array();
+            }
+        }
+
+        $now = time();
+        foreach ($revoked as $k => $v) {
+            if (!is_array($v) || (isset($v['exp']) && $v['exp'] < $now)) unset($revoked[$k]);
+        }
+        $revoked[$sid] = array('exp' => $now + 8 * 3600, 'user_id' => isset($_SESSION['user_id']) ? $_SESSION['user_id'] : null);
+        @file_put_contents($revoked_file, json_encode($revoked), LOCK_EX);
+    }
+
     session_unset();
     session_destroy();
 
-    
     if (ini_get('session.use_cookies')) {
         $params = session_get_cookie_params();
         setcookie(session_name(), '', time() - 42000, $params['path'], $params['domain'], $params['secure'], $params['httponly']);
     }
 
     gojs_json_response(array('success' => true));
+}
+
+function gojs_session_revoked_check() {
+    $name = session_name();
+    if (empty($_COOKIE[$name])) return;
+    $sid = $_COOKIE[$name];
+    $revoked_file = CONFIG_DIR . '/session_revoked.json';
+    if (!file_exists($revoked_file)) return;
+    $raw = @file_get_contents($revoked_file);
+    if (!$raw) return;
+    $revoked = json_decode($raw, true);
+    if (!is_array($revoked) || !isset($revoked[$sid])) return;
+    if (isset($revoked[$sid]['exp']) && $revoked[$sid]['exp'] < time()) return;
+    session_unset();
+    session_destroy();
+    gojs_json_response(null, array(
+        'code' => 'session_revoked',
+        'message' => 'The session was revoked, please sign in again',
+    ), 401);
 }
 
 function gojs_api_change_password() {
@@ -460,74 +596,148 @@ function gojs_api_change_password() {
     gojs_json_response(array('success' => true));
 }
 
+function gojs_default_preferences($config, $role = 'admin') {
+    $notifications = function_exists('gojs_notifications_default_for_role')
+        ? gojs_notifications_default_for_role($role)
+        : array(
+            'email' => array('severity_min' => 'warning', 'categories' => array()),
+            'inapp' => array('severity_min' => 'info',     'categories' => array()),
+        );
+    return array(
+        'theme' => 'system',
+        'language' => 'zh',
+        'sessionTimeout' => isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800,
+        'logRetention' => isset($config['log_retention']) ? (int)$config['log_retention'] : 500,
+        'dashboardLayout' => 'default',
+        'notifications' => $notifications,
+    );
+}
+
+function gojs_preferences_migrate_if_needed($user, &$config) {
+    if (!is_array($user)) return null;
+    if (!empty($user['preferences']) && is_array($user['preferences'])) return $user['preferences'];
+    $seed = gojs_default_preferences($config, isset($user['role']) ? $user['role'] : 'viewer');
+    if (!empty($_SESSION['settings']) && is_array($_SESSION['settings'])) {
+        foreach (array('theme','language','sessionTimeout','logRetention') as $k) {
+            if (isset($_SESSION['settings'][$k])) $seed[$k] = $_SESSION['settings'][$k];
+        }
+    }
+    $user['preferences'] = $seed;
+    if (function_exists('gojs_users_upsert')) {
+        gojs_users_upsert($user);
+    }
+    unset($_SESSION['settings']);
+    return $seed;
+}
+
 function gojs_api_get_settings() {
     global $config;
+    $u = function_exists('gojs_current_user') ? gojs_current_user() : null;
 
-    $settings = isset($_SESSION['settings']) ? $_SESSION['settings'] : array();
-    if (!$settings) {
-        $settings = array(
-            'theme' => 'system',
-            'language' => 'zh',
-            'sessionTimeout' => isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800,
-            'logRetention' => isset($config['log_retention']) ? (int)$config['log_retention'] : 500,
-        );
+    if ($u) {
+        $prefs = gojs_preferences_migrate_if_needed($u, $config);
+        if (!empty($config['access_token'])) {
+            $prefs['accessToken'] = $config['access_token'];
+        }
+        gojs_json_response($prefs);
     }
 
+    $settings = array(
+        'theme' => 'system',
+        'language' => 'zh',
+        'sessionTimeout' => isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800,
+        'logRetention' => isset($config['log_retention']) ? (int)$config['log_retention'] : 500,
+    );
     if (!empty($config['access_token'])) {
         $settings['accessToken'] = $config['access_token'];
     }
-    if (!isset($settings['logRetention'])) {
-        $settings['logRetention'] = isset($config['log_retention']) ? (int)$config['log_retention'] : 500;
-    }
-
     gojs_json_response($settings);
 }
 
 function gojs_api_update_settings() {
     global $config;
-
+    $u = function_exists('gojs_current_user') ? gojs_current_user() : null;
     $body = gojs_get_body();
 
-    $current_settings = isset($_SESSION['settings']) ? $_SESSION['settings'] : array();
-    if (!$current_settings) {
-        $current_settings = array(
-            'theme' => 'system',
-            'language' => 'zh',
-            'sessionTimeout' => isset($config['session_timeout']) ? (int)$config['session_timeout'] : 1800,
-            'logRetention' => isset($config['log_retention']) ? (int)$config['log_retention'] : 500,
-        );
+    if (!$u) {
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
 
-    $new_settings = array_merge($current_settings, $body);
+    $prefs = gojs_preferences_migrate_if_needed($u, $config);
+    $new_prefs = array_merge($prefs, $body);
 
-    if (isset($new_settings['theme']) && !in_array($new_settings['theme'], array('light', 'dark', 'system'))) {
-        $new_settings['theme'] = 'system';
+    if (isset($new_prefs['theme']) && !in_array($new_prefs['theme'], array('light', 'dark', 'system'))) {
+        $new_prefs['theme'] = 'system';
     }
-    if (isset($new_settings['language']) && !in_array($new_settings['language'], array('zh', 'en'))) {
-        $new_settings['language'] = 'zh';
+    if (isset($new_prefs['language']) && !in_array($new_prefs['language'], array('zh', 'en'))) {
+        $new_prefs['language'] = 'zh';
     }
-    if (isset($new_settings['sessionTimeout'])) {
-        $new_settings['sessionTimeout'] = max(300, min(86400, (int)$new_settings['sessionTimeout']));
-
-        $config['session_timeout'] = $new_settings['sessionTimeout'];
+    if (isset($new_prefs['sessionTimeout'])) {
+        $new_prefs['sessionTimeout'] = max(300, min(86400, (int)$new_prefs['sessionTimeout']));
+        $config['session_timeout'] = $new_prefs['sessionTimeout'];
     }
-    if (isset($new_settings['logRetention'])) {
-        $log_retention = (int)$new_settings['logRetention'];
+    if (isset($new_prefs['logRetention'])) {
+        $log_retention = (int)$new_prefs['logRetention'];
         if ($log_retention < 50) $log_retention = 500;
-        $new_settings['logRetention'] = $log_retention;
+        $new_prefs['logRetention'] = $log_retention;
         $config['log_retention'] = $log_retention;
     }
 
-    
-    if (isset($new_settings['sessionTimeout']) || isset($new_settings['logRetention'])) {
+    if (isset($new_prefs['sessionTimeout']) || isset($new_prefs['logRetention'])) {
         $config_content = '<?php' . "\n" . 'return ' . var_export($config, true) . ';' . "\n";
         @file_put_contents(CONFIG_FILE, $config_content, LOCK_EX);
     }
 
-    $_SESSION['settings'] = $new_settings;
+    $u['preferences'] = $new_prefs;
+    if (function_exists('gojs_users_upsert')) {
+        gojs_users_upsert($u);
+    }
 
     gojs_log_operation('settings_update', 'config', true);
-    gojs_json_response($new_settings);
+    gojs_json_response($new_prefs);
+}
+
+function gojs_api_profile_get() {
+    $u = function_exists('gojs_current_user') ? gojs_current_user() : null;
+    if (!$u) {
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
+    }
+    global $config;
+    $prefs = gojs_preferences_migrate_if_needed($u, $config);
+    gojs_json_response(array(
+        'id' => $u['id'],
+        'username' => $u['username'],
+        'role' => isset($u['role']) ? $u['role'] : 'admin',
+        'path_allowlist' => isset($u['path_allowlist']) ? $u['path_allowlist'] : array(),
+        'avatar_color' => isset($u['avatar_color']) ? $u['avatar_color'] : (function_exists('gojs_users_avatar_color') ? gojs_users_avatar_color($u['username']) : '#3b82f6'),
+        'preferences' => $prefs,
+    ));
+}
+
+function gojs_api_profile_update() {
+    global $config;
+    $u = function_exists('gojs_current_user') ? gojs_current_user() : null;
+    if (!$u) {
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
+    }
+    $body = gojs_get_body();
+    $allowed = array('theme', 'language', 'dashboardLayout', 'notifications');
+    $prefs = gojs_preferences_migrate_if_needed($u, $config);
+    foreach ($allowed as $k) {
+        if (array_key_exists($k, $body)) $prefs[$k] = $body[$k];
+    }
+    if (isset($prefs['theme']) && !in_array($prefs['theme'], array('light', 'dark', 'system'))) {
+        $prefs['theme'] = 'system';
+    }
+    if (isset($prefs['language']) && !in_array($prefs['language'], array('zh', 'en'))) {
+        $prefs['language'] = 'zh';
+    }
+    $u['preferences'] = $prefs;
+    if (function_exists('gojs_users_upsert')) {
+        gojs_users_upsert($u);
+    }
+    gojs_log_operation('profile_update', $u['id'], true);
+    gojs_json_response($prefs);
 }
 
 function gojs_api_regenerate_access_token() {
@@ -548,7 +758,10 @@ function gojs_api_regenerate_access_token() {
 function gojs_api_totp_status() {
     global $config;
 
-    $totp = isset($config['totp']) ? $config['totp'] : array();
+    $totp = function_exists('gojs_user_totp_get') ? gojs_user_totp_get() : (isset($config['totp']) ? $config['totp'] : array());
+    if (!is_array($totp)) {
+        $totp = array();
+    }
     $enabled = !empty($totp['enabled']);
     $hasSecret = !empty($totp['secret_enc']);
     $recoveryCodesCount = isset($totp['recovery_codes_enc']) && is_array($totp['recovery_codes_enc']) ? count($totp['recovery_codes_enc']) : 0;
@@ -557,6 +770,7 @@ function gojs_api_totp_status() {
         'enabled' => $enabled,
         'hasSecret' => $hasSecret,
         'recoveryCodesCount' => $recoveryCodesCount,
+        'per_user' => function_exists('gojs_current_user') && gojs_current_user() !== null,
     ));
 }
 
@@ -636,7 +850,8 @@ function gojs_api_totp_confirm() {
     $config['totp']['used_codes'] = array();
     $config['totp']['codes_format'] = 'enc';
 
-    gojs_save_config();
+    if (function_exists('gojs_user_totp_set')) gojs_user_totp_set($config['totp']);
+    else gojs_save_config();
 
     unset($_SESSION['totp_secret_pending_enc']);
     unset($_SESSION['totp_recovery_codes_pending_enc']);
@@ -662,7 +877,8 @@ function gojs_api_totp_disable() {
         $config['totp']['secret_enc'] = '';
         $config['totp']['recovery_codes_enc'] = array();
         $config['totp']['used_codes'] = array();
-        gojs_save_config();
+        if (function_exists('gojs_user_totp_set')) gojs_user_totp_set($config['totp']);
+        else gojs_save_config();
     }
 
     gojs_log_operation('totp_disabled', 'security', true);
@@ -709,7 +925,8 @@ function gojs_api_totp_recovery_codes() {
         $config['totp']['recovery_codes_enc'] = $recoveryCodesSealed;
         $config['totp']['used_codes'] = array();
         $config['totp']['codes_format'] = 'enc';
-        gojs_save_config();
+        if (function_exists('gojs_user_totp_set')) gojs_user_totp_set($config['totp']);
+        else gojs_save_config();
 
         gojs_log_operation('totp_recovery_regenerate', 'security', true);
         gojs_json_response(array(

@@ -12,6 +12,36 @@
 
 ---
 
+## What's new in 0.8.0 (unreleased)
+
+- **Multi-user & RBAC** — real user accounts in `users.json` (admin / operator / viewer), username + password login, per-user preferences, lockout & password expiry. See [Multi-user](#multi-user--collaboration-not-multi-tenancy) below.
+- **Path-based ACL** — `path_allowlist` restricts viewers to a subset of the file tree; user groups (`groups.json`) contribute their allowlist as a union with the user's own.
+- **Public API Tokens** — Bearer tokens with scopes, per-token rate limiting, SHA-256 storage (the plaintext is shown only once at creation).
+- **Two-person approvals** — sensitive actions (database import, trash purge-all, session kick-all, app uninstall) return `202 approval_pending` and need a second admin to approve within 60 minutes.
+- **Invitations, trusted devices, GDPR-style export, per-user notification preferences, permission boosts**.
+- **PHP toolchain pages** — Composer, OPcache, extensions, error-log parser, PHP-FPM pools, black-box benchmark, ini diff / JIT / include_path, process viewer, upgrade dry-run, autoload audit.
+- **Operations** — audit log carries `user_id`; `/api/audit/aggregate` and per-user activity feeds; real online-session management (list / kick, self-kick protected).
+
+See [CHANGELOG.md](CHANGELOG.md) for the full list and [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md) for breaking changes.
+
+---
+
+## Multi-user — collaboration, NOT multi-tenancy
+
+> ⚠️ **READ THIS FIRST**
+>
+> - Multi-user in Go.js-Lite is a **collaboration tool** for teams: role split, audit and per-user preferences.
+> - For **multiple independent customers**, deploy **one panel instance per customer**. Do **not** try to serve several customers from a single instance.
+> - `path_allowlist` is **not a tenant boundary**. It is a least-privilege subset for viewers on a *shared* file tree. All users of an instance share the same `files_root`, `config.php`, database connections, audit log and monitoring data.
+
+| Role | Files read | Files write | User/session admin | PHP toolchain | API tokens |
+|---|---|---|---|---|---|
+| `admin` | all | all | yes | yes | yes |
+| `operator` | all | yes | no | no | create scoped tokens |
+| `viewer` | allowlist only | no (unless boosted) | no | no | no |
+
+---
+
 ## What's new in 0.7.0
 
 - **REST contract** — keeps the historical query form `/gojs/api?api=<action>` as the default, and adds the path form `/gojs/api/<action>` as an alias. Both forms are recognised by `router.php` and `.htaccess` and dispatched to the same handler.

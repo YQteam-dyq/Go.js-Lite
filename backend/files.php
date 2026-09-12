@@ -151,14 +151,18 @@ function gojs_safe_path($relative_path) {
 function gojs_relative_path($abs_path) {
     $files_root = gojs_resolve_files_root();
 
-    $root_real = rtrim(realpath($files_root), '/');
-    $abs_real = rtrim($abs_path, '/');
+    $root_real = realpath($files_root);
+    $root_real = rtrim(
+        $root_real !== false ? str_replace('\\', '/', $root_real) : str_replace('\\', '/', $files_root),
+        '/'
+    );
+    $abs_real = rtrim(str_replace('\\', '/', $abs_path), '/');
 
     if ($abs_real === $root_real) {
         return '/';
     }
 
-    if (strpos($abs_real, $root_real) === 0) {
+    if ($root_real !== '' && strpos($abs_real, $root_real) === 0) {
         return substr($abs_real, strlen($root_real));
     }
 

@@ -1,8 +1,5 @@
 <?php
 
-
-
-
 function gojs_return_bytes($val) {
     $val = trim($val);
     if (!$val) return 0;
@@ -223,7 +220,6 @@ function gojs_migrate_050() {
         return;
     }
 
-    
     if (!isset($config['totp']) || !is_array($config['totp'])) {
         $config['totp'] = array();
     }
@@ -256,19 +252,16 @@ function gojs_migrate_050() {
 
     gojs_save_config();
 
-    
     $history_file = CONFIG_DIR . '/webcron_history.json';
     if (!file_exists($history_file)) {
         @file_put_contents($history_file, '[]');
     }
 
-    
     $trash_dir = CONFIG_DIR . '/trash';
     if (!is_dir($trash_dir)) {
         @mkdir($trash_dir, 0700, true);
     }
 
-    
     $monitor_file = CONFIG_DIR . '/monitor_history.json';
     if (!file_exists($monitor_file)) {
         @file_put_contents($monitor_file, '[]');
@@ -289,33 +282,27 @@ function gojs_run_migration() {
             return;
         }
 
-        
-        
         if (version_compare($current_version, '0.3.0', '<')) {
-            
+
             $log_file = CONFIG_DIR . '/operation_log.json';
             if (!file_exists($log_file)) {
                 @file_put_contents($log_file, '[]');
             }
 
-            
             $backup_dir = CONFIG_DIR . '/backups';
             if (!is_dir($backup_dir)) {
                 @mkdir($backup_dir, 0700, true);
             }
         }
 
-        
         gojs_migrate_040();
 
-        
         gojs_migrate_050();
 
-        
         $config['version'] = APP_VERSION;
         gojs_save_config();
     } catch (Exception $e) {
-        
+
     }
 }
 
@@ -375,7 +362,6 @@ function gojs_log_auth_attempt($success) {
     }
 }
 
-
 function gojs_clear_auth_attempts($ip) {
     if (!file_exists(AUTH_LOG)) {
         return;
@@ -398,8 +384,15 @@ function gojs_clear_auth_attempts($ip) {
     @file_put_contents(AUTH_LOG, implode("\n", $kept) . "\n", LOCK_EX);
 }
 
-function gojs_log_operation($action, $target, $result = true, $detail = '') {
+function gojs_log_operation($action, $target, $result = true, $detail = '', $user_id = null) {
     $log_file = CONFIG_DIR . '/operation_log.json';
+
+    if ($user_id === null) {
+        $user_id = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
+    }
+    if ($user_id === null) {
+        $user_id = isset($_SESSION['user_id']) ? $_SESSION['user_id'] : 'admin';
+    }
 
     $entry = array(
         'time' => date('Y-m-d H:i:s'),
@@ -409,7 +402,7 @@ function gojs_log_operation($action, $target, $result = true, $detail = '') {
         'target' => $target,
         'result' => $result,
         'detail' => $detail,
-        'user' => 'admin',
+        'user_id' => $user_id,
     );
 
     $logs = array();
@@ -433,7 +426,6 @@ function gojs_log_operation($action, $target, $result = true, $detail = '') {
         $logs = array_slice($logs, -$retention);
     }
 
-    
     @file_put_contents($log_file, json_encode($logs, JSON_UNESCAPED_UNICODE));
 
     $ctx = array(
@@ -460,7 +452,6 @@ function gojs_check_csrf() {
         return;
     }
 
-    
     if (!empty($_SESSION['api_token_scopes'])) {
         return;
     }
@@ -526,9 +517,12 @@ function gojs_check_csrf() {
 function gojs_check_auth() {
     global $config;
 
+    if (function_exists('gojs_session_revoked_check')) {
+        gojs_session_revoked_check();
+    }
+
     gojs_check_access_token();
 
-    
     $api_token = isset($_SERVER['HTTP_X_API_TOKEN']) ? $_SERVER['HTTP_X_API_TOKEN'] : '';
     if ($api_token !== '') {
         $tokens = isset($config['api_tokens']) && is_array($config['api_tokens']) ? $config['api_tokens'] : array();
@@ -537,7 +531,7 @@ function gojs_check_auth() {
             $sealed = gojs_unseal_secret($t['token_enc']);
             if (is_string($sealed) && $sealed !== '' && hash_equals($sealed, $api_token)) {
                 $_SESSION['api_token_scopes'] = (isset($t['scopes']) && is_array($t['scopes'])) ? array_values($t['scopes']) : array();
-                
+
                 $now = time();
                 $last = isset($t['last_used_at']) ? (int)$t['last_used_at'] : 0;
                 if ($now - $last > 60) {
@@ -603,13 +597,23 @@ function gojs_check_access_token() {
         $token = $_SERVER['HTTP_X_ACCESS_TOKEN'];
     }
 
-    
     if (!$token) {
         return;
     }
 
     if (hash_equals($config['access_token'], $token)) {
         $_SESSION['access_token_valid'] = true;
+
+        if (empty($_SESSION['user_id'])) {
+            $admin_user = function_exists('gojs_users_find') ? gojs_users_find('admin') : null;
+            $_SESSION['user_id'] = ($admin_user && isset($admin_user['id'])) ? $admin_user['id'] : 'admin';
+            $_SESSION['user_role'] = 'admin';
+            $_SESSION['authenticated'] = true;
+            $_SESSION['username'] = ($admin_user && isset($admin_user['username'])) ? $admin_user['username'] : 'admin';
+            $_SESSION['login_at'] = time();
+            $_SESSION['last_activity'] = time();
+            gojs_log_operation('token_login', 'access_token', true, 'legacy access_token URL', $_SESSION['user_id']);
+        }
         return;
     }
 
@@ -627,7 +631,7 @@ function gojs_save_config() {
 }
 
 function gojs_require_scope($scope) {
-    
+
     if (empty($_SESSION['api_token_scopes'])) {
         if (!empty($_SESSION['authenticated']) || !empty($_SESSION['access_token_valid'])) {
             return;
@@ -779,13 +783,13 @@ function gojs_api_status() {
 
 function gojs_api_backup_run_rest() {
     gojs_require_scope('backup:run');
-    
+
     gojs_api_backup_create();
 }
 
 function gojs_api_files_rest() {
     gojs_require_scope('files:read');
-    
+
     gojs_api_files();
 }
 
