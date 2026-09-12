@@ -201,14 +201,14 @@ function gojs_approvals_gate($api, $method) {
     if (gojs_approvals_admin_count() < 2) {
         gojs_json_response(null, array(
             'code' => 'single_admin_no_second_factor',
-            'message' => '需要第二位 admin 才能执行该操作',
+            'message' => 'A second admin is required to perform this action',
         ), 409);
     }
 
     $result = gojs_approval_require($action, $api, $method, gojs_get_body(), $requester);
     if (empty($result['ok'])) {
         $status = $result['code'] === 'approval_already_pending' ? 409 : 500;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '审批创建失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to create the approval request'), $status);
     }
     gojs_log_operation('approval.request', $result['approval']['id'], true, $action);
     gojs_json_response(array(
@@ -323,14 +323,14 @@ function gojs_api_approvals_list() {
 function gojs_api_approvals_decide($id, $decision) {
     $uid = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
     if (!$uid) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $body = gojs_get_body();
     $reason = isset($body['reason']) ? (string)$body['reason'] : '';
     $result = gojs_approval_decide($id, $decision, $reason, $uid);
     if (empty($result['ok'])) {
         $status = isset($result['status']) ? (int)$result['status'] : 400;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '审批失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Approval failed'), $status);
     }
     gojs_json_response(array(
         'status' => $result['approval']['status'],
@@ -342,7 +342,7 @@ function gojs_api_approvals_decide($id, $decision) {
 function gojs_api_approvals_route($api, $method) {
     if (preg_match('#^approvals/([A-Za-z0-9_]+)/(approve|deny)$#', $api, $m)) {
         if ($method !== 'POST') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_approvals_decide($m[1], $m[2]);
         return;
@@ -351,9 +351,9 @@ function gojs_api_approvals_route($api, $method) {
         if ($method === 'GET') {
             gojs_api_approvals_list();
         } else {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

@@ -312,7 +312,7 @@ function gojs_api_invitations_create() {
     );
     if (empty($result['ok'])) {
         $status = $result['code'] === 'already_pending' ? 409 : 400;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '创建邀请失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to create the invitation'), $status);
     }
     gojs_log_operation('invitation.create', $result['invitation']['id'], true);
     gojs_json_response($result['invitation'], null, 201);
@@ -322,7 +322,7 @@ function gojs_api_invitations_revoke($id) {
     $result = gojs_invitations_revoke($id);
     if (empty($result['ok'])) {
         $status = $result['code'] === 'not_found' ? 404 : 409;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '撤销邀请失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to revoke the invitation'), $status);
     }
     gojs_log_operation('invitation.revoke', $id, true);
     gojs_json_response(array('success' => true));
@@ -332,7 +332,7 @@ function gojs_api_invitations_preview() {
     $token = gojs_get_param('token', '');
     $inv = gojs_invitations_find_by_plain(is_string($token) ? $token : '');
     if (!$inv) {
-        gojs_json_response(null, array('code' => 'invite_not_found', 'message' => '邀请链接无效'), 404);
+        gojs_json_response(null, array('code' => 'invite_not_found', 'message' => 'Invalid invitation link'), 404);
     }
     $status = gojs_invitations_effective_status($inv);
     $email = isset($inv['email']) ? $inv['email'] : '';
@@ -357,15 +357,15 @@ function gojs_api_invitations_accept() {
     $username = isset($body['username']) ? (string)$body['username'] : '';
     $password = isset($body['password']) ? (string)$body['password'] : '';
     if ($token === '') {
-        gojs_json_response(null, array('code' => 'invalid_token', 'message' => '邀请链接无效'), 400);
+        gojs_json_response(null, array('code' => 'invalid_token', 'message' => 'Invalid invitation link'), 400);
     }
     if ($password === '') {
-        gojs_json_response(null, array('code' => 'invalid_password', 'message' => '请设置密码'), 400);
+        gojs_json_response(null, array('code' => 'invalid_password', 'message' => 'Please provide a password'), 400);
     }
     $result = gojs_invitations_accept($token, $username, $password);
     if (empty($result['ok'])) {
         $status = isset($result['status']) ? (int)$result['status'] : 400;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '激活失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Activation failed'), $status);
     }
     gojs_json_response(array(
         'success' => true,
@@ -377,21 +377,21 @@ function gojs_api_invitations_accept() {
 function gojs_api_invitations_route($api, $method) {
     if ($api === 'invitations/preview') {
         if ($method !== 'GET') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_invitations_preview();
         return;
     }
     if ($api === 'invitations/accept') {
         if ($method !== 'POST') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_invitations_accept();
         return;
     }
     if (preg_match('#^invitations/([A-Za-z0-9_]+)$#', $api, $m)) {
         if ($method !== 'DELETE') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_invitations_revoke($m[1]);
         return;
@@ -399,8 +399,8 @@ function gojs_api_invitations_route($api, $method) {
     if ($api === 'invitations') {
         if ($method === 'GET') gojs_api_invitations_list();
         elseif ($method === 'POST') gojs_api_invitations_create();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

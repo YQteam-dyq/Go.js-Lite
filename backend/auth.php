@@ -254,7 +254,7 @@ function gojs_api_login() {
             header('Retry-After: ' . (int)$lock['retry_after']);
             gojs_json_response(null, array(
                 'code' => 'locked_out',
-                'message' => '账号被临时锁定，请稍后再试',
+                'message' => 'Account is temporarily locked, please try again later',
                 'retry_after' => (int)$lock['retry_after'],
             ), 423);
         }
@@ -264,7 +264,7 @@ function gojs_api_login() {
         gojs_log_auth_attempt(false, isset($matched_user['id']) ? $matched_user['id'] : null);
         gojs_json_response(null, array(
             'code' => 'password_expired',
-            'message' => '密码已过期，请走修改密码流程',
+            'message' => 'Password has expired; use the password change flow',
         ), 401);
     }
 
@@ -272,7 +272,7 @@ function gojs_api_login() {
         gojs_log_auth_attempt(false, isset($matched_user['id']) ? $matched_user['id'] : null);
         gojs_json_response(null, array(
             'code' => 'invalid_credentials',
-            'message' => '用户名或密码错误',
+            'message' => 'Invalid username or password',
         ), 401);
     }
 
@@ -505,7 +505,7 @@ function gojs_session_revoked_check() {
     session_destroy();
     gojs_json_response(null, array(
         'code' => 'session_revoked',
-        'message' => '会话已被注销，请重新登录',
+        'message' => 'The session was revoked, please sign in again',
     ), 401);
 }
 
@@ -608,7 +608,7 @@ function gojs_api_update_settings() {
     $body = gojs_get_body();
 
     if (!$u) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
 
     $prefs = gojs_preferences_migrate_if_needed($u, $config);
@@ -648,7 +648,7 @@ function gojs_api_update_settings() {
 function gojs_api_profile_get() {
     $u = function_exists('gojs_current_user') ? gojs_current_user() : null;
     if (!$u) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     global $config;
     $prefs = gojs_preferences_migrate_if_needed($u, $config);
@@ -666,7 +666,7 @@ function gojs_api_profile_update() {
     global $config;
     $u = function_exists('gojs_current_user') ? gojs_current_user() : null;
     if (!$u) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $body = gojs_get_body();
     $allowed = array('theme', 'language', 'dashboardLayout', 'notifications');

@@ -72,7 +72,7 @@ function gojs_bench_item_regex($iterations) {
 function gojs_bench_item_file($iterations) {
     $tmp = tempnam(sys_get_temp_dir(), 'gojsbench');
     if ($tmp === false) {
-        return gojs_bench_unavailable('file_get_contents', '无法创建临时文件');
+        return gojs_bench_unavailable('file_get_contents', 'Unable to create a temporary file');
     }
     file_put_contents($tmp, str_repeat('gojs-benchmark-payload', 64));
     $res = gojs_bench_measure('file_get_contents', $iterations, function () use ($tmp) {
@@ -84,15 +84,15 @@ function gojs_bench_item_file($iterations) {
 
 function gojs_bench_item_opcache($iterations) {
     if (!function_exists('opcache_get_status')) {
-        return gojs_bench_unavailable('opcache_hit', 'OPcache 扩展未加载');
+        return gojs_bench_unavailable('opcache_hit', 'The OPcache extension is not loaded');
     }
     $status = @opcache_get_status(false);
     if (!is_array($status) || empty($status['opcache_enabled'])) {
-        return gojs_bench_unavailable('opcache_hit', 'OPcache 未启用');
+        return gojs_bench_unavailable('opcache_hit', 'OPcache is not enabled');
     }
     $tmp = tempnam(sys_get_temp_dir(), 'gojsobc');
     if ($tmp === false) {
-        return gojs_bench_unavailable('opcache_hit', '无法创建临时文件');
+        return gojs_bench_unavailable('opcache_hit', 'Unable to create a temporary file');
     }
     file_put_contents($tmp, '<?php function gojs_bench_probe_' . getmypid() . '() { return 1; }');
     $res = gojs_bench_measure('opcache_hit', $iterations, function () use ($tmp) {
@@ -104,10 +104,10 @@ function gojs_bench_item_opcache($iterations) {
 
 function gojs_bench_item_pdo($iterations) {
     if (!class_exists('PDO')) {
-        return gojs_bench_unavailable('pdo_select', 'PDO 扩展未加载');
+        return gojs_bench_unavailable('pdo_select', 'The PDO extension is not loaded');
     }
     if (!in_array('sqlite', PDO::getAvailableDrivers(), true)) {
-        return gojs_bench_unavailable('pdo_select', 'PDO sqlite 驱动不可用');
+        return gojs_bench_unavailable('pdo_select', 'The PDO sqlite driver is not available');
     }
     try {
         $pdo = new PDO('sqlite::memory:');
@@ -120,18 +120,18 @@ function gojs_bench_item_pdo($iterations) {
             $stmt->fetchColumn();
         });
     } catch (Throwable $e) {
-        return gojs_bench_unavailable('pdo_select', 'sqlite 初始化失败：' . $e->getMessage());
+        return gojs_bench_unavailable('pdo_select', 'sqlite initialization failed: ' . $e->getMessage());
     }
 }
 
 function gojs_bench_item_redis($iterations) {
     if (!class_exists('Redis')) {
-        return gojs_bench_unavailable('redis_get', 'Redis 扩展未加载');
+        return gojs_bench_unavailable('redis_get', 'The Redis extension is not loaded');
     }
     try {
         $redis = new Redis();
         if (!@$redis->connect('127.0.0.1', 6379, 0.5)) {
-            return gojs_bench_unavailable('redis_get', 'Redis 127.0.0.1:6379 不可达');
+            return gojs_bench_unavailable('redis_get', 'Redis at 127.0.0.1:6379 is unreachable');
         }
         $redis->set('gojs_bench', 'payload');
         $res = gojs_bench_measure('redis_get', $iterations, function () use ($redis) {
@@ -140,24 +140,24 @@ function gojs_bench_item_redis($iterations) {
         @$redis->close();
         return $res;
     } catch (Throwable $e) {
-        return gojs_bench_unavailable('redis_get', 'Redis 连接异常：' . $e->getMessage());
+        return gojs_bench_unavailable('redis_get', 'Redis connection error: ' . $e->getMessage());
     }
 }
 
 function gojs_bench_item_curl_multi($iterations) {
     if (!function_exists('curl_multi_init')) {
-        return gojs_bench_unavailable('curl_multi', 'curl 扩展未加载');
+        return gojs_bench_unavailable('curl_multi', 'The curl extension is not loaded');
     }
     $tmp = tempnam(sys_get_temp_dir(), 'gojscurl');
     if ($tmp === false) {
-        return gojs_bench_unavailable('curl_multi', '无法创建临时文件');
+        return gojs_bench_unavailable('curl_multi', 'Unable to create a temporary file');
     }
     file_put_contents($tmp, 'gojs');
     $url = 'file://' . str_replace('\\', '/', $tmp);
     $probe = @curl_init($url);
     if ($probe === false) {
         @unlink($tmp);
-        return gojs_bench_unavailable('curl_multi', 'curl 初始化失败');
+        return gojs_bench_unavailable('curl_multi', 'curl initialization failed');
     }
     @curl_setopt($probe, CURLOPT_RETURNTRANSFER, true);
     $ok = @curl_exec($probe);
@@ -165,7 +165,7 @@ function gojs_bench_item_curl_multi($iterations) {
     @curl_close($probe);
     if ($ok === false || $err !== 0) {
         @unlink($tmp);
-        return gojs_bench_unavailable('curl_multi', 'curl file:// 协议不可用');
+        return gojs_bench_unavailable('curl_multi', 'The curl file:// protocol is not available');
     }
     $res = gojs_bench_measure('curl_multi', $iterations, function () use ($url) {
         $mh = curl_multi_init();
@@ -206,13 +206,13 @@ function gojs_bench_run_all($iterations = null) {
     foreach (gojs_bench_names() as $name) {
         $fn = isset($map[$name]) ? $map[$name] : null;
         if ($fn === null || !function_exists($fn)) {
-            $items[] = gojs_bench_unavailable($name, '基准项未实现');
+            $items[] = gojs_bench_unavailable($name, 'benchmark item is not implemented');
             continue;
         }
         try {
             $items[] = call_user_func($fn, $iterations);
         } catch (Throwable $e) {
-            $items[] = gojs_bench_unavailable($name, '执行异常：' . $e->getMessage());
+            $items[] = gojs_bench_unavailable($name, 'Execution error: ' . $e->getMessage());
         }
     }
     return array(
@@ -329,7 +329,7 @@ function gojs_api_php_bench_run() {
     if ($iterations !== null && ($iterations < 1 || $iterations > 100000)) {
         gojs_json_response(null, array(
             'code' => 'invalid_iterations',
-            'message' => 'iterations 必须在 1-100000 之间',
+            'message' => 'iterations must be between 1 and 100000',
         ), 400);
     }
     $started = microtime(true);
@@ -360,7 +360,7 @@ function gojs_api_php_bench_compare() {
         if (count($available) < 2) {
             gojs_json_response(null, array(
                 'code' => 'not_enough_runs',
-                'message' => '至少需要两次基准结果才能对比',
+                'message' => 'At least two benchmark runs are needed for a comparison',
             ), 404);
         }
         $ids = array($available[1]['id'], $available[0]['id']);
@@ -370,7 +370,7 @@ function gojs_api_php_bench_compare() {
     if ($a === null || $b === null) {
         gojs_json_response(null, array(
             'code' => 'bench_run_not_found',
-            'message' => '指定的基准结果不存在',
+            'message' => 'The requested benchmark result does not exist',
             'ids' => $ids,
         ), 404);
     }

@@ -102,7 +102,7 @@ class PhpIniTest extends TestCase
         $baseline = gojs_php_ini_baseline();
         $meta = gojs_php_ini_meta();
         foreach (array_keys($baseline) as $directive) {
-            $this->assertArrayHasKey($directive, $meta, '缺少 note/severity：' . $directive);
+            $this->assertArrayHasKey($directive, $meta, 'missing note/severity: ' . $directive);
         }
     }
 

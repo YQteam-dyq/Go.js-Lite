@@ -318,19 +318,19 @@ function gojs_dispatch() {
     if (!empty($_SESSION['api_token_active'])) {
         $active_token = function_exists('gojs_tokens_find') ? gojs_tokens_find($_SESSION['api_token_id']) : null;
         if (!$active_token) {
-            gojs_json_response(null, array('code' => 'invalid_token', 'message' => 'API Token 无效'), 401);
+            gojs_json_response(null, array('code' => 'invalid_token', 'message' => 'Invalid API token'), 401);
         }
         if (function_exists('gojs_token_scope_allows') && !gojs_token_scope_allows($_SESSION['api_token_scopes'], $api, $method)) {
             gojs_json_response(null, array(
                 'code' => 'token_scope_denied',
-                'message' => 'API Token 权限不足',
+                'message' => 'The API token has insufficient scope',
             ), 403);
         }
         if (function_exists('gojs_token_rate_limit_ok') && !gojs_token_rate_limit_ok($active_token)) {
             header('Retry-After: 60');
             gojs_json_response(null, array(
                 'code' => 'token_rate_limited',
-                'message' => 'Token 请求过于频繁，请稍后重试',
+                'message' => 'Too many requests for this token, please retry later',
             ), 429);
         }
     } elseif (!empty($_SESSION['api_token_scopes']) && strpos($api, 'api/') !== 0) {
@@ -410,7 +410,7 @@ function gojs_acl_route_precheck($api, $method) {
     }
 
     if ($deny) {
-        gojs_acl_fail('insufficient_role', '当前角色无权访问该接口');
+        gojs_acl_fail('insufficient_role', 'Your role is not allowed to access this endpoint');
     }
 }
 

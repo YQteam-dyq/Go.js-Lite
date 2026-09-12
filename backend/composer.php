@@ -42,13 +42,13 @@ function gojs_composer_base_cmd() {
 function gojs_composer_run(array $args, $timeout = 300) {
     $base = gojs_composer_base_cmd();
     if ($base === null) {
-        return array('ok' => false, 'code' => null, 'output' => 'composer 不可用');
+        return array('ok' => false, 'code' => null, 'output' => 'composer is not available');
     }
     if (!empty($GLOBALS['gojs_composer_run_disabled'])) {
         return array('ok' => false, 'code' => null, 'output' => 'disabled');
     }
     if (!function_exists('proc_open')) {
-        return array('ok' => false, 'code' => null, 'output' => 'proc_open 不可用');
+        return array('ok' => false, 'code' => null, 'output' => 'proc_open is not available');
     }
     $cmd = $base;
     foreach ($args as $a) {
@@ -61,7 +61,7 @@ function gojs_composer_run(array $args, $timeout = 300) {
     $cwd = (defined('PANEL_ROOT') && is_dir(PANEL_ROOT)) ? PANEL_ROOT : null;
     $proc = @proc_open($cmd, $descriptors, $pipes, $cwd);
     if (!is_resource($proc)) {
-        return array('ok' => false, 'code' => null, 'output' => 'proc_open 启动失败');
+        return array('ok' => false, 'code' => null, 'output' => 'proc_open failed to start');
     }
     stream_set_blocking($pipes[1], false);
     stream_set_blocking($pipes[2], false);
@@ -248,13 +248,13 @@ function gojs_composer_require_available() {
     }
     gojs_json_response(null, array(
         'code' => 'composer_unavailable',
-        'message' => '未检测到 composer 可执行文件，请先安装 composer 并加入 PATH',
+        'message' => 'No composer executable found; install composer and add it to PATH',
         'install_guide' => array(
             'url' => 'https://getcomposer.org/download/',
             'steps' => array(
                 'curl -sS https://getcomposer.org/installer | php',
                 'mv composer.phar /usr/local/bin/composer',
-                '或使用系统包管理器：apt install composer / brew install composer',
+                'or install it with your package manager: apt install composer / brew install composer',
             ),
         ),
     ), 501);
@@ -306,7 +306,7 @@ function gojs_api_composer_install() {
     if (!$res['ok']) {
         gojs_json_response(array('log' => gojs_composer_log_tail(80)), array(
             'code' => 'composer_failed',
-            'message' => 'composer install 执行失败',
+            'message' => 'composer install failed',
             'detail' => $res['output'],
         ), 500);
     }
@@ -320,7 +320,7 @@ function gojs_api_composer_require() {
     if (!gojs_composer_validate_package($package)) {
         gojs_json_response(null, array(
             'code' => 'invalid_package',
-            'message' => '包名不合法，应为 vendor/name 形式',
+            'message' => 'Invalid package name; expected the vendor/name form',
         ), 400);
     }
     $args = array('require', $package, '--no-interaction');
@@ -334,7 +334,7 @@ function gojs_api_composer_require() {
     if (!$res['ok']) {
         gojs_json_response(array('log' => gojs_composer_log_tail(80)), array(
             'code' => 'composer_failed',
-            'message' => 'composer require 执行失败',
+            'message' => 'composer require failed',
             'detail' => $res['output'],
         ), 500);
     }
@@ -349,7 +349,7 @@ function gojs_api_composer_update() {
     if (!$res['ok']) {
         gojs_json_response(array('log' => gojs_composer_log_tail(80)), array(
             'code' => 'composer_failed',
-            'message' => 'composer update 执行失败',
+            'message' => 'composer update failed',
             'detail' => $res['output'],
         ), 500);
     }

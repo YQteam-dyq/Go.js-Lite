@@ -156,7 +156,7 @@ function gojs_fpm_slowlog_path() {
 function gojs_fpm_not_applicable_response() {
     gojs_json_response(null, array(
         'code' => 'fpm_not_applicable',
-        'message' => '当前运行模式不支持 FPM 监控（SAPI: ' . php_sapi_name() . '）',
+        'message' => 'FPM monitoring is not available in this runtime mode (SAPI: ' . php_sapi_name() . ')',
         'sapi' => php_sapi_name(),
     ), 501);
 }
@@ -171,7 +171,7 @@ function gojs_api_php_fpm_status() {
     if ($raw === null) {
         gojs_json_response(null, array(
             'code' => 'fpm_status_unreachable',
-            'message' => '无法访问 FPM status 端点，请确认 pm.status_path 已开启',
+            'message' => 'Cannot reach the FPM status endpoint; make sure pm.status_path is enabled',
             'url' => $url,
         ), 502);
     }
@@ -179,7 +179,7 @@ function gojs_api_php_fpm_status() {
     if ($parsed === null) {
         gojs_json_response(null, array(
             'code' => 'fpm_status_unparsable',
-            'message' => 'FPM status 输出无法解析',
+            'message' => 'Unable to parse the FPM status output',
             'url' => $url,
         ), 502);
     }
@@ -198,14 +198,14 @@ function gojs_api_php_fpm_slowlog() {
     if ($path === null || $path === '') {
         gojs_json_response(null, array(
             'code' => 'slowlog_not_configured',
-            'message' => '未在 php-fpm.conf 中找到 slowlog 配置，可传 ?path= 指定',
+            'message' => 'No slowlog setting found in php-fpm.conf; pass ?path= to specify one',
             'candidates' => gojs_fpm_conf_candidates(),
         ), 404);
     }
     if (!file_exists($path) || !is_readable($path)) {
         gojs_json_response(null, array(
             'code' => 'slowlog_unreadable',
-            'message' => 'slowlog 文件不存在或不可读',
+            'message' => 'The slowlog file does not exist or is not readable',
             'path' => $path,
         ), 404);
     }

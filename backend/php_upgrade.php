@@ -30,13 +30,13 @@ function gojs_upgrade_recommended($current, $requiredMin) {
 
 function gojs_upgrade_feature_rules() {
     return array(
-        array('pattern' => '/\benum\s+[A-Za-z_]/', 'min' => '8.1', 'msg' => 'enum 语法需要 PHP 8.1+'),
-        array('pattern' => '/\breadonly\s+(public|protected|private|\$)/', 'min' => '8.1', 'msg' => 'readonly 属性需要 PHP 8.1+'),
-        array('pattern' => '/\)\s*:\s*never\b/', 'min' => '8.1', 'msg' => 'never 返回类型需要 PHP 8.1+'),
-        array('pattern' => '/\bmatch\s*\(/', 'min' => '8.0', 'msg' => 'match 表达式需要 PHP 8.0+'),
-        array('pattern' => '/\?->/', 'min' => '8.0', 'msg' => 'nullsafe 运算符需要 PHP 8.0+'),
-        array('pattern' => '/function\s+__construct\s*\([^)]*\b(public|protected|private)\s+\$/', 'min' => '8.0', 'msg' => '构造器属性提升需要 PHP 8.0+'),
-        array('pattern' => '/#\[\s*\\\\?Attribute\b/', 'min' => '8.0', 'msg' => 'Attribute 需要 PHP 8.0+'),
+        array('pattern' => '/\benum\s+[A-Za-z_]/', 'min' => '8.1', 'msg' => 'The enum syntax requires PHP 8.1+'),
+        array('pattern' => '/\breadonly\s+(public|protected|private|\$)/', 'min' => '8.1', 'msg' => 'readonly properties require PHP 8.1+'),
+        array('pattern' => '/\)\s*:\s*never\b/', 'min' => '8.1', 'msg' => 'The never return type requires PHP 8.1+'),
+        array('pattern' => '/\bmatch\s*\(/', 'min' => '8.0', 'msg' => 'The match expression requires PHP 8.0+'),
+        array('pattern' => '/\?->/', 'min' => '8.0', 'msg' => 'The nullsafe operator requires PHP 8.0+'),
+        array('pattern' => '/function\s+__construct\s*\([^)]*\b(public|protected|private)\s+\$/', 'min' => '8.0', 'msg' => 'Constructor property promotion requires PHP 8.0+'),
+        array('pattern' => '/#\[\s*\\\\?Attribute\b/', 'min' => '8.0', 'msg' => 'Attributes require PHP 8.0+'),
     );
 }
 
@@ -105,7 +105,7 @@ function gojs_api_php_upgrade_check() {
         $blockers[] = array(
             'file' => 'composer.json',
             'line' => null,
-            'msg' => '项目要求 PHP >= ' . $requiredMin . '，当前为 ' . $current,
+            'msg' => 'The project requires PHP >= ' . $requiredMin . ', but the current version is ' . $current,
             'requires' => $requiredMin,
         );
     }

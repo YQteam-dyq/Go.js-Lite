@@ -20,7 +20,7 @@ function gojs_require_role($minRole) {
     $currentRank = function_exists('gojs_current_role_rank') ? gojs_current_role_rank() : 0;
     $needRank    = gojs_role_rank($minRole);
     if ($currentRank < $needRank) {
-        gojs_acl_fail('insufficient_role', '当前角色无权访问该接口');
+        gojs_acl_fail('insufficient_role', 'Your role is not allowed to access this endpoint');
     }
 }
 
@@ -71,7 +71,7 @@ function gojs_require_path_access($abs_path) {
         : (isset($u['path_allowlist']) && is_array($u['path_allowlist']) ? array_values($u['path_allowlist']) : array());
 
     if (empty($allowed)) {
-        gojs_acl_fail('path_not_allowed', '当前账户没有任何可访问路径');
+        gojs_acl_fail('path_not_allowed', 'This account has no accessible path');
     }
 
     $normalized = str_replace('\\', '/', (string)$abs_path);
@@ -84,5 +84,5 @@ function gojs_require_path_access($abs_path) {
             return;
         }
     }
-    gojs_acl_fail('path_not_allowed', '当前账户无权访问该路径');
+    gojs_acl_fail('path_not_allowed', 'This account is not allowed to access this path');
 }

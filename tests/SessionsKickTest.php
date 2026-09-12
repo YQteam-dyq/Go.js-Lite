@@ -147,7 +147,7 @@ class SessionsKickTest extends TestCase
 
         $revoked = json_decode((string)@file_get_contents(CONFIG_DIR . '/session_revoked.json'), true);
         $this->assertIsArray($revoked);
-        $this->assertArrayHasKey($otherSid, $revoked, '黑名单必须写原始 sid 才能命中 gojs_session_revoked_check');
+        $this->assertArrayHasKey($otherSid, $revoked, 'The blacklist must store the raw sid for gojs_session_revoked_check to match');
         $this->assertSame('u_victim', $revoked[$otherSid]['user_id']);
         $this->assertGreaterThan(time(), $revoked[$otherSid]['exp']);
         $this->assertFileDoesNotExist($this->sessionDir . '/sess_' . $otherSid);

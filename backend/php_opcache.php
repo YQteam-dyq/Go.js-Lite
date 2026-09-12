@@ -63,8 +63,8 @@ function gojs_opcache_summary($status) {
 function gojs_opcache_unavailable_response() {
     gojs_json_response(null, array(
         'code' => 'opcache_unavailable',
-        'message' => 'OPcache 不可用（扩展未加载，或当前 SAPI 未启用 OPcache）',
-        'hint' => '需在编译/安装 PHP 时带 --enable-opcache，并在 php.ini 启用 zend_extension=opcache 与 opcache.enable；CLI 下还需 opcache.enable_cli=1',
+        'message' => 'OPcache is unavailable (extension not loaded, or not enabled for this SAPI)',
+        'hint' => 'Build PHP with --enable-opcache and enable zend_extension=opcache plus opcache.enable in php.ini; for CLI also set opcache.enable_cli=1',
     ), 501);
 }
 
@@ -107,7 +107,7 @@ function gojs_api_php_opcache_reset() {
     if (!$ok) {
         gojs_json_response(null, array(
             'code' => 'opcache_reset_failed',
-            'message' => 'OPcache 重置失败（可能被 opcache.restrict_api 限制）',
+            'message' => 'OPcache reset failed (possibly restricted by opcache.restrict_api)',
         ), 501);
     }
     gojs_json_response(array('reset' => true, 'summary' => gojs_opcache_summary(gojs_opcache_status_raw())));
@@ -123,7 +123,7 @@ function gojs_api_php_opcache_toggle() {
         if (!in_array($state, array('on', 'off', 'enable', 'disable', '1', '0'), true)) {
             gojs_json_response(null, array(
                 'code' => 'invalid_state',
-                'message' => 'state 必须是 on / off',
+                'message' => 'state must be on or off',
             ), 400);
         }
         $enable = in_array($state, array('on', 'enable', '1'), true);
@@ -131,7 +131,7 @@ function gojs_api_php_opcache_toggle() {
     if ($enable === null) {
         gojs_json_response(null, array(
             'code' => 'invalid_state',
-            'message' => '需提供 enable 布尔值或 state=on|off',
+            'message' => 'Provide a boolean enable field or state=on|off',
         ), 400);
     }
     if (!gojs_opcache_available()) {
@@ -149,7 +149,7 @@ function gojs_api_php_opcache_toggle() {
     if (!$applied['applied']) {
         gojs_json_response($payload, array(
             'code' => 'ini_readonly',
-            'message' => 'opcache.enable 在当前 SAPI 下不可运行时修改，请修改 php.ini 后重启 PHP',
+            'message' => 'opcache.enable cannot be changed at runtime for this SAPI; edit php.ini and restart PHP',
         ), 501);
     }
     gojs_json_response($payload);
@@ -175,7 +175,7 @@ function gojs_api_php_opcache_profile() {
     if (empty($applied)) {
         gojs_json_response($payload, array(
             'code' => 'ini_readonly',
-            'message' => '当前 SAPI 不允许运行时修改 OPcache 配置，需写入 php.ini 并重启 PHP',
+            'message' => 'This SAPI does not allow changing OPcache settings at runtime; write them to php.ini and restart PHP',
         ), 501);
     }
     gojs_json_response($payload);

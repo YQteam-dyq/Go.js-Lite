@@ -86,7 +86,7 @@ function gojs_notifications_should_deliver($user, $severity, $category, $channel
 function gojs_api_notification_preferences_get() {
     $user = function_exists('gojs_current_user') ? gojs_current_user() : null;
     if (!$user) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $role = isset($user['role']) ? $user['role'] : 'viewer';
     gojs_json_response(array(
@@ -101,7 +101,7 @@ function gojs_api_notification_preferences_get() {
 function gojs_api_notification_preferences_update() {
     $user = function_exists('gojs_current_user') ? gojs_current_user() : null;
     if (!$user) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $role = isset($user['role']) ? $user['role'] : 'viewer';
     $body = gojs_get_body();
@@ -140,13 +140,13 @@ function gojs_api_notification_preferences_update() {
 
 function gojs_api_notification_preferences_route($api, $method) {
     if ($api !== 'notification-preferences') {
-        gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
     }
     if ($method === 'GET') {
         gojs_api_notification_preferences_get();
     } elseif ($method === 'PATCH' || $method === 'PUT' || $method === 'POST') {
         gojs_api_notification_preferences_update();
     } else {
-        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
     }
 }

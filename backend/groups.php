@@ -221,7 +221,7 @@ function gojs_api_groups_create() {
     );
     if (empty($result['ok'])) {
         $status = $result['code'] === 'name_exists' ? 409 : 400;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '创建用户组失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to create the group'), $status);
     }
     gojs_log_operation('group.create', $result['group']['id'], true);
     gojs_json_response($result['group'], null, 201);
@@ -232,7 +232,7 @@ function gojs_api_groups_update($id) {
     $result = gojs_groups_update($id, $body);
     if (empty($result['ok'])) {
         $status = $result['code'] === 'not_found' ? 404 : ($result['code'] === 'name_exists' ? 409 : 400);
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '更新用户组失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to update the group'), $status);
     }
     gojs_log_operation('group.update', $id, true);
     gojs_json_response($result['group']);
@@ -241,7 +241,7 @@ function gojs_api_groups_update($id) {
 function gojs_api_groups_delete($id) {
     $result = gojs_groups_delete($id);
     if (empty($result['ok'])) {
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '删除用户组失败'), 404);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to delete the group'), 404);
     }
     gojs_log_operation('group.delete', $id, true);
     gojs_json_response(array('success' => true));
@@ -255,7 +255,7 @@ function gojs_api_groups_members($id) {
         isset($body['remove']) ? $body['remove'] : array()
     );
     if (empty($result['ok'])) {
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '更新组成员失败'), 404);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to update group members'), 404);
     }
     gojs_log_operation('group.members', $id, true);
     gojs_json_response($result['group']);
@@ -264,7 +264,7 @@ function gojs_api_groups_members($id) {
 function gojs_api_groups_route($api, $method) {
     if (preg_match('#^groups/([A-Za-z0-9_]+)/members$#', $api, $m)) {
         if ($method !== 'POST') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_groups_members($m[1]);
         return;
@@ -273,14 +273,14 @@ function gojs_api_groups_route($api, $method) {
         $id = $m[1];
         if ($method === 'PATCH' || $method === 'PUT') gojs_api_groups_update($id);
         elseif ($method === 'DELETE') gojs_api_groups_delete($id);
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
     if ($api === 'groups') {
         if ($method === 'GET') gojs_api_groups_list();
         elseif ($method === 'POST') gojs_api_groups_create();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

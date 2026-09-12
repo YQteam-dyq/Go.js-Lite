@@ -77,7 +77,7 @@ function gojs_autoload_audit_scan($dir, $autoloadSource, $rootLabel = null) {
 
 function gojs_api_php_autoload_audit() {
     if (!defined('PANEL_ROOT')) {
-        gojs_json_response(null, array('code' => 'no_panel_root', 'message' => 'PANEL_ROOT 未定义'), 500);
+        gojs_json_response(null, array('code' => 'no_panel_root', 'message' => 'PANEL_ROOT is not defined'), 500);
     }
     $backendDir = rtrim(PANEL_ROOT, '/\\') . '/backend';
     $autoloadPath = $backendDir . '/autoload.php';

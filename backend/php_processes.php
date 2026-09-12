@@ -137,7 +137,7 @@ function gojs_api_php_processes_snapshot() {
     if ($modules === null && $info === null) {
         gojs_json_response(null, array(
             'code' => 'snapshot_unavailable',
-            'message' => '无法执行 PHP CLI（shell_exec 被禁用或 PHP 二进制不可用）',
+            'message' => 'Unable to run the PHP CLI (shell_exec is disabled or the PHP binary is unavailable)',
             'php_binary' => $php,
         ), 501);
     }
@@ -152,7 +152,7 @@ function gojs_api_php_processes_snapshot() {
     $content .= "## php -i\n" . (string)$info . "\n";
     $ok = @file_put_contents(gojs_php_snapshot_path(), $content, LOCK_EX) !== false;
     if (!$ok) {
-        gojs_json_response(null, array('code' => 'write_failed', 'message' => '写入 php_snapshot.txt 失败'), 500);
+        gojs_json_response(null, array('code' => 'write_failed', 'message' => 'Failed to write php_snapshot.txt'), 500);
     }
     @chmod(gojs_php_snapshot_path(), 0600);
     gojs_log_operation('php.snapshot', 'php/processes', true, 'bytes=' . strlen($content));
@@ -169,7 +169,7 @@ function gojs_api_php_processes_snapshot_download() {
     if (!file_exists($path)) {
         gojs_json_response(null, array(
             'code' => 'snapshot_missing',
-            'message' => '快照文件不存在，请先执行一次快照',
+            'message' => 'No snapshot file yet; run a snapshot first',
         ), 404);
     }
     gojs_json_response(array(

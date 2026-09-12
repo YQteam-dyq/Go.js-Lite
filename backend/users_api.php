@@ -27,14 +27,14 @@ function gojs_api_users_create() {
     $path_allowlist = isset($body['path_allowlist']) && is_array($body['path_allowlist']) ? $body['path_allowlist'] : array();
 
     if ($username === '') {
-        gojs_json_response(null, array('code' => 'invalid_username', 'message' => '用户名不能为空'), 400);
+        gojs_json_response(null, array('code' => 'invalid_username', 'message' => 'Username is required'), 400);
     }
     if (!in_array($role, array('admin', 'operator', 'viewer'), true)) {
-        gojs_json_response(null, array('code' => 'invalid_role', 'message' => '未知角色'), 400);
+        gojs_json_response(null, array('code' => 'invalid_role', 'message' => 'Unknown role'), 400);
     }
     $policy = function_exists('gojs_users_password_check_policy') ? gojs_users_password_check_policy($password) : true;
     if ($policy !== true) {
-        gojs_json_response(null, array('code' => 'weak_password', 'message' => '密码强度不够：' . $policy), 400);
+        gojs_json_response(null, array('code' => 'weak_password', 'message' => 'Password is too weak: ' . $policy), 400);
     }
 
     $id = 'u_' . bin2hex(random_bytes(6));
@@ -59,12 +59,12 @@ function gojs_api_users_create() {
     $store = gojs_users_load();
     foreach ($store['users'] as $u) {
         if ($u['username'] === $username) {
-            gojs_json_response(null, array('code' => 'username_exists', 'message' => '用户名已存在'), 409);
+            gojs_json_response(null, array('code' => 'username_exists', 'message' => 'Username already exists'), 409);
         }
     }
     $store['users'][] = $new_user;
     if (!gojs_users_save($store)) {
-        gojs_json_response(null, array('code' => 'write_failed', 'message' => '写入 users.json 失败'), 500);
+        gojs_json_response(null, array('code' => 'write_failed', 'message' => 'Failed to write users.json'), 500);
     }
     gojs_log_operation('user.create', $id, true);
     gojs_json_response(gojs_api_users_sanitize($new_user), null, 201);
@@ -80,10 +80,10 @@ function gojs_api_users_update($id) {
             $currentRole = $u['role'];
 
             if (!empty($body['role']) && $body['role'] !== $currentRole && $id === gojs_current_user_id()) {
-                gojs_json_response(null, array('code' => 'cannot_change_own_role', 'message' => '不能修改自己的角色'), 409);
+                gojs_json_response(null, array('code' => 'cannot_change_own_role', 'message' => 'You cannot change your own role'), 409);
             }
             if (array_key_exists('disabled', $body) && !empty($body['disabled']) && $id === gojs_current_user_id()) {
-                gojs_json_response(null, array('code' => 'cannot_disable_own', 'message' => '不能禁用自己'), 409);
+                gojs_json_response(null, array('code' => 'cannot_disable_own', 'message' => 'You cannot disable yourself'), 409);
             }
 
             if (!empty($body['role']))            $store['users'][$i]['role'] = $body['role'];
@@ -95,7 +95,7 @@ function gojs_api_users_update($id) {
                 $pw = (string)$body['password'];
                 $policy = function_exists('gojs_users_password_check_policy') ? gojs_users_password_check_policy($pw) : true;
                 if ($policy !== true) {
-                    gojs_json_response(null, array('code' => 'weak_password', 'message' => '密码强度不够：' . $policy), 400);
+                    gojs_json_response(null, array('code' => 'weak_password', 'message' => 'Password is too weak: ' . $policy), 400);
                 }
                 $store['users'][$i]['password_hash'] = password_hash($pw, PASSWORD_BCRYPT);
                 $store['users'][$i]['password_changed_at'] = time();
@@ -107,10 +107,10 @@ function gojs_api_users_update($id) {
         }
     }
     if (!$found) {
-        gojs_json_response(null, array('code' => 'not_found', 'message' => '用户不存在'), 404);
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'User not found'), 404);
     }
     if (!gojs_users_save($store)) {
-        gojs_json_response(null, array('code' => 'write_failed', 'message' => '写入失败'), 500);
+        gojs_json_response(null, array('code' => 'write_failed', 'message' => 'Write failed'), 500);
     }
     gojs_log_operation('user.update', $id, true);
     $row = null;
@@ -123,20 +123,20 @@ function gojs_api_users_delete($id) {
     $target = null;
     foreach ($store['users'] as $u) if ($u['id'] === $id) { $target = $u; break; }
     if (!$target) {
-        gojs_json_response(null, array('code' => 'not_found', 'message' => '用户不存在'), 404);
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'User not found'), 404);
     }
     if (($target['role'] ?? '') === 'admin') {
         $adminCount = 0;
         foreach ($store['users'] as $u) if (($u['role'] ?? '') === 'admin') $adminCount++;
         if ($adminCount <= 1) {
-            gojs_json_response(null, array('code' => 'cannot_delete_last_admin', 'message' => '至少保留一个 admin'), 409);
+            gojs_json_response(null, array('code' => 'cannot_delete_last_admin', 'message' => 'At least one admin must remain'), 409);
         }
     }
     $out = array();
     foreach ($store['users'] as $u) if ($u['id'] !== $id) $out[] = $u;
     $store['users'] = $out;
     if (!gojs_users_save($store)) {
-        gojs_json_response(null, array('code' => 'write_failed', 'message' => '写入失败'), 500);
+        gojs_json_response(null, array('code' => 'write_failed', 'message' => 'Write failed'), 500);
     }
     gojs_log_operation('user.delete', $id, true);
     gojs_json_response(array('success' => true));
@@ -297,7 +297,7 @@ function gojs_api_sessions_kick($sidFp = null) {
     }
     $sidFp = trim((string)$sidFp);
     if ($sidFp === '') {
-        gojs_json_response(null, array('code' => 'invalid_sid', 'message' => 'sid 必填'), 400);
+        gojs_json_response(null, array('code' => 'invalid_sid', 'message' => 'sid is required'), 400);
     }
 
     $currentSid = isset($_COOKIE[session_name()]) ? (string)$_COOKIE[session_name()] : '';
@@ -305,7 +305,7 @@ function gojs_api_sessions_kick($sidFp = null) {
     if ($currentFp !== '' && $sidFp === $currentFp) {
         gojs_json_response(null, array(
             'code' => 'cannot_kick_self',
-            'message' => '不能踢出自己的会话，请使用「全部下线」',
+            'message' => 'You cannot kick your own session; use the "log out everywhere" action instead',
         ), 409);
     }
 
@@ -319,7 +319,7 @@ function gojs_api_sessions_kick($sidFp = null) {
         }
     }
     if ($targetSid === null) {
-        gojs_json_response(null, array('code' => 'session_not_found', 'message' => '会话不存在或已失效'), 404);
+        gojs_json_response(null, array('code' => 'session_not_found', 'message' => 'Session not found or no longer active'), 404);
     }
 
     $revoked = gojs_sessions_revoke_load();
@@ -364,34 +364,34 @@ function gojs_api_users_route($api, $method) {
         $id = $m[1];
         if ($method === 'PATCH')  gojs_api_users_update($id);
         elseif ($method === 'DELETE') gojs_api_users_delete($id);
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
     if ($api === 'users') {
         if ($method === 'GET') gojs_api_users_list();
         elseif ($method === 'POST') gojs_api_users_create();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
     if ($api === 'sessions') {
         if ($method === 'GET') gojs_api_sessions_list();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
     if (preg_match('#^sessions/([A-Za-z0-9_\-]+)/kick$#', $api, $m)) {
         if ($method === 'POST') gojs_api_sessions_kick($m[1]);
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
     if ($api === 'sessions/kick') {
         if ($method === 'POST') gojs_api_sessions_kick();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
     if ($api === 'logout-all') {
         if ($method === 'POST') gojs_api_logout_all();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

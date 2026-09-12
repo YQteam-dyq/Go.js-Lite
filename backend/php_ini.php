@@ -90,26 +90,26 @@ function gojs_php_ini_baseline() {
 
 function gojs_php_ini_meta() {
     return array(
-        'opcache.enable' => array('severity' => 'danger', 'note' => 'OPcache 可显著降低脚本编译开销，生产环境建议开启'),
-        'opcache.memory_consumption' => array('severity' => 'warning', 'note' => '缓存 256M 通常足够中型应用，过小会导致频繁淘汰'),
-        'opcache.interned_strings_buffer' => array('severity' => 'info', 'note' => '驻留字符串缓冲，16M 适合大多数项目'),
-        'opcache.max_accelerated_files' => array('severity' => 'warning', 'note' => '需大于项目文件总数，否则缓存命中率下降'),
-        'opcache.validate_timestamps' => array('severity' => 'warning', 'note' => '生产环境关闭可避免每次请求 stat 文件；部署后需 reload'),
-        'opcache.save_comments' => array('severity' => 'info', 'note' => '保留注释，供注解/文档工具使用'),
-        'opcache.jit' => array('severity' => 'info', 'note' => 'tracing 模式在多数负载下收益最好'),
-        'opcache.jit_buffer_size' => array('severity' => 'info', 'note' => 'JIT 缓冲区，128M 为常见起点'),
-        'session.use_strict_mode' => array('severity' => 'danger', 'note' => '严格模式可防止会话固定攻击'),
-        'session.cookie_httponly' => array('severity' => 'danger', 'note' => '禁止 JS 读取会话 Cookie，缓解 XSS 窃取'),
-        'session.cookie_samesite' => array('severity' => 'warning', 'note' => 'Lax 可缓解 CSRF'),
-        'session.gc_maxlifetime' => array('severity' => 'info', 'note' => '会话有效期，需与业务安全策略一致'),
-        'expose_php' => array('severity' => 'warning', 'note' => '关闭可避免响应头泄露 PHP 版本'),
-        'display_errors' => array('severity' => 'danger', 'note' => '生产环境必须关闭，避免泄露路径与代码'),
-        'log_errors' => array('severity' => 'warning', 'note' => '开启以便记录运行时错误'),
-        'max_execution_time' => array('severity' => 'info', 'note' => '过小会导致长任务中断，过大易被慢请求拖垮'),
-        'memory_limit' => array('severity' => 'info', 'note' => '与业务数据规模匹配'),
-        'upload_max_filesize' => array('severity' => 'info', 'note' => '上传上限，需大于业务最大文件'),
-        'post_max_size' => array('severity' => 'info', 'note' => '需不小于 upload_max_filesize'),
-        'date.timezone' => array('severity' => 'info', 'note' => '显式设置时区，避免告警与时间偏移'),
+        'opcache.enable' => array('severity' => 'danger', 'note' => 'OPcache greatly reduces script compilation cost; enable it in production'),
+        'opcache.memory_consumption' => array('severity' => 'warning', 'note' => '256M is usually enough for a medium application; a smaller value evicts entries too often'),
+        'opcache.interned_strings_buffer' => array('severity' => 'info', 'note' => 'Interned strings buffer; 16M suits most projects'),
+        'opcache.max_accelerated_files' => array('severity' => 'warning', 'note' => 'Must exceed the total number of project files, otherwise the hit rate drops'),
+        'opcache.validate_timestamps' => array('severity' => 'warning', 'note' => 'Disable it in production to avoid a stat call per request; reload after each deploy'),
+        'opcache.save_comments' => array('severity' => 'info', 'note' => 'Keep comments so annotation and documentation tooling can use them'),
+        'opcache.jit' => array('severity' => 'info', 'note' => 'The tracing mode gives the best results on most workloads'),
+        'opcache.jit_buffer_size' => array('severity' => 'info', 'note' => 'JIT buffer size; 128M is a common starting point'),
+        'session.use_strict_mode' => array('severity' => 'danger', 'note' => 'Strict mode prevents session fixation attacks'),
+        'session.cookie_httponly' => array('severity' => 'danger', 'note' => 'Stop JavaScript from reading the session cookie, mitigating XSS theft'),
+        'session.cookie_samesite' => array('severity' => 'warning', 'note' => 'Lax mitigates CSRF'),
+        'session.gc_maxlifetime' => array('severity' => 'info', 'note' => 'Session lifetime; keep it aligned with your security policy'),
+        'expose_php' => array('severity' => 'warning', 'note' => 'Disable it to avoid leaking the PHP version in response headers'),
+        'display_errors' => array('severity' => 'danger', 'note' => 'Must be off in production to avoid leaking paths and code'),
+        'log_errors' => array('severity' => 'warning', 'note' => 'Enable it so runtime errors are logged'),
+        'max_execution_time' => array('severity' => 'info', 'note' => 'Too low aborts long tasks; too high lets slow requests exhaust the workers'),
+        'memory_limit' => array('severity' => 'info', 'note' => 'Match it to the size of your data'),
+        'upload_max_filesize' => array('severity' => 'info', 'note' => 'Upload limit; must exceed the largest file you handle'),
+        'post_max_size' => array('severity' => 'info', 'note' => 'Must be at least upload_max_filesize'),
+        'date.timezone' => array('severity' => 'info', 'note' => 'Set the timezone explicitly to avoid warnings and clock drift'),
     );
 }
 
@@ -231,14 +231,14 @@ function gojs_api_php_jit_set() {
     if (!in_array($mode, array('tracing', 'function', 'none'), true)) {
         gojs_json_response(null, array(
             'code' => 'invalid_mode',
-            'message' => 'mode 必须是 tracing / function / none',
+            'message' => 'mode must be tracing, function or none',
         ), 400);
     }
     $bufferMb = isset($body['buffer_size_mb']) ? (int)$body['buffer_size_mb'] : 0;
     if ($bufferMb < 0 || $bufferMb > 4096) {
         gojs_json_response(null, array(
             'code' => 'invalid_buffer',
-            'message' => 'buffer_size_mb 必须在 0-4096 之间',
+            'message' => 'buffer_size_mb must be between 0 and 4096',
         ), 400);
     }
     $patch = array(
@@ -267,7 +267,7 @@ function gojs_api_php_jit_set() {
     if (!$anyApplied) {
         gojs_json_response($payload, array(
             'code' => 'ini_readonly',
-            'message' => '当前运行模式不允许运行时修改 JIT，已写入 .user.ini，需重启 PHP-FPM 后生效',
+            'message' => 'JIT cannot be changed at runtime in this mode; it was written to .user.ini and takes effect after a PHP-FPM restart',
         ), 501);
     }
     gojs_json_response($payload);

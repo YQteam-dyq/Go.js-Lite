@@ -100,7 +100,7 @@ function gojs_quota_enforce() {
     header('X-RateLimit-Remaining: 0');
     gojs_json_response(null, array(
         'code' => 'too_many_requests',
-        'message' => '请求过于频繁，请在 ' . (int)$r['reset_in'] . ' 秒后重试',
+        'message' => 'Too many requests, please retry in ' . (int)$r['reset_in'] . ' seconds',
         'retry_after' => (int)$r['reset_in'],
     ), 429);
 }

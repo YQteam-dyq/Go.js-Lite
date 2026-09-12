@@ -175,13 +175,13 @@ function gojs_request_bearer_token() {
 function gojs_token_authenticate($plain) {
     $token = gojs_tokens_find_by_plain($plain);
     if (!$token) {
-        gojs_json_response(null, array('code' => 'invalid_token', 'message' => 'API Token 无效'), 401);
+        gojs_json_response(null, array('code' => 'invalid_token', 'message' => 'Invalid API token'), 401);
     }
     if (!empty($token['revoked'])) {
-        gojs_json_response(null, array('code' => 'token_revoked', 'message' => 'API Token 已撤销'), 401);
+        gojs_json_response(null, array('code' => 'token_revoked', 'message' => 'The API token has been revoked'), 401);
     }
     if (!empty($token['expires_at']) && (int)$token['expires_at'] < time()) {
-        gojs_json_response(null, array('code' => 'token_expired', 'message' => 'API Token 已过期'), 401);
+        gojs_json_response(null, array('code' => 'token_expired', 'message' => 'The API token has expired'), 401);
     }
 
     $user = null;
@@ -189,7 +189,7 @@ function gojs_token_authenticate($plain) {
         $user = gojs_users_find_by_id($token['created_by']);
     }
     if ($user && !empty($user['disabled'])) {
-        gojs_json_response(null, array('code' => 'token_user_disabled', 'message' => 'Token 所属用户已被禁用'), 401);
+        gojs_json_response(null, array('code' => 'token_user_disabled', 'message' => 'The user that owns this token is disabled'), 401);
     }
 
     $_SESSION['authenticated'] = true;
@@ -275,7 +275,7 @@ function gojs_api_tokens_v2_create() {
     if (!empty($body['expires_at'])) {
         $expires_at = is_numeric($body['expires_at']) ? (int)$body['expires_at'] : strtotime((string)$body['expires_at']);
         if (!$expires_at || $expires_at < time()) {
-            gojs_json_response(null, array('code' => 'invalid_expires_at', 'message' => '过期时间无效'), 400);
+            gojs_json_response(null, array('code' => 'invalid_expires_at', 'message' => 'Invalid expiration time'), 400);
         }
     }
     $result = gojs_tokens_create(
@@ -289,7 +289,7 @@ function gojs_api_tokens_v2_create() {
     );
     if (empty($result['ok'])) {
         $status = $result['code'] === 'scope_not_allowed' ? 403 : 400;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '创建 Token 失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to create the token'), $status);
     }
     gojs_log_operation('token.create', $result['token']['id'], true);
     gojs_json_response($result['token'], null, 201);
@@ -298,15 +298,15 @@ function gojs_api_tokens_v2_create() {
 function gojs_api_tokens_v2_revoke($id) {
     $token = gojs_tokens_find($id);
     if (!$token) {
-        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Token 不存在'), 404);
+        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Token not found'), 404);
     }
     $role = function_exists('gojs_current_role') ? gojs_current_role() : null;
     if ($role !== 'admin' && $token['created_by'] !== gojs_current_user_id()) {
-        gojs_json_response(null, array('code' => 'insufficient_role', 'message' => '无权撤销该 Token'), 403);
+        gojs_json_response(null, array('code' => 'insufficient_role', 'message' => 'Not allowed to revoke this token'), 403);
     }
     $result = gojs_tokens_revoke($id);
     if (empty($result['ok'])) {
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '撤销失败'), 404);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Revocation failed'), 404);
     }
     gojs_log_operation('token.revoke', $id, true);
     gojs_json_response(array('success' => true));
@@ -315,7 +315,7 @@ function gojs_api_tokens_v2_revoke($id) {
 function gojs_api_tokens_v2_route($api, $method) {
     if (preg_match('#^tokens/([A-Za-z0-9_]+)$#', $api, $m)) {
         if ($method !== 'DELETE') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_tokens_v2_revoke($m[1]);
         return;
@@ -323,8 +323,8 @@ function gojs_api_tokens_v2_route($api, $method) {
     if ($api === 'tokens') {
         if ($method === 'GET') gojs_api_tokens_v2_list();
         elseif ($method === 'POST') gojs_api_tokens_v2_create();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

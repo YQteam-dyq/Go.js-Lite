@@ -127,7 +127,7 @@ function gojs_api_audit_aggregate() {
     $since = isset($_GET['since']) ? (string)$_GET['since'] : '24h';
     $by = isset($_GET['by']) ? (string)$_GET['by'] : 'user_id';
     if (!in_array($by, array('user_id', 'action', 'hour'), true)) {
-        gojs_json_response(null, array('code' => 'invalid_by', 'message' => 'by 必须是 user_id / action / hour'), 400);
+        gojs_json_response(null, array('code' => 'invalid_by', 'message' => 'by must be user_id, action or hour'), 400);
     }
     $sinceTs = gojs_activity_since_ts($since);
     $agg = gojs_user_activity_aggregate($sinceTs, $by);
@@ -179,7 +179,7 @@ function gojs_api_user_activity_user($user_id) {
 
 function gojs_api_user_activity_route($api, $method) {
     if ($method !== 'GET') {
-        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
     }
     $sub = ltrim(substr($api, strlen('user_activity')), '/');
     if ($sub === '' || $sub === 'recent') {
@@ -194,5 +194,5 @@ function gojs_api_user_activity_route($api, $method) {
         gojs_api_user_activity_user($m[1]);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

@@ -153,7 +153,7 @@ function gojs_devices_is_trusted($user_id) {
 function gojs_api_devices_list() {
     $uid = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
     if (!$uid) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $rows = array();
     foreach (gojs_devices_list($uid) as $d) {
@@ -169,11 +169,11 @@ function gojs_api_devices_list() {
 function gojs_api_devices_trust() {
     $uid = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
     if (!$uid) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $result = gojs_devices_trust($uid);
     if (empty($result['ok'])) {
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '信任设备失败'), 500);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to trust the device'), 500);
     }
     gojs_log_operation('device.trust', $result['device']['fingerprint'], true);
     gojs_json_response(gojs_devices_mark_current($result['device']), null, 201);
@@ -182,12 +182,12 @@ function gojs_api_devices_trust() {
 function gojs_api_devices_revoke($fingerprint) {
     $uid = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
     if (!$uid) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $result = gojs_devices_revoke($uid, $fingerprint);
     if (empty($result['ok'])) {
         $status = $result['code'] === 'not_found' ? 404 : 400;
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '吊销设备失败'), $status);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Failed to revoke the device'), $status);
     }
     gojs_log_operation('device.revoke', $fingerprint, true);
     gojs_json_response(array('success' => true));
@@ -196,22 +196,22 @@ function gojs_api_devices_revoke($fingerprint) {
 function gojs_api_devices_route($api, $method) {
     if ($api === 'devices/trust') {
         if ($method !== 'POST') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_devices_trust();
         return;
     }
     if (preg_match('#^devices/([A-Za-z0-9_]+)$#', $api, $m)) {
         if ($method !== 'DELETE') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_devices_revoke($m[1]);
         return;
     }
     if ($api === 'devices') {
         if ($method === 'GET') gojs_api_devices_list();
-        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+        else gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

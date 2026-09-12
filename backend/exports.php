@@ -270,11 +270,11 @@ function gojs_exports_verify($id, $user_id, $exp, $sig) {
 function gojs_api_profile_export_create() {
     $uid = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
     if (!$uid) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $result = gojs_exports_create($uid);
     if (empty($result['ok'])) {
-        gojs_json_response(null, array('code' => $result['code'], 'message' => '导出失败'), 500);
+        gojs_json_response(null, array('code' => $result['code'], 'message' => 'Export failed'), 500);
     }
     gojs_log_operation('profile.export', $result['export_id'], true);
     gojs_json_response($result, null, 202);
@@ -283,14 +283,14 @@ function gojs_api_profile_export_create() {
 function gojs_api_profile_export_download($id) {
     $uid = function_exists('gojs_current_user_id') ? gojs_current_user_id() : null;
     if (!$uid) {
-        gojs_json_response(null, array('code' => 'unauthorized', 'message' => '请先登录'), 401);
+        gojs_json_response(null, array('code' => 'unauthorized', 'message' => 'Please sign in first'), 401);
     }
     $exp = gojs_get_param('exp', 0);
     $sig = gojs_get_param('sig', '');
     $check = gojs_exports_verify($id, $uid, $exp, is_string($sig) ? $sig : '');
     if (empty($check['ok'])) {
         $status = isset($check['status']) ? (int)$check['status'] : 400;
-        gojs_json_response(null, array('code' => $check['code'], 'message' => '导出下载失败'), $status);
+        gojs_json_response(null, array('code' => $check['code'], 'message' => 'Export download failed'), $status);
     }
 
     $meta = $check['meta'];
@@ -303,7 +303,7 @@ function gojs_api_profile_export_download($id) {
     $filename = 'gojs-export-' . $uid . '-' . date('Ymd_His', (int)$meta['created_at']) . '.zip';
     $bytes = @file_get_contents($meta['file']);
     if ($bytes === false) {
-        gojs_json_response(null, array('code' => 'export_file_missing', 'message' => '导出文件已清理'), 410);
+        gojs_json_response(null, array('code' => 'export_file_missing', 'message' => 'The export file has already been cleaned up'), 410);
     }
 
     while (ob_get_level() > 0) {
@@ -327,17 +327,17 @@ function gojs_api_profile_export_download($id) {
 function gojs_api_profile_export_route($api, $method) {
     if ($api === 'profile/export') {
         if ($method !== 'POST') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_profile_export_create();
         return;
     }
     if (preg_match('#^profile/export/([A-Za-z0-9_]+)$#', $api, $m)) {
         if ($method !== 'GET') {
-            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => '方法不允许'), 405);
+            gojs_json_response(null, array('code' => 'method_not_allowed', 'message' => 'Method not allowed'), 405);
         }
         gojs_api_profile_export_download($m[1]);
         return;
     }
-    gojs_json_response(null, array('code' => 'not_found', 'message' => 'API 不存在'), 404);
+    gojs_json_response(null, array('code' => 'not_found', 'message' => 'Unknown API action'), 404);
 }

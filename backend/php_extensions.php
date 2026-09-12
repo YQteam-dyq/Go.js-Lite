@@ -121,14 +121,14 @@ function gojs_api_php_extensions_favorite() {
     $body = gojs_get_body();
     $name = isset($body['name']) ? trim((string)$body['name']) : '';
     if ($name === '') {
-        gojs_json_response(null, array('code' => 'invalid_name', 'message' => '缺少扩展名'), 400);
+        gojs_json_response(null, array('code' => 'invalid_name', 'message' => 'Missing extension name'), 400);
     }
     $loaded = array();
     foreach (gojs_php_extensions_list() as $row) {
         $loaded[strtolower($row['name'])] = $row['name'];
     }
     if (!isset($loaded[strtolower($name)])) {
-        gojs_json_response(null, array('code' => 'extension_not_loaded', 'message' => '扩展未加载：' . $name), 404);
+        gojs_json_response(null, array('code' => 'extension_not_loaded', 'message' => 'Extension is not loaded: ' . $name), 404);
     }
     $name = $loaded[strtolower($name)];
     $store = gojs_php_favorites_load();
@@ -156,7 +156,7 @@ function gojs_api_php_extensions_favorite() {
     }
     $store['extensions'] = array_values($current);
     if (!gojs_php_favorites_save($store)) {
-        gojs_json_response(null, array('code' => 'write_failed', 'message' => '写入 php_favorites.json 失败'), 500);
+        gojs_json_response(null, array('code' => 'write_failed', 'message' => 'Failed to write php_favorites.json'), 500);
     }
     gojs_log_operation('php.extension_favorite', $name, true, $favorite ? 'on' : 'off');
     gojs_json_response(array('name' => $name, 'favorite' => $favorite, 'favorites' => $store['extensions']));
