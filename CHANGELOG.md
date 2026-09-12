@@ -3,6 +3,43 @@
 > Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > Project language policy: this file is **English only** starting from v0.3.1; Chinese is no longer maintained here.
 
+## [0.8.0] - Unreleased
+
+Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, approvals and a PHP toolchain. Multi-user is a **collaboration tool, not multi-tenancy** — deploy one instance per customer.
+
+### Added
+- Users: `users.json` store auto-seeded from the legacy admin in `config.php` on first run; username + password login; lockout, password expiry (`password_changed_at` / `password_expires_at`), per-user preferences and avatar colors.
+- ACL: role model `admin / operator / viewer`; route-level pre-check (`gojs_acl_route_precheck`) defaulting unlisted actions to admin-only; `path_allowlist` for viewers, unioned with user-group allowlists (`groups.json`); `permissions_boost[]` as a role-orthogonal whitelist for specific actions.
+- Users API: `/api/users` CRUD, `/api/sessions` list + kick (`POST /sessions/{sid}/kick`, self-kick returns `409 cannot_kick_self`), `/api/profile`, `/api/groups`, `/api/tokens` (Bearer), `/api/invitations`, `/api/devices`, `/api/profile/export`, `/api/notification-preferences`, `/api/approvals`.
+- Public API tokens: SHA-256-at-rest, plaintext shown once, scope model (`admin`, `readonly`, `user-self`, `<resource>.read|.write`), per-token rate limiting, `Authorization: Bearer` support.
+- Two-person approvals: sensitive actions (`db/import`, `trash/purge` all, `logout-all`, `appstore/uninstall`) return `202 approval_pending`; single-admin deployments get `409 single_admin_no_second_factor`; 60-minute TTL; decisions enforce requester ≠ approver; approved requests are executed server-side and the original response is returned.
+- Invitations: 24h one-time activation links at `/gojs/invite/<token>`, public preview/accept endpoints, `410 invite_expired`.
+- Trusted devices: 14-day trust stored per user, fingerprinted by IP + UA.
+- GDPR-style export: `POST /api/profile/export` returns `202` + a signed (1h TTL) download URL with `audit.<uid>.json/.csv`, `preferences.json`, `sessions.json`, `tokens.json`; 7-day cleanup.
+- Per-user notification preferences: `preferences.notifications.{email,inapp}.severity_min` with role-based defaults (admin on, operator/viewer off).
+- User activity: `GET /api/audit/aggregate?since=24h&by=user_id|action|hour` and `/api/user_activity/recent|online|{user_id}`.
+- Quotas: per-role request throttling with `429` + `X-RateLimit-*` headers (`backend/quota.php`).
+- PHP toolchain: `/api/composer/*` (status/install/require/update/json, `501 composer_unavailable` with install guide), `/api/php/opcache/*`, `/api/php/extensions`, `/api/php/errors`, `/api/php/fpm/*` (`501 fpm_not_applicable` off-FPM), `/api/php/bench/*` (8 micro-benchmarks), `/api/php/ini-diff`, `/api/php/jit`, `/api/php/include-path`, `/api/php/processes*`, `/api/php/upgrade-check`, `/api/php/autoload-audit` (all admin-only).
+- Frontend pages: Users, Sessions, User Activity, Profile, Groups, API Tokens, Invitations, Devices, Notification Preferences, Approvals, Composer, OPcache, PHP Extensions, PHP Errors, PHP-FPM, PHP Benchmark, PHP Config/JIT, PHP Processes, PHP Upgrade.
+- Composer integration: `backend/autoload.php` transparently requires `vendor/autoload.php` when present.
+- Tests: 314 PHPUnit tests (from 106) covering users, ACL, sessions, quotas, groups, tokens, invitations, devices, exports, notification preferences, approvals, permissions boost, the PHP toolchain and audit aggregation.
+
+### Changed
+- Audit log rows carry `user_id` (`gojs_log_operation`); the legacy access-token URL logs `token_login` and binds the session to the real admin user id.
+- TOTP secrets and recovery codes live in the per-user record (`users.json`) instead of `config.php`, with a one-time migration from the legacy global config.
+- Trash purge-all and other gated actions require a second admin when more than one admin exists; single-item trash purge stays un-gated.
+- `.user.ini` writes (JIT, include_path) are managed through `backend/php_ini.php` helpers.
+- `gojs_relative_path()` normalises directory separators, fixing Windows backslash leakage in file paths.
+
+### Breaking
+- Login is now username + password against `users.json`; the legacy admin-password-only login flow is replaced (the access-token URL keeps working for admins during the 0.8 compatibility window and is scheduled for removal in 1.0).
+- Unauthenticated `settings` writes no longer exist: preferences are per user via `/api/profile`; the global settings write endpoint was removed.
+- Default notification delivery changes: only admins receive notifications unless a user opts in.
+- Every unlisted API action is admin-only by default; operators/viewers need explicit ACL entries or `permissions_boost`.
+
+### Migration (0.7 → 0.8)
+See [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md).
+
 ## [0.7.0] - 2026-09-08
 
 ### Changed
