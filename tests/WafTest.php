@@ -69,13 +69,24 @@ class WafTest extends TestCase
     {
         $sqlInjectionTests = [
             ['id' => "1' OR '1'='1", 'expected' => true],
+            ['id' => "1' or '1'='1", 'expected' => true],
+            ['id' => "1 or 1=1", 'expected' => true],
+            ['id' => "' or 1=1#", 'expected' => true],
             ['id' => "1; DROP TABLE users", 'expected' => true],
             ['id' => "1 UNION SELECT * FROM users", 'expected' => true],
             ['id' => "1' AND 1=1--", 'expected' => true],
             ['id' => "1' WAITFOR DELAY '0:0:5'--", 'expected' => true],
+            ['id' => "admin'--", 'expected' => true],
+            ['id' => "Robert'); DROP TABLE students;--", 'expected' => true],
+            ['id' => "1 union select password from users", 'expected' => true],
+            ['id' => "id=1 and 1=1", 'expected' => true],
             ['id' => "normal input", 'expected' => false],
             ['id' => "123", 'expected' => false],
-            ['id' => "test@example.com", 'expected' => false]
+            ['id' => "test@example.com", 'expected' => false],
+            ['id' => "Hello World", 'expected' => false],
+            ['id' => "O'Brien", 'expected' => false],
+            ['id' => "tea and coffee", 'expected' => false],
+            ['id' => "tomato or potato", 'expected' => false]
         ];
         
         foreach ($sqlInjectionTests as $test) {
@@ -141,13 +152,32 @@ class WafTest extends TestCase
 
     public function testGeographicBlocking()
     {
-        gojs_waf_add_geo_block($this->testCountry);
-        
-        $this->assertTrue(gojs_waf_check_geo_block($this->testCountry));
-        $this->assertFalse(gojs_waf_check_geo_block('US'));
-        
-        gojs_waf_remove_geo_block($this->testCountry);
-        $this->assertFalse(gojs_waf_check_geo_block($this->testCountry));
+        $this->assertFalse(gojs_waf_is_country_blocked($this->testCountry));
+
+        $this->assertTrue(gojs_waf_add_geo_block(strtolower($this->testCountry)));
+        $this->assertTrue(gojs_waf_is_country_blocked($this->testCountry));
+        $this->assertTrue(gojs_waf_is_country_blocked('cn'));
+        $this->assertFalse(gojs_waf_is_country_blocked('US'));
+        $this->assertFalse(gojs_waf_is_country_blocked('not-a-code'));
+        $this->assertFalse(gojs_waf_is_country_blocked(''));
+
+        $this->assertFalse(gojs_waf_check_geo_block('203.0.113.10'));
+
+        $cacheFile = CONFIG_DIR . '/ip_geo_cache.json';
+        $cacheRaw = file_exists($cacheFile) ? (string) file_get_contents($cacheFile) : '';
+        $this->assertStringNotContainsString('unknown', $cacheRaw);
+
+        file_put_contents($cacheFile, json_encode(['198.51.100.7' => 'cn']));
+        $this->assertTrue(gojs_waf_check_geo_block('198.51.100.7'));
+
+        $this->assertFalse(gojs_waf_check_geo_block('not-an-ip'));
+
+        $this->assertTrue(gojs_waf_remove_geo_block($this->testCountry));
+        $this->assertFalse(gojs_waf_is_country_blocked($this->testCountry));
+        $this->assertFalse(gojs_waf_check_geo_block('198.51.100.7'));
+
+        $this->assertFalse(gojs_waf_add_geo_block('invalid'));
+        $this->assertFalse(gojs_waf_remove_geo_block('invalid'));
     }
 
     public function testRuleManagement()
@@ -198,5 +228,24 @@ class WafTest extends TestCase
         
         $filePermissions = fileperms(WAF_IP_RULES_FILE);
         $this->assertEquals(0600, $filePermissions & 0777);
+    }
+
+    public function testWafModuleDoesNotRedefineSharedConstants()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        $probe = 'error_reporting(E_ALL); ini_set("display_errors", "1");'
+            . 'define("ROOT", sys_get_temp_dir());'
+            . 'define("CONFIG_DIR", sys_get_temp_dir() . "/gojs-waf-guard");'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . 'echo "CLEAN";';
+
+        $lines = array();
+        exec(PHP_BINARY . ' -r ' . escapeshellarg($probe) . ' 2>&1', $lines, $rc);
+        $output = trim(implode("\n", $lines));
+
+        $this->assertSame('CLEAN', $output, $output);
+        $this->assertSame(0, $rc, $output);
     }
 }

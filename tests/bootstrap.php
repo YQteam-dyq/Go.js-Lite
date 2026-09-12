@@ -2,11 +2,15 @@
 
 define('VERSION', '0.7.0');
 define('APP_VERSION', '0.7.0');
-define('ROOT', dirname(__DIR__));
+if (!defined('ROOT')) {
+    define('ROOT', dirname(__DIR__));
+}
 define('PANEL_ROOT', ROOT);
 
 $testTmp = rtrim(sys_get_temp_dir(), '/\\') . '/gojs-lite-tests-' . getmypid();
-define('CONFIG_DIR', $testTmp);
+if (!defined('CONFIG_DIR')) {
+    define('CONFIG_DIR', $testTmp);
+}
 define('CONFIG_FILE', CONFIG_DIR . '/config.php');
 define('AUTH_LOG', CONFIG_DIR . '/auth.log');
 define('DB_CONNECTIONS_FILE', CONFIG_DIR . '/db_connections.json');

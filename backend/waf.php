@@ -10,6 +10,8 @@ define('WAF_IP_RULES_FILE', CONFIG_DIR . '/waf_ip_rules.json');
 define('WAF_RULES_FILE', CONFIG_DIR . '/waf_rules.json');
 define('WAF_RATE_LIMIT_FILE', CONFIG_DIR . '/waf_rate_limits.json');
 define('WAF_GEO_BLOCK_FILE', CONFIG_DIR . '/waf_geo_blocks.json');
+define('WAF_GEO_CACHE_FILE', CONFIG_DIR . '/ip_geo_cache.json');
+define('WAF_ATTACK_LOG_FILE', CONFIG_DIR . '/waf_attack_log.txt');
 
 function gojs_waf_init() {
     if (!is_dir(CONFIG_DIR)) {
@@ -139,112 +141,102 @@ function gojs_waf_check_rate_limit($ip) {
     return false;
 }
 
+function gojs_waf_normalize_country($country) {
+    if (!is_string($country)) {
+        return '';
+    }
+
+    $code = strtoupper(trim($country));
+
+    return preg_match('/^[A-Z]{2}$/', $code) === 1 ? $code : '';
+}
+
+function gojs_waf_is_country_blocked($country) {
+    $code = gojs_waf_normalize_country($country);
+    if ($code === '') {
+        return false;
+    }
+
+    foreach (gojs_waf_load_geo_blocks() as $blocked) {
+        if (gojs_waf_normalize_country($blocked) === $code) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
 function gojs_waf_check_geo_block($ip) {
     $blocks = gojs_waf_load_geo_blocks();
     if (empty($blocks)) {
         return false;
     }
-    
+
     $country = gojs_waf_get_ip_country($ip);
-    if (!$country) {
+    if ($country === null) {
         return false;
     }
-    
-    return in_array($country, $blocks);
+
+    return gojs_waf_is_country_blocked($country);
 }
 
 function gojs_waf_get_ip_country($ip) {
-    $cache_file = CONFIG_DIR . '/ip_geo_cache.json';
+    if (!is_string($ip) || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+        return null;
+    }
+
     $cache = array();
-    
-    if (file_exists($cache_file)) {
-        $cache = json_decode(file_get_contents($cache_file), true);
+    $content = @file_get_contents(WAF_GEO_CACHE_FILE);
+    if ($content !== false) {
+        $decoded = json_decode($content, true);
+        if (is_array($decoded)) {
+            $cache = $decoded;
+        }
     }
-    
+
     if (isset($cache[$ip])) {
-        return $cache[$ip];
+        $cached = gojs_waf_normalize_country($cache[$ip]);
+        if ($cached !== '') {
+            return $cached;
+        }
+        unset($cache[$ip]);
     }
-    
-    $country = 'unknown';
-    if (function_exists('geoip_country_code_by_name')) {
-        $country = @geoip_country_code_by_name($ip);
+
+    $resolved = function_exists('geoip_country_code_by_name') ? @geoip_country_code_by_name($ip) : false;
+    $code = is_string($resolved) ? gojs_waf_normalize_country($resolved) : '';
+
+    if ($code === '') {
+        return null;
     }
-    
-    if ($country === false || $country === null) {
-        $country = 'unknown';
-    }
-    
-    $cache[$ip] = $country;
-    file_put_contents($cache_file, json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
-    
-    return $country;
+
+    $cache[$ip] = $code;
+    @file_put_contents(WAF_GEO_CACHE_FILE, json_encode($cache, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
+
+    return $code;
+}
+
+function gojs_waf_sql_injection_patterns() {
+    return array(
+        'union_select' => '/\bunion\b[\s\S]{0,32}?\bselect\b/i',
+        'select_from' => '/\bselect\b[\s\S]{0,96}?\bfrom\b/i',
+        'insert_into' => '/\binsert\s+into\b/i',
+        'delete_from' => '/\bdelete\s+from\b/i',
+        'update_set' => '/\bupdate\b[\s\S]{0,96}?\bset\b/i',
+        'drop_table' => '/\bdrop\s+table\b/i',
+        'truncate_table' => '/\btruncate\s+table\b/i',
+        'alter_table' => '/\balter\s+table\b/i',
+        'exec_call' => '/\b(?:exec|execute)\s*\(/i',
+        'stored_procedure' => '/\b(?:xp_cmdshell|sp_executesql|sp_configure)\b/i',
+        'time_delay' => '/\b(?:waitfor\s+delay\b|pg_sleep\s*\(|benchmark\s*\()/i',
+        'stacked_query' => '/;\s*(?:select|insert|update|delete|drop|truncate|alter|create|grant|exec|execute)\b/i',
+        'schema_probe' => '/\b(?:information_schema|pg_catalog|sysobjects)\b/i',
+        'comment_marker' => '/(?:--(?:\s|$)|#(?:\s|$)|##|\/\*[\s\S]*?\*\/)/',
+        'boolean_tautology' => '/(?:^|\W)(?:or|and)\s+(?:\d+|[\'"][^\'"]{0,64}[\'"]?)\s*(?:=|<>|!=|<=|>=|<|>|\blike\b)\s*(?:\d+|[\'"][^\'"]{0,64}[\'"]?)/i'
+    );
 }
 
 function gojs_waf_check_sql_injection($get_data, $post_data, $request_uri) {
-    $patterns = array(
-        '/union\s+select/i',
-        '/select\s+.*\s+from/i',
-        '/insert\s+into/i',
-        '/delete\s+from/i',
-        '/update\s+.*\s+set/i',
-        '/drop\s+table/i',
-        '/exec\s*\(/i',
-        '/xp_cmdshell/i',
-        '/--/i',
-        '/\/\*/i',
-        '/\#\#/i',
-        '/waitfor\s+delay/i',
-        '/\b(?:or|and)\s+\w+\s*=\s*\w+/i',
-        '/\s+or\s+.*?=\s*.*?\s+/i',
-        '/\s+and\s+.*?=\s*.*?\s+/i',
-        '/\'.*?\'\s+or\s+.*?=\s*.*?\s+/i',
-        '/\'.*?\'\s+and\s+.*?=\s*.*?\s+/i',
-        '/\d+\'.*?\'\s+or\s+.*?=\s*.*?\s+/i',
-        '/\d+\'.*?\'\s+or\s+\'.*?\'\s*=/i',
-        '/\d+\'.*?\'\s+or\s+\d+\s*=/i',
-        '/\'.*?\'\s+or\s+\'.*?\'\s*=/i',
-        '/\'.*?\'\s+or\s+\d+\s*=/i',
-        '/\d+\'.*?\'\s+and\s+.*?=\s*.*?\s+/i',
-        '/\d+\'.*?\'\s+or\s+\'.*?\'\s*=/i',
-        '/\d+\'.*?\'\s+or\s+\d+\s*=\s*\d+/i',
-        '/\d+\'.*?\'\s+or\s+.*?\'\s*=\s*.*?\'/i',
-        '/\d+\'.*?\'\s+or\s+\'.*?\'\s*=/i',
-        '/\d+\'\s+or\s+\'\d+\'\s*=\s*\'\d+\'/i',
-        '/\d+\'\s+or\s+\'\d+\'\s*=\s*\'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i',
-        '/\d+\' OR \'\d+\' = \'\d+\'/i'
-    );
+    $patterns = gojs_waf_sql_injection_patterns();
     
     $data = array_merge($get_data, $post_data, array($request_uri));
     
@@ -325,7 +317,7 @@ function gojs_waf_check_command_injection($get_data, $post_data, $request_uri) {
 }
 
 function gojs_waf_log_attack($type, $ip, $uri) {
-    $log_file = CONFIG_DIR . '/waf_attack_log.txt';
+    $log_file = WAF_ATTACK_LOG_FILE;
     $timestamp = date('Y-m-d H:i:s');
     $log_entry = "[{$timestamp}] [{$type}] [{$ip}] [{$uri}]\n";
     file_put_contents($log_file, $log_entry, FILE_APPEND | LOCK_EX);
@@ -409,21 +401,37 @@ function gojs_waf_save_geo_blocks($blocks) {
 }
 
 function gojs_waf_add_geo_block($country) {
-    $blocks = gojs_waf_load_geo_blocks();
-    if (!in_array($country, $blocks)) {
-        $blocks[] = $country;
-        return gojs_waf_save_geo_blocks($blocks);
+    $code = gojs_waf_normalize_country($country);
+    if ($code === '') {
+        return false;
     }
-    return true;
+
+    $blocks = gojs_waf_load_geo_blocks();
+    foreach ($blocks as $blocked) {
+        if (gojs_waf_normalize_country($blocked) === $code) {
+            return true;
+        }
+    }
+
+    $blocks[] = $code;
+
+    return gojs_waf_save_geo_blocks($blocks);
 }
 
 function gojs_waf_remove_geo_block($country) {
-    $blocks = gojs_waf_load_geo_blocks();
-    $blocks = array_filter($blocks, function($c) use ($country) {
-        return $c !== $country;
-    });
-    $blocks = array_values($blocks);
-    return gojs_waf_save_geo_blocks($blocks);
+    $code = gojs_waf_normalize_country($country);
+    if ($code === '') {
+        return false;
+    }
+
+    $kept = array();
+    foreach (gojs_waf_load_geo_blocks() as $blocked) {
+        if (gojs_waf_normalize_country($blocked) !== $code) {
+            $kept[] = $blocked;
+        }
+    }
+
+    return gojs_waf_save_geo_blocks($kept);
 }
 
 function gojs_waf_load_rules() {
