@@ -1,7 +1,15 @@
 <?php
 
+function gojs_opcache_status_raw() {
+    if (!function_exists('opcache_get_status')) {
+        return false;
+    }
+    $status = @opcache_get_status(false);
+    return is_array($status) ? $status : false;
+}
+
 function gojs_opcache_available() {
-    return function_exists('opcache_get_status');
+    return gojs_opcache_status_raw() !== false;
 }
 
 function gojs_opcache_hit_rate($hits, $misses) {
@@ -12,14 +20,6 @@ function gojs_opcache_hit_rate($hits, $misses) {
         return null;
     }
     return round($hits / $total, 4);
-}
-
-function gojs_opcache_status_raw() {
-    if (!gojs_opcache_available()) {
-        return false;
-    }
-    $status = @opcache_get_status(false);
-    return is_array($status) ? $status : false;
 }
 
 function gojs_opcache_summary($status) {
@@ -63,8 +63,8 @@ function gojs_opcache_summary($status) {
 function gojs_opcache_unavailable_response() {
     gojs_json_response(null, array(
         'code' => 'opcache_unavailable',
-        'message' => 'OPcache 不可用（opcache_get_status 不存在）',
-        'hint' => '编译/安装 PHP 时需带 --enable-opcache 并在 php.ini 启用 zend_extension=opcache',
+        'message' => 'OPcache 不可用（扩展未加载，或当前 SAPI 未启用 OPcache）',
+        'hint' => '需在编译/安装 PHP 时带 --enable-opcache，并在 php.ini 启用 zend_extension=opcache 与 opcache.enable；CLI 下还需 opcache.enable_cli=1',
     ), 501);
 }
 
@@ -114,9 +114,6 @@ function gojs_api_php_opcache_reset() {
 }
 
 function gojs_api_php_opcache_toggle() {
-    if (!gojs_opcache_available()) {
-        gojs_opcache_unavailable_response();
-    }
     $body = gojs_get_body();
     $enable = null;
     if (isset($body['enable'])) {
@@ -136,6 +133,9 @@ function gojs_api_php_opcache_toggle() {
             'code' => 'invalid_state',
             'message' => '需提供 enable 布尔值或 state=on|off',
         ), 400);
+    }
+    if (!gojs_opcache_available()) {
+        gojs_opcache_unavailable_response();
     }
     $applied = gojs_ini_try_set('opcache.enable', $enable ? '1' : '0');
     gojs_log_operation('php.opcache_toggle', 'php/opcache', $applied['applied'], $enable ? 'on' : 'off');
