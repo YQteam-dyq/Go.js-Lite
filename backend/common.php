@@ -526,10 +526,6 @@ function gojs_check_csrf() {
 function gojs_check_auth() {
     global $config;
 
-    if (empty($config['installed'])) {
-        return;
-    }
-
     gojs_check_access_token();
 
     
@@ -599,8 +595,8 @@ function gojs_check_access_token() {
     }
 
     $token = isset($_GET['token']) ? $_GET['token'] : '';
-    if (!$token && isset($_REQUEST['token'])) {
-        $token = $_REQUEST['token'];
+    if (!is_string($token)) {
+        $token = '';
     }
 
     if (!$token && isset($_SERVER['HTTP_X_ACCESS_TOKEN'])) {

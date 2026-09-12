@@ -454,10 +454,34 @@ function gojs_channel_smtp_send(array $channel, array $payload): array {
     return array('ok' => true);
 }
 
+function gojs_webhook_url_allowed($url): bool {
+    if (!is_string($url) || $url === '' || strlen($url) > 2048) {
+        return false;
+    }
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return false;
+    }
+    $scheme = strtolower($parts['scheme']);
+    if (!in_array($scheme, array('http', 'https'), true)) {
+        return false;
+    }
+    if (isset($parts['user']) || isset($parts['pass'])) {
+        return false;
+    }
+    if (preg_match('/[\x00-\x1F\x7F\s]/', $url)) {
+        return false;
+    }
+    return true;
+}
+
 function gojs_channel_webhook_send(array $channel, array $payload): array {
     $url = isset($channel['url']) ? $channel['url'] : '';
     if (!$url) {
         return array('ok' => false, 'error' => 'webhook: missing url');
+    }
+    if (!gojs_webhook_url_allowed($url)) {
+        return array('ok' => false, 'error' => 'webhook: url scheme not allowed');
     }
     $method = isset($channel['method']) && in_array(strtoupper($channel['method']), array('POST', 'PUT'))
         ? strtoupper($channel['method']) : 'POST';

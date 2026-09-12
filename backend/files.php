@@ -38,8 +38,50 @@ function gojs_is_protected_path($full_path) {
     return false;
 }
 
+function gojs_is_panel_source_path($full_path) {
+    $real_path = rtrim(str_replace('\\', '/', realpath($full_path) ?: $full_path), '/');
+    $panel_root = rtrim(str_replace('\\', '/', realpath(ROOT) ?: ROOT), '/');
+
+    if ($real_path === '' || $real_path === $panel_root) {
+        return false;
+    }
+
+    if (strpos($real_path, $panel_root . '/') !== 0) {
+        return false;
+    }
+
+    $relative = substr($real_path, strlen($panel_root) + 1);
+    if ($relative === false || $relative === '') {
+        return false;
+    }
+
+    $protected_dirs = array('backend/', 'apps/', 'src/', 'tests/', 'shared/', 'husky/', 'dist/', '.github/');
+    foreach ($protected_dirs as $dir) {
+        if (strpos($relative . '/', $dir) === 0) {
+            return true;
+        }
+    }
+
+    $protected_files = array(
+        'api.php',
+        'router.php',
+        'webcron.php',
+        'composer.json',
+        'composer.lock',
+        'package.json',
+        'package-lock.json',
+        'phpunit.xml',
+        'tsconfig.json',
+        'tsconfig.node.json',
+        'vite.config.ts',
+        'vitest.config.ts',
+    );
+
+    return in_array($relative, $protected_files, true);
+}
+
 function gojs_ensure_not_protected($full_path, $action = '操作') {
-    if (gojs_is_protected_path($full_path)) {
+    if (gojs_is_protected_path($full_path) || gojs_is_panel_source_path($full_path)) {
         gojs_json_response(null, array(
             'code' => 'protected_path',
             'message' => '该文件为 GOJS 系统文件，禁止' . $action,
@@ -174,6 +216,13 @@ function gojs_api_files() {
             ), 403);
         }
 
+        if (gojs_is_panel_source_path($safe_path)) {
+            gojs_json_response(null, array(
+                'code' => 'protected_path',
+                'message' => '该目录为 GOJS 系统目录，禁止访问',
+            ), 403);
+        }
+
         if (!is_dir($safe_path)) {
             gojs_json_response(null, array(
                 'code' => 'not_directory',
@@ -197,7 +246,7 @@ function gojs_api_files() {
 
             $full_path = $safe_path . '/' . $entry;
 
-            if (gojs_is_protected_path($full_path)) {
+            if (gojs_is_protected_path($full_path) || gojs_is_panel_source_path($full_path)) {
                 continue;
             }
 
@@ -2024,7 +2073,7 @@ function gojs_api_file_search() {
         if (stripos($name, $q) !== false) {
             $full_path = $file->getPathname();
 
-            if (gojs_is_protected_path($full_path)) {
+            if (gojs_is_protected_path($full_path) || gojs_is_panel_source_path($full_path)) {
                 continue;
             }
 

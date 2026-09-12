@@ -19,7 +19,7 @@ function gojs_share_load() {
 
 function gojs_share_save($shares) {
     $file = gojs_share_data_dir() . '/shares.json';
-    file_put_contents($file, json_encode($shares, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+    file_put_contents($file, json_encode($shares, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT), LOCK_EX);
 }
 
 function gojs_share_cleanup() {
@@ -46,21 +46,50 @@ function gojs_share_files_root() {
     return !empty($root_path) ? $root_path : ROOT;
 }
 
+function gojs_share_sanitize_host($host) {
+    if (!is_string($host) || $host === '') {
+        return 'localhost';
+    }
+    if (!preg_match('/^[A-Za-z0-9.\-]+(?::\d{1,5})?$/', $host)) {
+        return 'localhost';
+    }
+    return $host;
+}
+
 function gojs_share_create() {
     $path = gojs_get_param('path');
     $expires_in = (int)gojs_get_param('expires_in', 24);
     $password = gojs_get_param('password', '');
     $max_downloads = (int)gojs_get_param('max_downloads', 0);
 
-    if (!$path) {
+    if (!$path || !is_string($path)) {
         gojs_json_response(null, array('code' => 'missing_param', 'message' => 'Missing path'), 400);
         return;
     }
 
-    $files_root = gojs_share_files_root();
-    $abs_path = $files_root . '/' . ltrim($path, '/');
+    if ($expires_in < 0 || $expires_in > 8760) {
+        $expires_in = 24;
+    }
+    if ($max_downloads < 0) {
+        $max_downloads = 0;
+    }
+
+    $abs_path = gojs_safe_path($path);
+    if ($abs_path === false) {
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => '路径访问被拒绝'), 403);
+        return;
+    }
+
+    gojs_ensure_not_protected($abs_path, '分享');
+
     if (!file_exists($abs_path)) {
         gojs_json_response(null, array('code' => 'not_found', 'message' => 'File not found'), 404);
+        return;
+    }
+
+    $relative_path = gojs_relative_path($abs_path);
+    if (!is_string($relative_path) || $relative_path === '') {
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => '路径访问被拒绝'), 403);
         return;
     }
 
@@ -69,7 +98,7 @@ function gojs_share_create() {
 
     $shares = gojs_share_load();
     $shares[$token] = array(
-        'path' => $path,
+        'path' => $relative_path,
         'created_at' => time(),
         'expires_at' => $expires_at,
         'password' => $password ? password_hash($password, PASSWORD_BCRYPT) : '',
@@ -80,7 +109,7 @@ function gojs_share_create() {
     gojs_share_save($shares);
 
     $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on') ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $host = gojs_share_sanitize_host(isset($_SERVER['HTTP_HOST']) ? $_SERVER['HTTP_HOST'] : 'localhost');
     $share_url = $scheme . '://' . $host . '/gojs/share/' . $token;
 
     gojs_json_response(array(
@@ -113,7 +142,7 @@ function gojs_share_list() {
 
 function gojs_share_revoke() {
     $token = gojs_get_param('token');
-    if (!$token) {
+    if (!$token || !is_string($token) || !preg_match('/^[a-f0-9]{32}$/', $token)) {
         gojs_json_response(null, array('code' => 'missing_param', 'message' => 'Missing token'), 400);
         return;
     }
@@ -131,7 +160,7 @@ function gojs_share_access() {
     $token = $_GET['token'] ?? '';
     $input_password = $_GET['password'] ?? '';
 
-    if (!$token) {
+    if (!$token || !is_string($token) || !preg_match('/^[a-f0-9]{32}$/', $token)) {
         http_response_code(400);
         echo json_encode(array('ok' => false, 'error' => array('code' => 'missing_token', 'message' => 'Missing token')));
         exit;
@@ -163,8 +192,14 @@ function gojs_share_access() {
         exit;
     }
 
-    $files_root = gojs_share_files_root();
-    $abs_path = $files_root . '/' . ltrim($share['path'], '/');
+    $abs_path = gojs_safe_path($share['path']);
+    if ($abs_path === false || gojs_is_protected_path($abs_path)) {
+        unset($shares[$token]);
+        gojs_share_save($shares);
+        http_response_code(403);
+        echo json_encode(array('ok' => false, 'error' => array('code' => 'forbidden', 'message' => 'Path not allowed')));
+        exit;
+    }
 
     if (!file_exists($abs_path)) {
         unset($shares[$token]);

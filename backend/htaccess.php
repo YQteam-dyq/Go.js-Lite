@@ -55,6 +55,9 @@ DirectoryIndex index.html
 RewriteEngine On
 
 
+RewriteRule (^|/)\.gojs(/|$) - [F,L]
+
+
 RewriteRule ^api\.php$ - [R=404,L]
 
 

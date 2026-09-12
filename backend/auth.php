@@ -117,7 +117,7 @@ function gojs_api_bootstrap() {
 function gojs_api_install() {
     global $config, $installed, $root_path;
 
-    if ($installed) {
+    if ($installed || file_exists(CONFIG_FILE)) {
         gojs_json_response(null, array(
             'code' => 'already_installed',
             'message' => '系统已安装',
@@ -184,6 +184,8 @@ function gojs_api_install() {
     $config = $config_data;
     $installed = true;
     $root_path = $new_root_path;
+
+    session_regenerate_id(true);
 
     $_SESSION['access_token_valid'] = true;
     $_SESSION['authenticated'] = true;

@@ -69,33 +69,55 @@ if (strpos($uri, '/api/') === 0 || $uri === '/api') {
     return true;
 }
 
-$staticPath = $uri;
-if ($staticPath !== '/') {
-    $distFile = __DIR__ . '/dist' . $staticPath;
-    if (file_exists($distFile) && is_file($distFile)) {
-        $ext = pathinfo($distFile, PATHINFO_EXTENSION);
-        $mimeMap = [
-            'js'   => 'application/javascript; charset=utf-8',
-            'mjs'  => 'application/javascript; charset=utf-8',
-            'css'  => 'text/css; charset=utf-8',
-            'html' => 'text/html; charset=utf-8',
-            'svg'  => 'image/svg+xml',
-            'png'  => 'image/png',
-            'jpg'  => 'image/jpeg',
-            'jpeg' => 'image/jpeg',
-            'gif'  => 'image/gif',
-            'ico'  => 'image/x-icon',
-            'woff' => 'font/woff',
-            'woff2'=> 'font/woff2',
-            'ttf'  => 'font/ttf',
-            'json' => 'application/json; charset=utf-8',
-            'map'  => 'application/json; charset=utf-8',
-        ];
-        $mime = isset($mimeMap[$ext]) ? $mimeMap[$ext] : 'application/octet-stream';
-        header("Content-Type: $mime");
-        header('Cache-Control: public, max-age=86400');
-        readfile($distFile);
-        return true;
+$staticPath = str_replace('\\', '/', (string)$uri);
+$staticPath = str_replace("\0", '', $staticPath);
+
+$distDir = realpath(__DIR__ . '/dist');
+if ($distDir !== false) {
+    $normalizedSegments = array();
+    foreach (explode('/', $staticPath) as $segment) {
+        if ($segment === '' || $segment === '.') {
+            continue;
+        }
+        if ($segment === '..') {
+            array_pop($normalizedSegments);
+            continue;
+        }
+        $normalizedSegments[] = $segment;
+    }
+    $normalizedPath = implode('/', $normalizedSegments);
+
+    if ($normalizedPath !== '') {
+        $distFile = $distDir . '/' . $normalizedPath;
+        $realFile = realpath($distFile);
+
+        if ($realFile !== false &&
+            is_file($realFile) &&
+            strpos($realFile, $distDir . DIRECTORY_SEPARATOR) === 0) {
+            $ext = strtolower(pathinfo($realFile, PATHINFO_EXTENSION));
+            $mimeMap = [
+                'js'   => 'application/javascript; charset=utf-8',
+                'mjs'  => 'application/javascript; charset=utf-8',
+                'css'  => 'text/css; charset=utf-8',
+                'html' => 'text/html; charset=utf-8',
+                'svg'  => 'image/svg+xml',
+                'png'  => 'image/png',
+                'jpg'  => 'image/jpeg',
+                'jpeg' => 'image/jpeg',
+                'gif'  => 'image/gif',
+                'ico'  => 'image/x-icon',
+                'woff' => 'font/woff',
+                'woff2'=> 'font/woff2',
+                'ttf'  => 'font/ttf',
+                'json' => 'application/json; charset=utf-8',
+                'map'  => 'application/json; charset=utf-8',
+            ];
+            $mime = isset($mimeMap[$ext]) ? $mimeMap[$ext] : 'application/octet-stream';
+            header("Content-Type: $mime");
+            header('Cache-Control: public, max-age=86400');
+            readfile($realFile);
+            return true;
+        }
     }
 }
 
