@@ -266,8 +266,12 @@ function gojs_get_param($key, $default = null) {
 
 function gojs_dispatch() {
     $api = isset($_GET['api']) ? $_GET['api'] : '';
-    if (!$api && isset($_REQUEST['api'])) {
-        $api = $_REQUEST['api'];
+    if (!is_string($api) || strpos($api, "\0") !== false || strlen($api) > 512) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => 'Invalid request',
+        ), 400);
+        return;
     }
 
     if (!$api && isset($_SERVER['REQUEST_URI'])) {

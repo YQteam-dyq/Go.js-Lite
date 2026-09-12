@@ -42,6 +42,9 @@ function gojs_api_notification_channels($method) {
             }
         } elseif ($type === 'webhook') {
             $channel['url'] = isset($body['url']) ? (string)$body['url'] : '';
+            if (!gojs_webhook_url_allowed($channel['url'])) {
+                gojs_json_response(null, array('code' => 'invalid_url', 'message' => 'Invalid webhook URL; only http/https is supported'), 400);
+            }
             if (isset($body['method'])) $channel['method'] = in_array(strtoupper((string)$body['method']), array('POST', 'PUT'), true) ? strtoupper((string)$body['method']) : 'POST';
             if (isset($body['headers']) && is_array($body['headers']) && count($body['headers']) > 0) {
                 $channel['headers_enc'] = gojs_seal_secret(json_encode($body['headers'], JSON_UNESCAPED_UNICODE));
@@ -90,7 +93,13 @@ function gojs_api_notification_channel($id, $method) {
                 $target['password_enc'] = gojs_seal_secret($body['password']);
             }
         } elseif ($type === 'webhook') {
-            if (isset($body['url'])) $target['url'] = (string)$body['url'];
+            if (isset($body['url'])) {
+                $new_url = (string)$body['url'];
+                if (!gojs_webhook_url_allowed($new_url)) {
+                    gojs_json_response(null, array('code' => 'invalid_url', 'message' => 'Invalid webhook URL; only http/https is supported'), 400);
+                }
+                $target['url'] = $new_url;
+            }
             if (isset($body['method'])) $target['method'] = in_array(strtoupper((string)$body['method']), array('POST', 'PUT'), true) ? strtoupper((string)$body['method']) : 'POST';
             if (isset($body['headers']) && is_array($body['headers'])) {
                 if (count($body['headers']) > 0) {

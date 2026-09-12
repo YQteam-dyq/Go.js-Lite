@@ -454,10 +454,152 @@ function gojs_channel_smtp_send(array $channel, array $payload): array {
     return array('ok' => true);
 }
 
+// SSRF guard for outbound webhook URLs.
+//
+// The webhook target is user supplied, so it must never be allowed to point at
+// the host itself or at the surrounding infrastructure. This helper accepts
+// only absolute http/https URLs without userinfo or control characters, then
+// resolves the host name and rejects the URL when any resolved address is a
+// private, loopback, link-local, shared, multicast, reserved or unspecified
+// address. Every address returned by the resolver is inspected, so a host that
+// maps to at least one unsafe address is refused as a whole.
+//
+// Residual risk: DNS rebinding. The name is resolved here and resolved again by
+// the HTTP client when the connection is actually opened, so a hostile DNS
+// server could answer with a safe address now and an internal address on the
+// next query. Closing that gap requires re-validating the connected peer
+// address (or pinning the resolved IP) at connection time. This project has no
+// shared HTTP request wrapper where such a check could live, so the limitation
+// is documented here; gojs_channel_webhook_send() and the notification channel
+// endpoints rely on this pre-flight validation only.
+function gojs_webhook_url_allowed($url): bool {
+    if (!is_string($url) || $url === '' || strlen($url) > 2048) {
+        return false;
+    }
+    if (preg_match('/[\x00-\x1F\x7F\s]/', $url)) {
+        return false;
+    }
+    $parts = parse_url($url);
+    if (!is_array($parts) || empty($parts['scheme']) || empty($parts['host'])) {
+        return false;
+    }
+    $scheme = strtolower($parts['scheme']);
+    if (!in_array($scheme, array('http', 'https'), true)) {
+        return false;
+    }
+    if (isset($parts['user']) || isset($parts['pass'])) {
+        return false;
+    }
+    if (isset($parts['port'])) {
+        if (!is_int($parts['port']) || $parts['port'] < 1 || $parts['port'] > 65535) {
+            return false;
+        }
+    }
+    $host = $parts['host'];
+    if (!is_string($host) || $host === '') {
+        return false;
+    }
+    // parse_url() keeps IPv6 literals wrapped in brackets; unwrap for validation.
+    if (strlen($host) > 1 && $host[0] === '[' && substr($host, -1) === ']') {
+        $host = substr($host, 1, -1);
+    }
+    $addresses = gojs_webhook_resolve_host($host);
+    if (!$addresses) {
+        return false;
+    }
+    foreach ($addresses as $address) {
+        if (!gojs_webhook_ip_allowed($address)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+// Resolve a webhook host to every address it maps to. IP literals (IPv4, IPv6
+// and IPv4-mapped IPv6) are returned as-is; names are resolved through both
+// gethostbynamel() and dns_get_record() so IPv4 and IPv6 answers are covered.
+function gojs_webhook_resolve_host(string $host): array {
+    if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+        return array($host);
+    }
+    $addresses = array();
+    if (function_exists('gethostbynamel')) {
+        $v4_list = @gethostbynamel($host);
+        if (is_array($v4_list)) {
+            foreach ($v4_list as $ip) {
+                if (is_string($ip) && filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+                    $addresses[] = $ip;
+                }
+            }
+        }
+    }
+    if (function_exists('dns_get_record')) {
+        foreach (array(DNS_A, DNS_AAAA) as $record_type) {
+            $records = @dns_get_record($host, $record_type);
+            if (!is_array($records)) {
+                continue;
+            }
+            foreach ($records as $record) {
+                if ($record_type === DNS_A && !empty($record['ip']) && is_string($record['ip'])) {
+                    $addresses[] = $record['ip'];
+                } elseif ($record_type === DNS_AAAA && !empty($record['ipv6']) && is_string($record['ipv6'])) {
+                    $addresses[] = $record['ipv6'];
+                }
+            }
+        }
+    }
+    return array_values(array_unique($addresses));
+}
+
+// Return true only when the address is a routable global unicast address.
+function gojs_webhook_ip_allowed(string $ip): bool {
+    // Normalize IPv4-mapped IPv6 (::ffff:a.b.c.d) down to plain IPv4.
+    if (stripos($ip, '::ffff:') === 0) {
+        $mapped = substr($ip, 7);
+        if (filter_var($mapped, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false) {
+            $ip = $mapped;
+        }
+    }
+    $is_v4 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV4) !== false;
+    $is_v6 = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6) !== false;
+    if (!$is_v4 && !$is_v6) {
+        return false;
+    }
+    // Primary check: PHP's native private/reserved range filter.
+    if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) === false) {
+        return false;
+    }
+    // Explicit guards for ranges the native filter may miss at the edges.
+    if ($is_v4) {
+        $octets = array_map('intval', explode('.', $ip));
+        $first = intval($octets[0]);
+        $second = isset($octets[1]) ? intval($octets[1]) : 0;
+        if ($first === 0) return false;                         // 0.0.0.0/8, includes unspecified
+        if ($first === 127) return false;                       // 127.0.0.0/8 loopback
+        if ($first === 169 && $second === 254) return false;    // 169.254.0.0/16 link-local
+        if ($first >= 224 && $first <= 239) return false;       // 224.0.0.0/4 multicast
+        if ($first >= 240) return false;                        // 240.0.0.0/4 reserved
+    } else {
+        $packed = @inet_pton($ip);
+        if ($packed === false || strlen($packed) !== 16) {
+            return false;
+        }
+        if ($packed === inet_pton('::1')) return false;        // ::1 loopback
+        if (rtrim($packed, "\0") === '') return false;         // :: unspecified
+        if ((ord($packed[0]) & 0xFE) === 0xFC) return false;   // fc00::/7 unique local
+        if (ord($packed[0]) === 0xFE && (ord($packed[1]) & 0xC0) === 0x80) return false; // fe80::/10 link-local
+        if (ord($packed[0]) === 0xFF) return false;            // ff00::/8 multicast
+    }
+    return true;
+}
+
 function gojs_channel_webhook_send(array $channel, array $payload): array {
     $url = isset($channel['url']) ? $channel['url'] : '';
     if (!$url) {
         return array('ok' => false, 'error' => 'webhook: missing url');
+    }
+    if (!gojs_webhook_url_allowed($url)) {
+        return array('ok' => false, 'error' => 'webhook: url scheme not allowed');
     }
     $method = isset($channel['method']) && in_array(strtoupper($channel['method']), array('POST', 'PUT'))
         ? strtoupper($channel['method']) : 'POST';

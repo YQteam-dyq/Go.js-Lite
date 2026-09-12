@@ -4,7 +4,12 @@ function gojs_dirprotect_htpasswd_hash($password) {
     if (function_exists('password_hash') && defined('PASSWORD_BCRYPT')) {
         return password_hash($password, PASSWORD_BCRYPT);
     }
-    $salt = bin2hex(random_bytes(8));
+    $alphabet = './0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
+    $salt = '';
+    $bytes = random_bytes(16);
+    for ($i = 0; $i < 22; $i++) {
+        $salt .= $alphabet[ord($bytes[$i % 16]) % 64];
+    }
     return crypt($password, '$2y$10$' . $salt);
 }
 
@@ -16,23 +21,75 @@ function gojs_dirprotect_files_root() {
     return !empty($root_path) ? $root_path : ROOT;
 }
 
+function gojs_dirprotect_resolve_dir($path) {
+    if (!is_string($path) || $path === '') {
+        return false;
+    }
+
+    $safe_path = gojs_safe_path($path);
+    if ($safe_path === false) {
+        return false;
+    }
+
+    if (!is_dir($safe_path)) {
+        return false;
+    }
+
+    if (gojs_is_protected_path($safe_path)) {
+        return false;
+    }
+
+    return rtrim($safe_path, '/');
+}
+
+function gojs_dirprotect_sanitize_username($username) {
+    if (!is_string($username)) {
+        return '';
+    }
+    $username = trim($username);
+    if ($username === '' || strlen($username) > 64) {
+        return '';
+    }
+    if (!preg_match('/^[A-Za-z0-9_.\-@]{1,64}$/', $username)) {
+        return '';
+    }
+    return $username;
+}
+
+function gojs_dirprotect_sanitize_auth_name($name) {
+    if (!is_string($name)) {
+        return 'Restricted Area';
+    }
+    $name = str_replace(array("\r", "\n", "\t", '"', '\\'), '', $name);
+    $name = trim($name);
+    if ($name === '' || strlen($name) > 128) {
+        return 'Restricted Area';
+    }
+    return $name;
+}
+
 function gojs_dirprotect_htpasswd_path($path) {
-    $files_root = gojs_dirprotect_files_root();
-    $abs_path = $files_root . '/' . ltrim($path, '/');
-    $dir = rtrim($abs_path, '/');
+    $dir = gojs_dirprotect_resolve_dir($path);
+    if ($dir === false) {
+        return false;
+    }
     return $dir . '/.htpasswd';
 }
 
 function gojs_dirprotect_htaccess_path($path) {
-    $files_root = gojs_dirprotect_files_root();
-    $abs_path = $files_root . '/' . ltrim($path, '/');
-    $dir = rtrim($abs_path, '/');
+    $dir = gojs_dirprotect_resolve_dir($path);
+    if ($dir === false) {
+        return false;
+    }
     return $dir . '/.htaccess';
 }
 
 function gojs_dirprotect_load_users($path) {
     $htpasswd = gojs_dirprotect_htpasswd_path($path);
     $users = array();
+    if ($htpasswd === false) {
+        return $users;
+    }
     if (file_exists($htpasswd)) {
         $lines = file($htpasswd, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
         foreach ($lines as $line) {
@@ -53,6 +110,11 @@ function gojs_dirprotect_status() {
     }
 
     $htaccess = gojs_dirprotect_htaccess_path($path);
+    if ($htaccess === false) {
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
+        return;
+    }
+
     $protected = false;
     $auth_name = '';
 
@@ -77,7 +139,7 @@ function gojs_dirprotect_status() {
 
 function gojs_dirprotect_enable() {
     $path = gojs_get_param('path');
-    $auth_name = gojs_get_param('auth_name', 'Restricted Area');
+    $auth_name = gojs_dirprotect_sanitize_auth_name(gojs_get_param('auth_name', 'Restricted Area'));
     $users = gojs_get_param('users', array());
 
     if (!$path) {
@@ -85,12 +147,14 @@ function gojs_dirprotect_enable() {
         return;
     }
 
-    $files_root = gojs_dirprotect_files_root();
-    $abs_path = $files_root . '/' . ltrim($path, '/');
-    $dir = rtrim($abs_path, '/');
+    $dir = gojs_dirprotect_resolve_dir($path);
+    if ($dir === false) {
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
+        return;
+    }
 
-    if (!is_dir($dir)) {
-        gojs_json_response(null, array('code' => 'not_found', 'message' => 'Directory not found'), 404);
+    if (!is_writable($dir)) {
+        gojs_json_response(null, array('code' => 'not_writable', 'message' => 'Directory is not writable'), 403);
         return;
     }
 
@@ -100,22 +164,24 @@ function gojs_dirprotect_enable() {
     $htpasswd_content = '';
     if (is_array($users)) {
         foreach ($users as $user) {
-            $username = $user['username'] ?? '';
-            $password = $user['password'] ?? '';
-            if ($username && $password) {
+            if (!is_array($user)) continue;
+            $username = gojs_dirprotect_sanitize_username(isset($user['username']) ? $user['username'] : '');
+            $password = isset($user['password']) && is_string($user['password']) ? $user['password'] : '';
+            if ($username !== '' && $password !== '') {
                 $hash = gojs_dirprotect_htpasswd_hash($password);
                 $htpasswd_content .= $username . ':' . $hash . "\n";
             }
         }
     }
-    file_put_contents($htpasswd_file, $htpasswd_content);
+    file_put_contents($htpasswd_file, $htpasswd_content, LOCK_EX);
+    @chmod($htpasswd_file, 0640);
 
     $htaccess_lines = array();
     $htaccess_lines[] = 'AuthType Basic';
-    $htaccess_lines[] = 'AuthName "' . str_replace('"', '', $auth_name) . '"';
+    $htaccess_lines[] = 'AuthName "' . $auth_name . '"';
     $htaccess_lines[] = 'AuthUserFile ' . $htpasswd_file;
     $htaccess_lines[] = 'Require valid-user';
-    file_put_contents($htaccess_file, implode("\n", $htaccess_lines) . "\n");
+    file_put_contents($htaccess_file, implode("\n", $htaccess_lines) . "\n", LOCK_EX);
 
     gojs_json_response(array('success' => true, 'protected' => true, 'auth_name' => $auth_name));
 }
@@ -129,6 +195,11 @@ function gojs_dirprotect_disable() {
 
     $htaccess = gojs_dirprotect_htaccess_path($path);
     $htpasswd = gojs_dirprotect_htpasswd_path($path);
+
+    if ($htaccess === false || $htpasswd === false) {
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
+        return;
+    }
 
     if (file_exists($htaccess)) {
         $content = file_get_contents($htaccess);
@@ -163,15 +234,25 @@ function gojs_dirprotect_disable() {
 function gojs_dirprotect_users() {
     $path = gojs_get_param('path');
     $action = gojs_get_param('action');
-    $username = gojs_get_param('username');
+    $username = gojs_dirprotect_sanitize_username(gojs_get_param('username'));
     $password = gojs_get_param('password', '');
 
-    if (!$path || !$action || !$username) {
+    if (!$path || !$action || $username === '') {
         gojs_json_response(null, array('code' => 'missing_param', 'message' => 'Missing required params'), 400);
         return;
     }
 
     $htpasswd = gojs_dirprotect_htpasswd_path($path);
+    if ($htpasswd === false) {
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
+        return;
+    }
+
+    if (!is_string($password) || strpos($password, "\n") !== false || strpos($password, "\r") !== false) {
+        gojs_json_response(null, array('code' => 'invalid_password', 'message' => 'Password contains invalid characters'), 400);
+        return;
+    }
+
     $users = array();
 
     if (file_exists($htpasswd)) {
@@ -209,9 +290,12 @@ function gojs_dirprotect_users() {
 
     $content = '';
     foreach ($users as $u => $h) {
-        $content .= $u . ':' . $h . "\n";
+        $safe_user = gojs_dirprotect_sanitize_username($u);
+        if ($safe_user === '') continue;
+        $content .= $safe_user . ':' . $h . "\n";
     }
-    file_put_contents($htpasswd, $content);
+    file_put_contents($htpasswd, $content, LOCK_EX);
+    @chmod($htpasswd, 0640);
 
     gojs_json_response(array('success' => true, 'users' => array_keys($users)));
 }

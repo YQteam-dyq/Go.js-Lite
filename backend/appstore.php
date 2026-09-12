@@ -1,5 +1,27 @@
 <?php
 
+function gojs_appstore_app_dir($app_id) {
+    if (!is_string($app_id) || !preg_match('/^[A-Za-z0-9_-]{1,64}$/', $app_id)) {
+        return false;
+    }
+
+    $apps_root = realpath(ROOT . '/apps');
+    if ($apps_root === false) {
+        return false;
+    }
+
+    $app_dir = realpath($apps_root . '/' . $app_id);
+    if ($app_dir === false || !is_dir($app_dir)) {
+        return false;
+    }
+
+    if (strpos($app_dir, $apps_root . DIRECTORY_SEPARATOR) !== 0) {
+        return false;
+    }
+
+    return $app_dir;
+}
+
 function gojs_appstore_list() {
     $apps_dir = ROOT . '/apps';
     $apps = array();
@@ -28,11 +50,15 @@ function gojs_appstore_install() {
         return;
     }
 
-    $apps_dir = ROOT . '/apps';
-    $app_dir = $apps_dir . '/' . $app_id;
+    $app_dir = gojs_appstore_app_dir($app_id);
+    if ($app_dir === false) {
+        gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
+        return;
+    }
+
     $manifest = $app_dir . '/manifest.json';
 
-    if (!file_exists($manifest)) {
+    if (!is_file($manifest)) {
         gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
         return;
     }
@@ -48,13 +74,13 @@ function gojs_appstore_install() {
 
     $result = array('app_id' => $app_id, 'success' => true, 'steps' => array());
 
-    if (file_exists($install_php)) {
+    if (is_file($install_php)) {
         include $install_php;
         $fn = 'gojs_app_install_' . str_replace('-', '_', $app_id);
         if (function_exists($fn)) {
             $result['steps'] = $fn();
         }
-    } elseif (file_exists($install_script)) {
+    } elseif (is_file($install_script)) {
         $output = array();
         $exit_code = 0;
         exec('bash ' . escapeshellarg($install_script) . ' 2>&1', $output, $exit_code);
@@ -65,7 +91,7 @@ function gojs_appstore_install() {
     }
 
     if ($result['success']) {
-        file_put_contents($app_dir . '/.installed', date('c'));
+        file_put_contents($app_dir . '/.installed', date('c'), LOCK_EX);
     }
 
     gojs_json_response($result);
@@ -78,10 +104,15 @@ function gojs_appstore_uninstall() {
         return;
     }
 
-    $app_dir = ROOT . '/apps/' . $app_id;
+    $app_dir = gojs_appstore_app_dir($app_id);
+    if ($app_dir === false) {
+        gojs_json_response(null, array('code' => 'app_not_found', 'message' => 'App not found'), 404);
+        return;
+    }
+
     $install_file = $app_dir . '/.installed';
 
-    if (!file_exists($install_file)) {
+    if (!is_file($install_file)) {
         gojs_json_response(null, array('code' => 'not_installed', 'message' => 'App is not installed'), 400);
         return;
     }
@@ -89,13 +120,13 @@ function gojs_appstore_uninstall() {
     $uninstall_script = $app_dir . '/uninstall.sh';
     $uninstall_php = $app_dir . '/uninstall.php';
 
-    if (file_exists($uninstall_php)) {
+    if (is_file($uninstall_php)) {
         include $uninstall_php;
         $fn = 'gojs_app_uninstall_' . str_replace('-', '_', $app_id);
         if (function_exists($fn)) {
             $fn();
         }
-    } elseif (file_exists($uninstall_script)) {
+    } elseif (is_file($uninstall_script)) {
         exec('bash ' . escapeshellarg($uninstall_script) . ' 2>&1');
     }
 

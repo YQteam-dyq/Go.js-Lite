@@ -124,10 +124,33 @@ function gojs_ftp_validate_home_dir(string $home_dir): bool {
     if ($home_dir === '' || $home_dir === null) {
         return false;
     }
+    if (strlen($home_dir) > 255) {
+        return false;
+    }
     if (strpos($home_dir, '..') !== false) {
         return false;
     }
+    if (strpos($home_dir, ':') !== false || strpos($home_dir, "\n") !== false || strpos($home_dir, "\r") !== false) {
+        return false;
+    }
+    if (preg_match('/[\x00-\x1F\x7F]/', $home_dir)) {
+        return false;
+    }
     return true;
+}
+
+function gojs_ftp_validate_ip_list(string $list): bool {
+    $list = trim($list);
+    if ($list === '') {
+        return true;
+    }
+    if (strlen($list) > 512) {
+        return false;
+    }
+    if (preg_match('/[\r\n\t]/', $list)) {
+        return false;
+    }
+    return (bool)preg_match('/^[0-9a-fA-F.,\-\/\s\*]+$/', $list);
 }
 
 function gojs_api_ftp_accounts_list() {
@@ -178,6 +201,12 @@ function gojs_api_ftp_accounts_create() {
         gojs_json_response(null, array(
             'code' => 'invalid_home_dir',
             'message' => '家目录无效',
+        ), 400);
+    }
+    if (!gojs_ftp_validate_ip_list((string)$allow_client_ips) || !gojs_ftp_validate_ip_list((string)$deny_client_ips)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_ip_list',
+            'message' => 'Invalid IP allow/deny list format',
         ), 400);
     }
 
@@ -311,8 +340,24 @@ function gojs_api_ftp_accounts_update($id) {
     if (isset($quota_files)) $account['quota_files'] = ($quota_files === null || (int)$quota_files <= 0) ? null : (int)$quota_files;
     if (isset($upload_bw_kbps)) $account['upload_bw_kbps'] = ($upload_bw_kbps === null || (int)$upload_bw_kbps <= 0) ? null : (int)$upload_bw_kbps;
     if (isset($download_bw_kbps)) $account['download_bw_kbps'] = ($download_bw_kbps === null || (int)$download_bw_kbps <= 0) ? null : (int)$download_bw_kbps;
-    if ($allow_client_ips !== null) $account['allow_client_ips'] = trim($allow_client_ips);
-    if ($deny_client_ips !== null) $account['deny_client_ips'] = trim($deny_client_ips);
+    if ($allow_client_ips !== null) {
+        if (!gojs_ftp_validate_ip_list((string)$allow_client_ips)) {
+            gojs_json_response(null, array(
+                'code' => 'invalid_ip_list',
+                'message' => 'Invalid IP allow list format',
+            ), 400);
+        }
+        $account['allow_client_ips'] = trim($allow_client_ips);
+    }
+    if ($deny_client_ips !== null) {
+        if (!gojs_ftp_validate_ip_list((string)$deny_client_ips)) {
+            gojs_json_response(null, array(
+                'code' => 'invalid_ip_list',
+                'message' => 'Invalid IP deny list format',
+            ), 400);
+        }
+        $account['deny_client_ips'] = trim($deny_client_ips);
+    }
     if ($enabled !== null) $account['enabled'] = (bool)$enabled;
     if (isset($expires_at_ts)) $account['expires_at_ts'] = ($expires_at_ts === null || (int)$expires_at_ts <= 0) ? null : (int)$expires_at_ts;
 
@@ -398,10 +443,37 @@ function gojs_api_ftp_accounts_test_login($id) {
     gojs_json_response(array('ok' => $ok));
 }
 
+function gojs_ftp_account_usable(array $acc, bool $with_ips = false): bool {
+    $username = isset($acc['username']) ? (string)$acc['username'] : '';
+    $homedir = isset($acc['home_dir']) ? (string)$acc['home_dir'] : '';
+
+    if ($username === '' || $homedir === '') {
+        return false;
+    }
+    if (!gojs_ftp_validate_username($username)) {
+        return false;
+    }
+    if (!gojs_ftp_validate_home_dir($homedir)) {
+        return false;
+    }
+    if (preg_match('/[:\r\n]/', $username) || preg_match('/[:\r\n]/', $homedir)) {
+        return false;
+    }
+    if ($with_ips) {
+        $allow = isset($acc['allow_client_ips']) ? (string)$acc['allow_client_ips'] : '';
+        $deny = isset($acc['deny_client_ips']) ? (string)$acc['deny_client_ips'] : '';
+        if (!gojs_ftp_validate_ip_list($allow) || !gojs_ftp_validate_ip_list($deny)) {
+            return false;
+        }
+    }
+    return true;
+}
+
 function gojs_ftp_proftpd_write(array $accounts, string $path): array {
     $lines = array();
     foreach ($accounts as $acc) {
         if (empty($acc['enabled'])) continue;
+        if (!gojs_ftp_account_usable($acc)) continue;
         $hash = isset($acc['password_hash_enc']) ? $acc['password_hash_enc'] : '';
         $uid = isset($acc['uid']) ? (int)$acc['uid'] : 1000;
         $gid = isset($acc['gid']) ? (int)$acc['gid'] : 1000;
@@ -424,6 +496,7 @@ function gojs_ftp_pureftpd_write(array $accounts, string $path): array {
     $lines = array();
     foreach ($accounts as $acc) {
         if (empty($acc['enabled'])) continue;
+        if (!gojs_ftp_account_usable($acc, true)) continue;
         $hash = isset($acc['password_hash_enc']) ? $acc['password_hash_enc'] : '';
         $uid = isset($acc['uid']) ? (int)$acc['uid'] : 1000;
         $gid = isset($acc['gid']) ? (int)$acc['gid'] : 1000;
