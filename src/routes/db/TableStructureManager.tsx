@@ -1,444 +1,427 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalTrigger } from '@/components/ui/Modal';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { dbApi } from '@/api/db';
-import { toast } from '@/components/ui/Toast';
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, KeyRound, Plus, RefreshCw, Trash2, Wrench } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
+import { Badge } from '@/components/ui/Badge'
+import { Modal, Confirm } from '@/components/ui/Modal'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs'
+import { Spinner } from '@/components/ui/Spinner'
+import { toast } from '@/components/ui/Toast'
+import { dbApi } from '@/api/db'
+import type { DbColumnDefinition } from '@/api/db'
+import type { DbColumn } from '@shared/types'
 
-interface TableColumn {
-  name: string;
-  type: string;
-  nullable: string;
-  key: string;
-  default: string | null;
-  extra: string;
+const IDENTIFIER_PATTERN = /^[A-Za-z0-9_$]+$/
+
+const COLUMN_TYPES = [
+  'INT',
+  'BIGINT',
+  'SMALLINT',
+  'TINYINT',
+  'DECIMAL',
+  'FLOAT',
+  'DOUBLE',
+  'VARCHAR',
+  'CHAR',
+  'TEXT',
+  'MEDIUMTEXT',
+  'LONGTEXT',
+  'DATE',
+  'DATETIME',
+  'TIMESTAMP',
+  'TIME',
+  'JSON',
+  'ENUM',
+]
+
+const INDEX_TYPES = ['INDEX', 'UNIQUE', 'FULLTEXT', 'SPATIAL']
+
+interface ColumnForm {
+  name: string
+  type: string
+  length: string
+  unsigned: boolean
+  nullable: boolean
+  defaultValue: string
+  comment: string
+  autoIncrement: boolean
+  primaryKey: boolean
 }
 
-interface IndexInfo {
-  name: string;
-  columns: string[];
-  type: string;
+interface IndexEntry {
+  name: string
+  unique: boolean
+  type: string
+  columns: string[]
 }
 
-export function TableStructureManager() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  
-  const connId = searchParams.get('connId') || '';
-  const database = searchParams.get('database') || '';
-  const table = searchParams.get('table') || '';
-  
-  const [columns, setColumns] = useState<TableColumn[]>([]);
-  const [indexes, setIndexes] = useState<IndexInfo[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [isCreateTableModalOpen, setIsCreateTableModalOpen] = useState(false);
-  const [isAddColumnModalOpen, setIsAddColumnModalOpen] = useState(false);
-  const [isEditColumnModalOpen, setIsEditColumnModalOpen] = useState(false);
-  const [isCreateIndexModalOpen, setIsCreateIndexModalOpen] = useState(false);
-  const [isDropIndexModalOpen, setIsDropIndexModalOpen] = useState(false);
-  const [editingColumn, setEditingColumn] = useState<TableColumn | null>(null);
-  const [newColumn, setNewColumn] = useState({
-    name: '',
-    type: 'VARCHAR(255)',
-    nullable: 'YES',
-    default: '',
-    extra: '',
-    after: ''
-  });
-  const [newTable, setNewTable] = useState({
-    name: '',
-    columns: [] as Array<{
-      name: string;
-      type: string;
-      nullable: string;
-      default: string;
-      extra: string;
-    }>,
-    engine: 'InnoDB',
-    charset: 'utf8mb4'
-  });
-  const [newIndex, setNewIndex] = useState({
-    name: '',
-    columns: [] as string[],
-    type: 'INDEX'
-  });
-  const [selectedColumns, setSelectedColumns] = useState<string[]>([]);
-  const [indexToDrop, setIndexToDrop] = useState('');
+const emptyColumnForm = (): ColumnForm => ({
+  name: '',
+  type: 'VARCHAR',
+  length: '255',
+  unsigned: false,
+  nullable: true,
+  defaultValue: '',
+  comment: '',
+  autoIncrement: false,
+  primaryKey: false,
+})
+
+export default function TableStructureManager() {
+  const { connId = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const database = searchParams.get('database') || ''
+  const table = searchParams.get('table') || ''
+
+  const [tab, setTab] = useState('columns')
+  const [columns, setColumns] = useState<DbColumn[]>([])
+  const [indexes, setIndexes] = useState<IndexEntry[]>([])
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  const [formOpen, setFormOpen] = useState(false)
+  const [formMode, setFormMode] = useState<'ADD' | 'MODIFY'>('ADD')
+  const [form, setForm] = useState<ColumnForm>(emptyColumnForm())
+  const [dropTarget, setDropTarget] = useState<DbColumn | null>(null)
+
+  const [indexOpen, setIndexOpen] = useState(false)
+  const [indexName, setIndexName] = useState('')
+  const [indexType, setIndexType] = useState('INDEX')
+  const [indexColumns, setIndexColumns] = useState<string[]>([])
+  const [dropIndexTarget, setDropIndexTarget] = useState<IndexEntry | null>(null)
+
+  const tableIsSafe = IDENTIFIER_PATTERN.test(table)
+
+  const loadStructure = useCallback(async () => {
+    if (!connId || !database || !table) return
+    setLoading(true)
+    try {
+      const result = await dbApi.getStructure(connId, database, table)
+      setColumns(result)
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Failed to load table structure',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [connId, database, table])
+
+  const loadIndexes = useCallback(async () => {
+    if (!connId || !database || !tableIsSafe) {
+      setIndexes([])
+      return
+    }
+    try {
+      const result = await dbApi.execSql(connId, database, `SHOW INDEX FROM \`${table}\``)
+      const rows = result.results[0]?.rows || []
+      const grouped = new Map<string, IndexEntry>()
+
+      rows.forEach((row) => {
+        const name = String(row.Key_name ?? '')
+        if (!name) return
+        const entry = grouped.get(name) || {
+          name,
+          unique: Number(row.Non_unique ?? 1) === 0,
+          type: String(row.Index_type ?? ''),
+          columns: [],
+        }
+        entry.columns.push(String(row.Column_name ?? ''))
+        grouped.set(name, entry)
+      })
+
+      setIndexes(Array.from(grouped.values()))
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Failed to load indexes',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    }
+  }, [connId, database, table, tableIsSafe])
+
+  const refresh = useCallback(() => {
+    loadStructure()
+    loadIndexes()
+  }, [loadStructure, loadIndexes])
 
   useEffect(() => {
-    if (connId && database && table) {
-      loadTableStructure();
-      loadTableIndexes();
-    }
-  }, [connId, database, table]);
+    refresh()
+  }, [refresh])
 
-  const loadTableStructure = async () => {
+  const openAddColumn = () => {
+    setFormMode('ADD')
+    setForm(emptyColumnForm())
+    setFormOpen(true)
+  }
+
+  const openModifyColumn = (column: DbColumn) => {
+    const match = column.type.match(/^([A-Za-z]+)(?:\(([^)]*)\))?(.*)$/)
+    setFormMode('MODIFY')
+    setForm({
+      name: column.name,
+      type: match ? match[1].toUpperCase() : column.type.toUpperCase(),
+      length: match && match[2] ? match[2] : '',
+      unsigned: match ? /unsigned/i.test(match[3]) : false,
+      nullable: column.nullable,
+      defaultValue: column.default === null ? '' : String(column.default),
+      comment: '',
+      autoIncrement: /auto_increment/i.test(column.extra),
+      primaryKey: column.key === 'PRI',
+    })
+    setFormOpen(true)
+  }
+
+  const buildColumnDefinition = (): DbColumnDefinition | null => {
+    if (!IDENTIFIER_PATTERN.test(form.name)) {
+      toast({ type: 'warning', title: 'Column name must use letters, digits, _ or $' })
+      return null
+    }
+    if (!form.type) {
+      toast({ type: 'warning', title: 'Column type is required' })
+      return null
+    }
+
+    const definition: DbColumnDefinition = {
+      name: form.name,
+      type: form.type,
+      nullable: form.nullable,
+      unsigned: form.unsigned,
+      auto_increment: form.autoIncrement,
+      primary_key: form.primaryKey,
+    }
+
+    if (form.length.trim()) definition.length = form.length.trim()
+    if (form.defaultValue !== '') definition.default = form.defaultValue
+    if (form.comment.trim()) definition.comment = form.comment.trim()
+
+    return definition
+  }
+
+  const handleSubmitColumn = async () => {
+    const column = buildColumnDefinition()
+    if (!column) return
+
+    setSaving(true)
     try {
-      setLoading(true);
-      const response = await dbApi.structure({
+      await dbApi.alterTable({
         connId,
         database,
-        table
-      });
-      
-      if (response.success) {
-        setColumns(response.data);
-      }
+        tableName: table,
+        action: formMode,
+        column,
+      })
+      toast({
+        type: 'success',
+        title: formMode === 'ADD' ? 'Column added' : 'Column modified',
+        description: `${form.name}`,
+      })
+      setFormOpen(false)
+      refresh()
     } catch (error) {
       toast({
-        title: '加载表结构失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
+        type: 'error',
+        title: 'Alter table failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
     } finally {
-      setLoading(false);
+      setSaving(false)
     }
-  };
+  }
 
-  const loadTableIndexes = async () => {
+  const handleDropColumn = async () => {
+    if (!dropTarget) return
+
+    setSaving(true)
     try {
-      const response = await fetch(`/api.php?action=db_indexes&connId=${connId}&database=${database}&table=${table}`);
-      const data = await response.json();
-      
-      if (data.success) {
-        setIndexes(data.data);
-      }
-    } catch (error) {
-      toast({
-        title: '加载索引失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleCreateTable = async () => {
-    try {
-      const response = await dbApi.createTable({
-        connId,
-        database,
-        tableName: newTable.name,
-        columns: newTable.columns,
-        engine: newTable.engine,
-        charset: newTable.charset
-      });
-      
-      if (response.success) {
-        toast({
-          title: '创建表成功',
-          description: `表 ${newTable.name} 创建成功`
-        });
-        setIsCreateTableModalOpen(false);
-        setNewTable({
-          name: '',
-          columns: [],
-          engine: 'InnoDB',
-          charset: 'utf8mb4'
-        });
-        navigate(`/db/structure?connId=${connId}&database=${database}&table=${newTable.name}`);
-      }
-    } catch (error) {
-      toast({
-        title: '创建表失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleAddColumn = async () => {
-    try {
-      const response = await dbApi.alterTable({
-        connId,
-        database,
-        tableName: table,
-        action: 'ADD',
-        column: newColumn
-      });
-      
-      if (response.success) {
-        toast({
-          title: '添加列成功',
-          description: `列 ${newColumn.name} 添加成功`
-        });
-        setIsAddColumnModalOpen(false);
-        setNewColumn({
-          name: '',
-          type: 'VARCHAR(255)',
-          nullable: 'YES',
-          default: '',
-          extra: '',
-          after: ''
-        });
-        loadTableStructure();
-      }
-    } catch (error) {
-      toast({
-        title: '添加列失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleModifyColumn = async () => {
-    if (!editingColumn) return;
-    
-    try {
-      const response = await dbApi.alterTable({
-        connId,
-        database,
-        tableName: table,
-        action: 'MODIFY',
-        column: editingColumn
-      });
-      
-      if (response.success) {
-        toast({
-          title: '修改列成功',
-          description: `列 ${editingColumn.name} 修改成功`
-        });
-        setIsEditColumnModalOpen(false);
-        setEditingColumn(null);
-        loadTableStructure();
-      }
-    } catch (error) {
-      toast({
-        title: '修改列失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    }
-  };
-
-  const handleDropColumn = async (columnName: string) => {
-    if (!confirm(`确定要删除列 ${columnName} 吗？此操作不可恢复！`)) {
-      return;
-    }
-
-    try {
-      const response = await dbApi.alterTable({
+      await dbApi.alterTable({
         connId,
         database,
         tableName: table,
         action: 'DROP',
-        column: { name: columnName }
-      });
-      
-      if (response.success) {
-        toast({
-          title: '删除列成功',
-          description: `列 ${columnName} 删除成功`
-        });
-        loadTableStructure();
-      }
+        column: { name: dropTarget.name, type: dropTarget.type },
+      })
+      toast({ type: 'success', title: 'Column dropped', description: dropTarget.name })
+      setDropTarget(null)
+      refresh()
     } catch (error) {
       toast({
-        title: '删除列失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
+        type: 'error',
+        title: 'Drop column failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setSaving(false)
     }
-  };
+  }
+
+  const openCreateIndex = () => {
+    setIndexName('')
+    setIndexType('INDEX')
+    setIndexColumns([])
+    setIndexOpen(true)
+  }
+
+  const toggleIndexColumn = (name: string) => {
+    setIndexColumns((prev) =>
+      prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name],
+    )
+  }
 
   const handleCreateIndex = async () => {
+    if (!IDENTIFIER_PATTERN.test(indexName)) {
+      toast({ type: 'warning', title: 'Index name must use letters, digits, _ or $' })
+      return
+    }
+    if (indexColumns.length === 0) {
+      toast({ type: 'warning', title: 'Select at least one column' })
+      return
+    }
+
+    setSaving(true)
     try {
-      const response = await dbApi.createIndex({
+      await dbApi.createIndex({
         connId,
         database,
         tableName: table,
-        indexName: newIndex.name,
-        columns: newIndex.columns,
-        indexType: newIndex.type
-      });
-      
-      if (response.success) {
-        toast({
-          title: '创建索引成功',
-          description: `索引 ${newIndex.name} 创建成功`
-        });
-        setIsCreateIndexModalOpen(false);
-        setNewIndex({
-          name: '',
-          columns: [],
-          type: 'INDEX'
-        });
-        setSelectedColumns([]);
-        loadTableIndexes();
-      }
+        indexName,
+        indexType,
+        columns: indexColumns,
+      })
+      toast({ type: 'success', title: 'Index created', description: indexName })
+      setIndexOpen(false)
+      refresh()
     } catch (error) {
       toast({
-        title: '创建索引失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
+        type: 'error',
+        title: 'Create index failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setSaving(false)
     }
-  };
+  }
 
   const handleDropIndex = async () => {
-    if (!indexToDrop) return;
-    
-    if (!confirm(`确定要删除索引 ${indexToDrop} 吗？此操作不可恢复！`)) {
-      return;
-    }
+    if (!dropIndexTarget) return
 
+    setSaving(true)
     try {
-      const response = await dbApi.dropIndex({
+      await dbApi.dropIndex({
         connId,
         database,
         tableName: table,
-        indexName: indexToDrop
-      });
-      
-      if (response.success) {
-        toast({
-          title: '删除索引成功',
-          description: `索引 ${indexToDrop} 删除成功`
-        });
-        setIsDropIndexModalOpen(false);
-        setIndexToDrop('');
-        loadTableIndexes();
-      }
+        indexName: dropIndexTarget.name,
+      })
+      toast({ type: 'success', title: 'Index dropped', description: dropIndexTarget.name })
+      setDropIndexTarget(null)
+      refresh()
     } catch (error) {
       toast({
-        title: '删除索引失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
+        type: 'error',
+        title: 'Drop index failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setSaving(false)
     }
-  };
-
-  const handleColumnChange = (field: keyof typeof newColumn, value: string) => {
-    setNewColumn(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleEditColumn = (column: TableColumn) => {
-    setEditingColumn(column);
-    setIsEditColumnModalOpen(true);
-  };
-
-  const toggleColumnSelection = (columnName: string) => {
-    setSelectedColumns(prev => 
-      prev.includes(columnName)
-        ? prev.filter(col => col !== columnName)
-        : [...prev, columnName]
-    );
-  };
-
-  const renderColumnBadge = (column: TableColumn) => {
-    const badges = [];
-    
-    if (column.key === 'PRI') {
-      badges.push(<Badge key="primary" variant="primary">主键</Badge>);
-    }
-    if (column.key === 'UNI') {
-      badges.push(<Badge key="unique" variant="outline">唯一</Badge>);
-    }
-    if (column.key === 'MUL') {
-      badges.push(<Badge key="index" variant="secondary">索引</Badge>);
-    }
-    if (column.extra === 'auto_increment') {
-      badges.push(<Badge key="auto" variant="secondary">自增</Badge>);
-    }
-    if (column.nullable === 'NO') {
-      badges.push(<Badge key="notnull" variant="outline">非空</Badge>);
-    }
-    
-    return badges;
-  };
-
-  const columnTypes = [
-    'VARCHAR(255)', 'VARCHAR(500)', 'TEXT', 'INT', 'BIGINT', 
-    'DECIMAL(10,2)', 'DATETIME', 'DATE', 'TIME', 'BOOLEAN',
-    'TINYINT', 'SMALLINT', 'MEDIUMINT', 'FLOAT', 'DOUBLE'
-  ];
+  }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">表结构管理</h1>
-          <p className="text-gray-600">{database}.{table}</p>
+    <div className="p-4 md:p-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <Link
+          to={`/db/${connId}/browse`}
+          className="p-1.5 -ml-1.5 rounded-md text-fg-muted hover:text-fg hover:bg-fg/5 transition-colors"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-semibold text-fg">Table structure</h1>
+          <p className="text-xs text-fg-subtle truncate">
+            {database}.{table}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button onClick={() => setIsCreateTableModalOpen(true)}>
-            创建新表
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/db/browser')}>
-            返回
-          </Button>
-        </div>
+        <Button variant="secondary" size="sm" onClick={refresh} loading={loading}>
+          <RefreshCw size={14} />
+          Refresh
+        </Button>
       </div>
 
-      <Tabs defaultValue="columns" className="space-y-4">
+      <Tabs value={tab} onValueChange={setTab}>
         <TabsList>
-          <TabsTrigger value="columns">列管理</TabsTrigger>
-          <TabsTrigger value="indexes">索引管理</TabsTrigger>
+          <TabsTrigger value="columns">Columns</TabsTrigger>
+          <TabsTrigger value="indexes">Indexes</TabsTrigger>
         </TabsList>
 
         <TabsContent value="columns">
           <Card>
-            <CardHeader>
-              <CardTitle>列管理</CardTitle>
-              <div className="flex gap-2">
-                <Button onClick={() => setIsAddColumnModalOpen(true)}>
-                  添加列
-                </Button>
-              </div>
+            <CardHeader className="flex items-center justify-between gap-3">
+              <CardTitle>Columns</CardTitle>
+              <Button size="sm" onClick={openAddColumn}>
+                <Plus size={16} />
+                Add column
+              </Button>
             </CardHeader>
-            <CardContent>
+            <CardBody>
               {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+                <div className="flex justify-center py-10">
+                  <Spinner />
                 </div>
+              ) : columns.length === 0 ? (
+                <p className="py-8 text-center text-sm text-fg-muted">No columns found</p>
               ) : (
                 <div className="overflow-x-auto">
-                  <table className="w-full border-collapse border border-gray-300">
+                  <table className="w-full text-sm">
                     <thead>
-                      <tr className="bg-gray-50">
-                        <th className="border border-gray-300 px-4 py-2 text-left">列名</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">数据类型</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">默认值</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">属性</th>
-                        <th className="border border-gray-300 px-4 py-2 text-left">操作</th>
+                      <tr className="border-b border-border text-left text-fg-subtle">
+                        <th className="px-3 py-2 font-medium">Name</th>
+                        <th className="px-3 py-2 font-medium">Type</th>
+                        <th className="px-3 py-2 font-medium">Nullable</th>
+                        <th className="px-3 py-2 font-medium">Key</th>
+                        <th className="px-3 py-2 font-medium">Default</th>
+                        <th className="px-3 py-2 font-medium">Extra</th>
+                        <th className="px-3 py-2 font-medium">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {columns.map((column, index) => (
-                        <tr key={index}>
-                          <td className="border border-gray-300 px-4 py-2 font-medium">
-                            {column.name}
-                          </td>
-                          <td className="border border-gray-300 px-4 py-2">
+                      {columns.map((column) => (
+                        <tr key={column.name} className="border-b border-border/60 hover:bg-fg/5">
+                          <td className="px-3 py-2 font-mono text-xs text-fg">{column.name}</td>
+                          <td className="px-3 py-2 font-mono text-xs text-fg-muted">
                             {column.type}
                           </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            {column.default || '-'}
+                          <td className="px-3 py-2 text-xs text-fg-muted">
+                            {column.nullable ? 'YES' : 'NO'}
                           </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            <div className="flex gap-1 flex-wrap">
-                              {renderColumnBadge(column)}
-                            </div>
+                          <td className="px-3 py-2">
+                            {column.key ? <Badge variant="accent">{column.key}</Badge> : null}
                           </td>
-                          <td className="border border-gray-300 px-4 py-2">
-                            <div className="flex gap-1">
-                              <Button 
-                                size="sm" 
-                                variant="outline"
-                                onClick={() => handleEditColumn(column)}
+                          <td className="px-3 py-2 font-mono text-xs text-fg-muted">
+                            {column.default === null ? 'NULL' : String(column.default)}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-fg-muted">{column.extra}</td>
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Modify column"
+                                onClick={() => openModifyColumn(column)}
                               >
-                                编辑
+                                <Wrench size={14} />
                               </Button>
-                              <Button 
-                                size="sm" 
-                                variant="destructive"
-                                onClick={() => handleDropColumn(column.name)}
+                              <Button
+                                variant="ghost"
+                                size="icon-sm"
+                                aria-label="Drop column"
+                                onClick={() => setDropTarget(column)}
                               >
-                                删除
+                                <Trash2 size={14} />
                               </Button>
                             </div>
                           </td>
@@ -448,411 +431,257 @@ export function TableStructureManager() {
                   </table>
                 </div>
               )}
-            </CardContent>
+            </CardBody>
           </Card>
         </TabsContent>
 
         <TabsContent value="indexes">
           <Card>
-            <CardHeader>
-              <CardTitle>索引管理</CardTitle>
-              <div className="flex gap-2">
-                <Button onClick={() => setIsCreateIndexModalOpen(true)}>
-                  创建索引
-                </Button>
-                <Button variant="outline" onClick={() => setIsDropIndexModalOpen(true)}>
-                  删除索引
-                </Button>
-              </div>
+            <CardHeader className="flex items-center justify-between gap-3">
+              <CardTitle>Indexes</CardTitle>
+              <Button size="sm" onClick={openCreateIndex}>
+                <KeyRound size={16} />
+                Create index
+              </Button>
             </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-                </div>
+            <CardBody>
+              {indexes.length === 0 ? (
+                <p className="py-8 text-center text-sm text-fg-muted">No indexes found</p>
               ) : (
-                <div className="space-y-4">
-                  {indexes.length === 0 ? (
-                    <p className="text-gray-500 text-center py-4">该表没有索引</p>
-                  ) : (
-                    indexes.map((index, indexIndex) => (
-                      <div key={indexIndex} className="border rounded-lg p-4">
-                        <div className="flex items-center justify-between mb-2">
-                          <h3 className="font-medium">{index.name}</h3>
-                          <Badge variant="outline">{index.type}</Badge>
+                <ul className="divide-y divide-border">
+                  {indexes.map((index) => (
+                    <li key={index.name} className="flex items-center gap-3 py-3">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm text-fg">{index.name}</span>
+                          {index.unique && <Badge variant="success">UNIQUE</Badge>}
+                          {index.type && <Badge variant="muted">{index.type}</Badge>}
                         </div>
-                        <p className="text-sm text-gray-600">
-                          列: {index.columns.join(', ')}
-                        </p>
+                        <div className="text-xs text-fg-subtle truncate">
+                          {index.columns.join(', ')}
+                        </div>
                       </div>
-                    ))
-                  )}
-                </div>
+                      {index.name !== 'PRIMARY' && (
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label="Drop index"
+                          onClick={() => setDropIndexTarget(index)}
+                        >
+                          <Trash2 size={14} />
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
-            </CardContent>
+            </CardBody>
           </Card>
         </TabsContent>
       </Tabs>
 
-      <Modal open={isAddColumnModalOpen} onOpenChange={setIsAddColumnModalOpen}>
-        <ModalContent className="max-w-2xl">
-          <ModalHeader>
-            <ModalTitle>添加列</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">列名</label>
-              <Input
-                value={newColumn.name}
-                onChange={(e) => handleColumnChange('name', e.target.value)}
-                placeholder="输入列名"
-              />
-            </div>
-            <div>
-              <label className="text-sm font-medium">数据类型</label>
+      <Modal
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        title={formMode === 'ADD' ? 'Add column' : 'Modify column'}
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setFormOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSubmitColumn} loading={saving}>
+              {formMode === 'ADD' ? 'Add' : 'Save'}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-fg-muted">Name</span>
+            <Input
+              value={form.name}
+              disabled={formMode === 'MODIFY'}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            />
+          </label>
+
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-fg-muted">Type</span>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={newColumn.type}
-                onChange={(e) => handleColumnChange('type', e.target.value)}
+                className="input-base w-full"
+                value={form.type}
+                onChange={(event) => setForm((prev) => ({ ...prev, type: event.target.value }))}
               >
-                {columnTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
+                {COLUMN_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">是否可为空</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={newColumn.nullable}
-                onChange={(e) => handleColumnChange('nullable', e.target.value)}
-              >
-                <option value="YES">是</option>
-                <option value="NO">否</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">默认值</label>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-fg-muted">Length</span>
               <Input
-                value={newColumn.default}
-                onChange={(e) => handleColumnChange('default', e.target.value)}
-                placeholder="输入默认值"
+                value={form.length}
+                placeholder="e.g. 255"
+                onChange={(event) => setForm((prev) => ({ ...prev, length: event.target.value }))}
               />
-            </div>
-            <div>
-              <label className="text-sm font-medium">额外属性</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={newColumn.extra}
-                onChange={(e) => handleColumnChange('extra', e.target.value)}
-              >
-                <option value="">无</option>
-                <option value="auto_increment">自增</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">插入到列后（可选）</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={newColumn.after}
-                onChange={(e) => handleColumnChange('after', e.target.value)}
-              >
-                <option value="">第一列</option>
-                {columns.map(col => (
-                  <option key={col.name} value={col.name}>{col.name}</option>
-                ))}
-              </select>
-            </div>
+            </label>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsAddColumnModalOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleAddColumn}>
-              添加
-            </Button>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-fg-muted">Default value</span>
+            <Input
+              value={form.defaultValue}
+              onChange={(event) =>
+                setForm((prev) => ({ ...prev, defaultValue: event.target.value }))
+              }
+            />
+          </label>
+
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-fg-muted">Comment</span>
+            <Input
+              value={form.comment}
+              onChange={(event) => setForm((prev) => ({ ...prev, comment: event.target.value }))}
+            />
+          </label>
+
+          <div className="flex flex-wrap gap-5 pt-1">
+            <label className="flex items-center gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={form.nullable}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, nullable: event.target.checked }))
+                }
+              />
+              Nullable
+            </label>
+            <label className="flex items-center gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={form.unsigned}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, unsigned: event.target.checked }))
+                }
+              />
+              Unsigned
+            </label>
+            <label className="flex items-center gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={form.autoIncrement}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, autoIncrement: event.target.checked }))
+                }
+              />
+              Auto increment
+            </label>
+            <label className="flex items-center gap-2 text-sm text-fg">
+              <input
+                type="checkbox"
+                className="h-4 w-4 rounded border-border"
+                checked={form.primaryKey}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, primaryKey: event.target.checked }))
+                }
+              />
+              Primary key
+            </label>
           </div>
-        </ModalContent>
+        </div>
       </Modal>
 
-      <Modal open={isEditColumnModalOpen} onOpenChange={setIsEditColumnModalOpen}>
-        <ModalContent className="max-w-2xl">
-          <ModalHeader>
-            <ModalTitle>编辑列</ModalTitle>
-          </ModalHeader>
-          {editingColumn && (
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">列名</label>
-                <Input
-                  value={editingColumn.name}
-                  onChange={(e) => setEditingColumn(prev => prev ? { ...prev, name: e.target.value } : null)}
-                  placeholder="输入列名"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-medium">数据类型</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  value={editingColumn.type}
-                  onChange={(e) => setEditingColumn(prev => prev ? { ...prev, type: e.target.value } : null)}
-                >
-                  {columnTypes.map(type => (
-                    <option key={type} value={type}>{type}</option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">是否可为空</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  value={editingColumn.nullable}
-                  onChange={(e) => setEditingColumn(prev => prev ? { ...prev, nullable: e.target.value } : null)}
-                >
-                  <option value="YES">是</option>
-                  <option value="NO">否</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">默认值</label>
-                <Input
-                  value={editingColumn.default || ''}
-                  onChange={(e) => setEditingColumn(prev => prev ? { ...prev, default: e.target.value } : null)}
-                  placeholder="输入默认值"
-                />
-              </div>
-            </div>
-          )}
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsEditColumnModalOpen(false)}>
-              取消
+      <Modal
+        open={indexOpen}
+        onClose={() => setIndexOpen(false)}
+        title="Create index"
+        size="lg"
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setIndexOpen(false)}>
+              Cancel
             </Button>
-            <Button onClick={handleModifyColumn}>
-              更新
+            <Button onClick={handleCreateIndex} loading={saving}>
+              Create
             </Button>
-          </div>
-        </ModalContent>
-      </Modal>
-
-      <Modal open={isCreateIndexModalOpen} onOpenChange={setIsCreateIndexModalOpen}>
-        <ModalContent className="max-w-2xl">
-          <ModalHeader>
-            <ModalTitle>创建索引</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">索引名</label>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-fg-muted">Index name</span>
               <Input
-                value={newIndex.name}
-                onChange={(e) => setNewIndex(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="输入索引名"
+                value={indexName}
+                onChange={(event) => setIndexName(event.target.value)}
+                placeholder="idx_example"
               />
-            </div>
-            <div>
-              <label className="text-sm font-medium">索引类型</label>
+            </label>
+            <label className="block space-y-1">
+              <span className="text-xs font-medium text-fg-muted">Index type</span>
               <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={newIndex.type}
-                onChange={(e) => setNewIndex(prev => ({ ...prev, type: e.target.value }))}
+                className="input-base w-full"
+                value={indexType}
+                onChange={(event) => setIndexType(event.target.value)}
               >
-                <option value="INDEX">普通索引</option>
-                <option value="UNIQUE">唯一索引</option>
-                <option value="FULLTEXT">全文索引</option>
-              </select>
-            </div>
-            <div>
-              <label className="text-sm font-medium">选择列</label>
-              <div className="border rounded-md p-2 max-h-40 overflow-y-auto">
-                {columns.map((column) => (
-                  <label key={column.name} className="flex items-center space-x-2 py-1">
-                    <input
-                      type="checkbox"
-                      checked={selectedColumns.includes(column.name)}
-                      onChange={() => toggleColumnSelection(column.name)}
-                      className="rounded"
-                    />
-                    <span>{column.name}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsCreateIndexModalOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleCreateIndex}>
-              创建
-            </Button>
-          </div>
-        </ModalContent>
-      </Modal>
-
-      <Modal open={isDropIndexModalOpen} onOpenChange={setIsDropIndexModalOpen}>
-        <ModalContent className="max-w-md">
-          <ModalHeader>
-            <ModalTitle>删除索引</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">选择要删除的索引</label>
-              <select
-                className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                value={indexToDrop}
-                onChange={(e) => setIndexToDrop(e.target.value)}
-              >
-                <option value="">请选择索引</option>
-                {indexes.map((index) => (
-                  <option key={index.name} value={index.name}>{index.name}</option>
+                {INDEX_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
                 ))}
               </select>
+            </label>
+          </div>
+
+          <div className="space-y-2">
+            <span className="text-xs font-medium text-fg-muted">Columns</span>
+            <div className="max-h-56 space-y-2 overflow-y-auto rounded-md border border-border p-3">
+              {columns.map((column) => (
+                <label key={column.name} className="flex items-center gap-2 text-sm text-fg">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border"
+                    checked={indexColumns.includes(column.name)}
+                    onChange={() => toggleIndexColumn(column.name)}
+                  />
+                  <span className="font-mono text-xs">{column.name}</span>
+                  <span className="text-xs text-fg-subtle">{column.type}</span>
+                </label>
+              ))}
+              {columns.length === 0 && (
+                <p className="text-xs text-fg-subtle">Load the structure first</p>
+              )}
             </div>
           </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsDropIndexModalOpen(false)}>
-              取消
-            </Button>
-            <Button variant="destructive" onClick={handleDropIndex}>
-              删除
-            </Button>
-          </div>
-        </ModalContent>
+        </div>
       </Modal>
 
-      <Modal open={isCreateTableModalOpen} onOpenChange={setIsCreateTableModalOpen}>
-        <ModalContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <ModalHeader>
-            <ModalTitle>创建新表</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">表名</label>
-              <Input
-                value={newTable.name}
-                onChange={(e) => setNewTable(prev => ({ ...prev, name: e.target.value }))}
-                placeholder="输入表名"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-medium">存储引擎</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  value={newTable.engine}
-                  onChange={(e) => setNewTable(prev => ({ ...prev, engine: e.target.value }))}
-                >
-                  <option value="InnoDB">InnoDB</option>
-                  <option value="MyISAM">MyISAM</option>
-                  <option value="MEMORY">MEMORY</option>
-                </select>
-              </div>
-              <div>
-                <label className="text-sm font-medium">字符集</label>
-                <select
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                  value={newTable.charset}
-                  onChange={(e) => setNewTable(prev => ({ ...prev, charset: e.target.value }))}
-                >
-                  <option value="utf8mb4">utf8mb4</option>
-                  <option value="utf8">utf8</option>
-                  <option value="latin1">latin1</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="text-sm font-medium">列定义</label>
-                <Button 
-                  size="sm" 
-                  onClick={() => setNewTable(prev => ({
-                    ...prev,
-                    columns: [...prev.columns, {
-                      name: '',
-                      type: 'VARCHAR(255)',
-                      nullable: 'YES',
-                      default: '',
-                      extra: ''
-                    }]
-                  }))}
-                >
-                  添加列
-                </Button>
-              </div>
-              <div className="space-y-2">
-                {newTable.columns.map((column, index) => (
-                  <div key={index} className="border rounded-lg p-3 space-y-2">
-                    <div className="grid grid-cols-3 gap-2">
-                      <Input
-                        value={column.name}
-                        onChange={(e) => {
-                          const newColumns = [...newTable.columns];
-                          newColumns[index].name = e.target.value;
-                          setNewTable(prev => ({ ...prev, columns: newColumns }));
-                        }}
-                        placeholder="列名"
-                      />
-                      <select
-                        className="px-3 py-2 border border-gray-300 rounded-md"
-                        value={column.type}
-                        onChange={(e) => {
-                          const newColumns = [...newTable.columns];
-                          newColumns[index].type = e.target.value;
-                          setNewTable(prev => ({ ...prev, columns: newColumns }));
-                        }}
-                      >
-                        {columnTypes.map(type => (
-                          <option key={type} value={type}>{type}</option>
-                        ))}
-                      </select>
-                      <select
-                        className="px-3 py-2 border border-gray-300 rounded-md"
-                        value={column.nullable}
-                        onChange={(e) => {
-                          const newColumns = [...newTable.columns];
-                          newColumns[index].nullable = e.target.value;
-                          setNewTable(prev => ({ ...prev, columns: newColumns }));
-                        }}
-                      >
-                        <option value="YES">可为空</option>
-                        <option value="NO">非空</option>
-                      </select>
-                    </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={column.default}
-                        onChange={(e) => {
-                          const newColumns = [...newTable.columns];
-                          newColumns[index].default = e.target.value;
-                          setNewTable(prev => ({ ...prev, columns: newColumns }));
-                        }}
-                        placeholder="默认值"
-                      />
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => {
-                          const newColumns = newTable.columns.filter((_, i) => i !== index);
-                          setNewTable(prev => ({ ...prev, columns: newColumns }));
-                        }}
-                      >
-                        删除
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => setIsCreateTableModalOpen(false)}>
-              取消
-            </Button>
-            <Button onClick={handleCreateTable}>
-              创建表
-            </Button>
-          </div>
-        </ModalContent>
-      </Modal>
+      <Confirm
+        open={dropTarget !== null}
+        title="Drop column"
+        message={`Drop column "${dropTarget?.name ?? ''}"? This cannot be undone.`}
+        variant="danger"
+        loading={saving}
+        onCancel={() => setDropTarget(null)}
+        onConfirm={handleDropColumn}
+      />
+
+      <Confirm
+        open={dropIndexTarget !== null}
+        title="Drop index"
+        message={`Drop index "${dropIndexTarget?.name ?? ''}"? This cannot be undone.`}
+        variant="danger"
+        loading={saving}
+        onCancel={() => setDropIndexTarget(null)}
+        onConfirm={handleDropIndex}
+      />
     </div>
-  );
+  )
 }
