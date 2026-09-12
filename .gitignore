@@ -61,5 +61,11 @@ scripts/_*.md
 tsc-errors.txt
 *.tsbuildinfo
 
+# Generated JS/d.ts emitted next to their .ts sources
+vite.config.js
+vite.config.d.ts
+vitest.config.js
+vitest.config.d.ts
+
 # Temporary preview / scratch dirs
 preview/

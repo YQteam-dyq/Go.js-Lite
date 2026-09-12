@@ -10,7 +10,7 @@ interface AuthState {
   loading: boolean
   csrfToken: string
   capabilities: Capabilities | null
-  user: { username: string } | null
+  user: { id?: number | string; username: string; role?: string; path_allowlist?: string[] } | null
   backendVersion: string
   frontendVersion: string
 

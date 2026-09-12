@@ -33,6 +33,26 @@ import SecurityScan from '@/routes/SecurityScan'
 import Upgrade from '@/routes/Upgrade'
 import ApiTokens from '@/routes/ApiTokens'
 import Deploy from '@/routes/Deploy'
+import Users from '@/routes/Users'
+import Sessions from '@/routes/Sessions'
+import UserActivity from '@/routes/UserActivity'
+import Profile from '@/routes/Profile'
+import Groups from '@/routes/Groups'
+import Tokens from '@/routes/Tokens'
+import Invitations from '@/routes/Invitations'
+import InviteAccept from '@/routes/InviteAccept'
+import Devices from '@/routes/Devices'
+import NotificationPreferences from '@/routes/NotificationPreferences'
+import Approvals from '@/routes/Approvals'
+import Composer from '@/routes/Composer'
+import PhpOpcache from '@/routes/PhpOpcache'
+import PhpExtensions from '@/routes/PhpExtensions'
+import PhpErrors from '@/routes/PhpErrors'
+import PhpFpm from '@/routes/PhpFpm'
+import PhpBench from '@/routes/PhpBench'
+import PhpIni from '@/routes/PhpIni'
+import PhpProcesses from '@/routes/PhpProcesses'
+import PhpUpgrade from '@/routes/PhpUpgrade'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -94,6 +114,26 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/upgrade': 'upgrade.documentTitle',
   '/api-tokens': 'apiTokens.documentTitle',
   '/deploy': 'deploy.documentTitle',
+  '/users': 'users.documentTitle',
+  '/sessions': 'sessions.documentTitle',
+  '/user-activity': 'userActivity.documentTitle',
+  '/profile': 'profile.documentTitle',
+  '/groups': 'groups.documentTitle',
+  '/tokens': 'tokens.documentTitle',
+  '/invitations': 'invitations.documentTitle',
+  '/devices': 'devices.documentTitle',
+  '/notification-preferences': 'notificationPrefs.documentTitle',
+  '/approvals': 'approvals.documentTitle',
+  '/composer': 'composer.documentTitle',
+  '/php-opcache': 'phpOpcache.documentTitle',
+  '/php-extensions': 'phpExtensions.documentTitle',
+  '/php-errors': 'phpErrors.documentTitle',
+  '/php-fpm': 'phpFpm.documentTitle',
+  '/php-bench': 'phpBench.documentTitle',
+  '/php-ini': 'phpIni.documentTitle',
+  '/php-processes': 'phpProcesses.documentTitle',
+  '/php-upgrade': 'phpUpgrade.documentTitle',
+  '/invite': 'inviteAccept.documentTitle',
   '/404': 'notFound.documentTitle',
 }
 
@@ -137,6 +177,7 @@ export default function App() {
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/install" element={<Install />} />
+      <Route path="/invite/:token" element={<InviteAccept />} />
       <Route
         path="/*"
         element={
@@ -165,6 +206,25 @@ export default function App() {
                 <Route path="upgrade" element={<Upgrade />} />
                 <Route path="api-tokens" element={<ApiTokens />} />
                 <Route path="deploy" element={<Deploy />} />
+                <Route path="users" element={<Users />} />
+                <Route path="sessions" element={<Sessions />} />
+                <Route path="user-activity" element={<UserActivity />} />
+                <Route path="profile" element={<Profile />} />
+                <Route path="groups" element={<Groups />} />
+                <Route path="tokens" element={<Tokens />} />
+                <Route path="invitations" element={<Invitations />} />
+                <Route path="devices" element={<Devices />} />
+                <Route path="notification-preferences" element={<NotificationPreferences />} />
+                <Route path="approvals" element={<Approvals />} />
+                <Route path="composer" element={<Composer />} />
+                <Route path="php-opcache" element={<PhpOpcache />} />
+                <Route path="php-extensions" element={<PhpExtensions />} />
+                <Route path="php-errors" element={<PhpErrors />} />
+                <Route path="php-fpm" element={<PhpFpm />} />
+                <Route path="php-bench" element={<PhpBench />} />
+                <Route path="php-ini" element={<PhpIni />} />
+                <Route path="php-processes" element={<PhpProcesses />} />
+                <Route path="php-upgrade" element={<PhpUpgrade />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>
