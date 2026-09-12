@@ -63,6 +63,9 @@ function gojs_init() {
 
     if (is_array($config)) {
         $installed = !empty($config['installed']);
+        if ($installed && function_exists('gojs_users_ensure_default')) {
+            gojs_users_ensure_default();
+        }
         if (!empty($config['root_path']) && is_dir($config['root_path'])) {
             $root_path = rtrim($config['root_path'], '/');
             $GLOBALS['files_root'] = $root_path;
@@ -93,7 +96,6 @@ function gojs_init() {
 
     gojs_run_migration();
 
-    
     gojs_ctx()
         ->reset()
         ->setConfig(is_array($config) ? $config : array())
@@ -122,7 +124,6 @@ function gojs_error_handler($errno, $errstr, $errfile, $errline) {
         return false;
     }
 
-    
 $non_fatal = array(E_NOTICE, E_USER_NOTICE, E_DEPRECATED, E_USER_DEPRECATED, E_STRICT);
     if (in_array($errno, $non_fatal, true)) {
         return false;
@@ -165,7 +166,21 @@ function gojs_exception_handler($exception) {
     exit(1);
 }
 
+if (!class_exists('GoJSApiResponseSent')) {
+    class GoJSApiResponseSent extends \Exception {
+    }
+}
+
 function gojs_json_response($data = null, $error = null, $status_code = 200) {
+    if (!empty($GLOBALS['gojs_defer_response'])) {
+        $GLOBALS['gojs_deferred_response'] = array(
+            'data' => $data,
+            'error' => $error,
+            'status' => $status_code,
+        );
+        throw new GoJSApiResponseSent();
+    }
+
     if (!headers_sent()) {
         $sent_headers = array_map(function ($h) {
             $parts = explode(':', $h, 2);
@@ -199,7 +214,6 @@ function gojs_json_response($data = null, $error = null, $status_code = 200) {
     $json = json_encode($response, JSON_UNESCAPED_UNICODE);
     echo $json;
 
-    
     $in_bytes = 0;
     if (isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] !== '') {
         $in_bytes = (int)$_SERVER['CONTENT_LENGTH'];
@@ -215,6 +229,10 @@ function gojs_get_method() {
 }
 
 function gojs_get_body() {
+    if (array_key_exists('gojs_body_override', $GLOBALS) && is_array($GLOBALS['gojs_body_override'])) {
+        return $GLOBALS['gojs_body_override'];
+    }
+
     static $body = null;
     if ($body !== null) return $body;
 
@@ -263,7 +281,6 @@ function gojs_dispatch() {
 
     $api = ltrim($api, '/');
 
-    
     $legacy_aliases = array(
         'files/list'            => 'files',
         'settings/get'          => 'settings',
@@ -288,13 +305,35 @@ function gojs_dispatch() {
 
     $public_routes = array('bootstrap', 'install', 'login', 'env-check');
 
+    $bearer = function_exists('gojs_request_bearer_token') ? gojs_request_bearer_token() : null;
+    if ($bearer !== null && !in_array($api, $public_routes, true) && function_exists('gojs_token_authenticate')) {
+        gojs_token_authenticate($bearer);
+    }
+
     if (!in_array($api, $public_routes)) {
         gojs_check_auth();
         gojs_check_csrf();
     }
 
-    
-    if (!empty($_SESSION['api_token_scopes']) && strpos($api, 'api/') !== 0) {
+    if (!empty($_SESSION['api_token_active'])) {
+        $active_token = function_exists('gojs_tokens_find') ? gojs_tokens_find($_SESSION['api_token_id']) : null;
+        if (!$active_token) {
+            gojs_json_response(null, array('code' => 'invalid_token', 'message' => 'API Token 无效'), 401);
+        }
+        if (function_exists('gojs_token_scope_allows') && !gojs_token_scope_allows($_SESSION['api_token_scopes'], $api, $method)) {
+            gojs_json_response(null, array(
+                'code' => 'token_scope_denied',
+                'message' => 'API Token 权限不足',
+            ), 403);
+        }
+        if (function_exists('gojs_token_rate_limit_ok') && !gojs_token_rate_limit_ok($active_token)) {
+            header('Retry-After: 60');
+            gojs_json_response(null, array(
+                'code' => 'token_rate_limited',
+                'message' => 'Token 请求过于频繁，请稍后重试',
+            ), 429);
+        }
+    } elseif (!empty($_SESSION['api_token_scopes']) && strpos($api, 'api/') !== 0) {
         gojs_json_response(null, array(
             'code' => 'token_not_allowed',
             'message' => 'API Token 仅允许访问 REST 端点（api/*）',
@@ -302,7 +341,77 @@ function gojs_dispatch() {
     }
 
     $router = gojs_build_router();
+
+    gojs_acl_route_precheck($api, $method);
+
+    if (function_exists('gojs_quota_enforce')) gojs_quota_enforce();
+
+    if (function_exists('gojs_approvals_gate')) gojs_approvals_gate($api, $method);
     $router->dispatch($api, $method);
+}
+
+function gojs_acl_route_precheck($api, $method) {
+
+    if (empty($_SESSION['authenticated']) && empty($_SESSION['access_token_valid']) && empty($_SESSION['api_token_scopes'])) {
+        return;
+    }
+    if ($api === 'invitations/preview' || $api === 'invitations/accept') {
+        return;
+    }
+    $role = function_exists('gojs_current_role') ? gojs_current_role() : null;
+    if (!$role) {
+
+        if (!empty($_SESSION['api_token_scopes'])) return;
+        $role = 'admin';
+    }
+
+    $deny = false;
+    $verb = strtoupper($method);
+
+    $fileWrite = array('file-save','file-mkdir','file-touch','file-delete','file-rename','file-copy','file-chmod','file-zip','file-unzip','file-targz','file-untargz','upload','upload-chunk');
+    $fileRead  = array('files','file-content','file-search','download');
+    if (in_array($api, $fileWrite, true)) {
+        if (gojs_role_rank($role) < gojs_role_rank('operator')) {
+            $boostAction = gojs_acl_action_name($api);
+            if (!$boostAction || !gojs_action_allowed($boostAction)) $deny = true;
+        }
+    } elseif (in_array($api, $fileRead, true)) {
+
+    } else {
+
+        if (strpos($api, 'regenerate-') === 0 || $api === 'settings/reset') {
+            if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
+        } elseif (strpos($api, 'change-password') === 0 || $api === 'logout') {
+
+        } elseif (strpos($api, 'settings') === 0) {
+
+        } elseif (strpos($api, 'users/') === 0 || $api === 'users' || strpos($api, 'sessions') === 0) {
+
+            if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
+        } elseif ($api === 'logout-all') {
+
+        } elseif ($api === 'profile' || $api === 'profile/avatar' || $api === 'profile/notifications' || strpos($api, 'profile/export') === 0) {
+
+        } elseif (strpos($api, 'groups') === 0 || strpos($api, 'approvals') === 0 || strpos($api, 'invitations') === 0) {
+            if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
+        } elseif (strpos($api, 'tokens') === 0) {
+            if (gojs_role_rank($role) < gojs_role_rank('operator')) $deny = true;
+        } elseif (strpos($api, 'devices') === 0) {
+
+        } elseif (strpos($api, 'notification-preferences') === 0) {
+
+        } elseif (strpos($api, 'php/') === 0 || strpos($api, 'composer') === 0) {
+
+            if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
+        } else {
+
+            if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
+        }
+    }
+
+    if ($deny) {
+        gojs_acl_fail('insufficient_role', '当前角色无权访问该接口');
+    }
 }
 
 function gojs_build_router() {
@@ -312,7 +421,65 @@ function gojs_build_router() {
     $r->add($any, 'bootstrap', function () { gojs_api_bootstrap(); });
     $r->add('POST', 'install', function () { gojs_api_install(); });
     $r->add('POST', 'login', function () { gojs_api_login(); });
-    $r->add('POST', 'logout', function () { gojs_api_logout(); });
+    $r->add($any, 'logout', function () { gojs_api_logout(); });
+
+    $r->addPrefix('users/', function ($p, $m) { gojs_api_users_route($p, $m); });
+    $r->addPrefix('sessions/', function ($p, $m) { gojs_api_users_route($p, $m); });
+    $r->addPrefix('groups/', function ($p, $m) { gojs_api_groups_route($p, $m); });
+    $r->add(array('GET', 'POST'), 'groups', function ($m) { gojs_api_groups_route('groups', $m); });
+    $r->addPrefix('tokens/', function ($p, $m) { gojs_api_tokens_v2_route($p, $m); });
+    $r->add(array('GET', 'POST'), 'tokens', function ($m) { gojs_api_tokens_v2_route('tokens', $m); });
+    $r->addPrefix('invitations/', function ($p, $m) { gojs_api_invitations_route($p, $m); });
+    $r->addPrefix('approvals/', function ($p, $m) { gojs_api_approvals_route($p, $m); });
+    $r->add('GET', 'approvals', function ($m) { gojs_api_approvals_route('approvals', $m); });
+    $r->add(array('GET', 'POST'), 'invitations', function ($m) { gojs_api_invitations_route('invitations', $m); });
+    $r->addPrefix('devices/', function ($p, $m) { gojs_api_devices_route($p, $m); });
+    $r->add('GET', 'devices', function ($m) { gojs_api_devices_route('devices', $m); });
+    $r->addPrefix('profile/export/', function ($p, $m) { gojs_api_profile_export_route($p, $m); });
+    $r->add('POST', 'profile/export', function ($m) { gojs_api_profile_export_create(); });
+    $r->add(array('GET', 'PATCH', 'PUT'), 'notification-preferences', function ($m) { gojs_api_notification_preferences_route('notification-preferences', $m); });
+
+    $r->add('GET', 'composer/status', function () { gojs_api_composer_status(); });
+    $r->add('POST', 'composer/install', function () { gojs_api_composer_install(); });
+    $r->add('POST', 'composer/require', function () { gojs_api_composer_require(); });
+    $r->add('POST', 'composer/update', function () { gojs_api_composer_update(); });
+    $r->add('GET', 'composer/json', function () { gojs_api_composer_json(); });
+
+    $r->add('GET', 'php/opcache/status', function () { gojs_api_php_opcache_status(); });
+    $r->add('POST', 'php/opcache/reset', function () { gojs_api_php_opcache_reset(); });
+    $r->add('POST', 'php/opcache/toggle', function () { gojs_api_php_opcache_toggle(); });
+    $r->add('POST', 'php/opcache/profile', function () { gojs_api_php_opcache_profile(); });
+
+    $r->add('GET', 'php/extensions', function () { gojs_api_php_extensions_list(); });
+    $r->add('POST', 'php/extensions/favorite', function () { gojs_api_php_extensions_favorite(); });
+
+    $r->add('GET', 'php/errors', function () { gojs_api_php_errors(); });
+
+    $r->add('GET', 'php/fpm/status', function () { gojs_api_php_fpm_status(); });
+    $r->add('GET', 'php/fpm/slowlog', function () { gojs_api_php_fpm_slowlog(); });
+
+    $r->add('POST', 'php/bench/run', function () { gojs_api_php_bench_run(); });
+    $r->add('GET', 'php/bench/compare', function () { gojs_api_php_bench_compare(); });
+
+    $r->add('GET', 'php/ini-diff', function () { gojs_api_php_ini_diff(); });
+    $r->add('GET', 'php/jit', function () { gojs_api_php_jit_get(); });
+    $r->add('POST', 'php/jit', function () { gojs_api_php_jit_set(); });
+    $r->add('GET', 'php/include-path', function () { gojs_api_php_include_path_get(); });
+    $r->add('POST', 'php/include-path', function () { gojs_api_php_include_path_set(); });
+
+    $r->add('GET', 'php/processes', function () { gojs_api_php_processes(); });
+    $r->add('GET', 'php/processes/snapshot', function () { gojs_api_php_processes_snapshot_download(); });
+    $r->add('POST', 'php/processes/snapshot', function () { gojs_api_php_processes_snapshot(); });
+    $r->add('GET', 'php/upgrade-check', function () { gojs_api_php_upgrade_check(); });
+    $r->add('GET', 'php/autoload-audit', function () { gojs_api_php_autoload_audit(); });
+    $r->add('GET', 'audit/aggregate', function () { gojs_api_audit_aggregate(); });
+    $r->addPrefix('user_activity/', function ($p, $m) { gojs_api_user_activity_route($p, $m); });
+    $r->add('GET', 'user_activity', function ($m) { gojs_api_user_activity_route('user_activity/recent', $m); });
+
+    $r->add('POST', 'logout-all', function () { gojs_api_logout_all(); });
+
+    $r->add('GET',  'profile', function () { gojs_api_profile_get(); });
+    $r->add(array('POST','PATCH','PUT'), 'profile', function () { gojs_api_profile_update(); });
     $r->add('POST', 'change-password', function () { gojs_api_change_password(); });
     $r->add(array('GET', 'POST'), 'settings', function ($m) {
         if ($m === 'GET') { gojs_api_get_settings(); }
@@ -618,4 +785,3 @@ function gojs_build_router() {
 
     return $r;
 }
-
