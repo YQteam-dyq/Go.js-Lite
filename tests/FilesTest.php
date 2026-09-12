@@ -64,7 +64,7 @@ class FilesTest extends TestCase
         @mkdir($this->filesRoot . '/sub', 0700, true);
         file_put_contents($this->filesRoot . '/sub/hello.txt', 'hi');
         $resolved = gojs_safe_path('sub/hello.txt');
-        $this->assertSame(realpath($this->filesRoot . '/sub/hello.txt'), $resolved);
+        $this->assertSame(str_replace('\\', '/', realpath($this->filesRoot . '/sub/hello.txt')), $resolved);
     }
 
     public function testSafePathRejectsTraversal(): void
@@ -83,7 +83,7 @@ class FilesTest extends TestCase
     {
         $resolved = gojs_safe_path('newfile.txt');
         $this->assertNotFalse($resolved);
-        $this->assertStringStartsWith(realpath($this->filesRoot), $resolved);
+        $this->assertStringStartsWith(str_replace('\\', '/', realpath($this->filesRoot)), $resolved);
     }
 
     public function testSafePathRejectsDoubleDotInBasename(): void
@@ -118,6 +118,9 @@ class FilesTest extends TestCase
 
     public function testGetPerms(): void
     {
+        if (DIRECTORY_SEPARATOR === '\\') {
+            $this->markTestSkipped('chmod permissions are not enforced on Windows');
+        }
         file_put_contents($this->filesRoot . '/perm.txt', 'x');
         @chmod($this->filesRoot . '/perm.txt', 0644);
         $this->assertSame('0644', gojs_get_perms($this->filesRoot . '/perm.txt'));

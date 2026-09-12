@@ -34,7 +34,10 @@ export interface BootstrapData {
   backendVersion: string
   frontendVersion: string
   user?: {
+    id?: number | string
     username: string
+    role?: string
+    path_allowlist?: string[]
   }
   settings?: UserSettings
   accessToken?: string
