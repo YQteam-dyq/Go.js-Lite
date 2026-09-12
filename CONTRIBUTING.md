@@ -11,6 +11,7 @@ Go.js Lite is a lightweight server management panel built for PHP shared hosting
 Architecture overview:
 
 - **Backend**: PHP 7.4+, with domain-split module files under `backend/` (`core.php`, `common.php`, `files.php`, `auth.php`, `database.php`, `system.php`, `ssl.php`, `backup.php`, `cron.php`, `notifications.php`, `ftp.php`, `htaccess.php`, `monitor.php`, `secscan.php`, `destinations.php`, `upgrade.php`). `api.php` is the single entry point, dispatching requests to module handlers by `/api/<action>` via `router.php` and `backend/Router.php`.
+- **Multi-user modules (0.8.0+)**: `users.php`, `users_api.php`, `acl.php`, `quota.php`, `groups.php`, `tokens.php`, `invitations.php`, `devices.php`, `exports.php`, `notification_prefs.php`, `approvals.php`, `user_activity.php`, plus the PHP toolchain modules (`composer.php`, `php_ini.php`, `php_opcache.php`, `php_extensions.php`, `php_errors.php`, `php_fpm.php`, `php_bench.php`, `php_processes.php`, `php_upgrade.php`, `php_include_path.php`, `php_autoload_audit.php`). Register every new endpoint in `gojs_build_router()` and add its ACL branch in `gojs_acl_route_precheck()`.
 - **Frontend**: React 18 + TypeScript + Vite + Tailwind CSS, with source code under `src/`.
 
 ---
@@ -72,7 +73,7 @@ npm run dev
 # Type checking (passes when there is no output)
 npm run typecheck
 
-# Lint (--max-warnings 0, zero tolerance)
+# Lint (advisory: the repo still carries legacy lint debt, so CI does not gate on it yet)
 npm run lint
 
 # Production build (runs tsc -b, then vite build)
@@ -99,7 +100,7 @@ vendor/bin/phpunit
 vendor/bin/phpunit tests/AuthTest.php
 ```
 
-The frontend does not yet include a unit testing framework; please use `npm run typecheck` and `npm run lint` to ensure frontend code quality.
+The frontend does not yet include a unit testing framework; please use `npm run typecheck` to ensure frontend code quality. `npm run lint` is available but is currently advisory (the repo carries legacy lint debt and the CI step is disabled) — make sure files you touch do not add new findings.
 
 ---
 
@@ -109,16 +110,7 @@ The frontend does not yet include a unit testing framework; please use `npm run 
 
 - **Target version**: PHP 7.4. No PHP 8-only syntax is allowed (`enum`, `readonly`, constructor property promotion, named arguments, `match`, etc.).
 - **Function naming**: public module functions use the `gojs_` prefix, e.g. `gojs_safe_path`, `gojs_json_response`.
-- **Comments**: core handler functions use English PHPDoc comments (`@param` / `@return` / behavior description), formatted as:
-
-  ```php
-  /**
-   * Describes the function behavior.
-   *
-   * @param string $path The path to validate
-   * @return bool Returns true if validation passes, otherwise false
-   */
-  ```
+- **Comments**: the codebase is intentionally **comment-free** — do not add inline comments, block comments or PHPDoc to PHP source. Keep names self-describing and functions small enough to read directly. (`CONTRIBUTING.md`, `README` and `docs/` remain fully documented.)
 
 - **Routing**: to add an endpoint, register it in `gojs_build_router()` in `backend/core.php`; do not modify the business dispatch logic directly.
 - **Compatibility**: do not change the HTTP status codes or the JSON structure (`ok` / `code` / `message` / `data`) of existing endpoints.
@@ -157,14 +149,14 @@ Examples:
 ```text
 feat(auth): add TOTP two-factor recovery code endpoint
 fix(files): fix memory overflow when uploading very large files
-docs: add PHPDoc comments for backend core functions
+docs: describe the multi-user roles and the migration path
 ```
 
 Recommended practices:
 
 - Make each commit focus on a single logical change; avoid mixing unrelated modifications.
 - Keep change descriptions concise and clear; add background and impact in the body when necessary.
-- Before committing, run `npm run typecheck`, `npm run lint`, and `vendor/bin/phpunit`.
+- Before committing, run `npm run typecheck` and `vendor/bin/phpunit` (run `npm run lint` too — advisory until the legacy debt is cleared).
 
 ---
 
@@ -180,7 +172,7 @@ Recommended practices:
 
 1. Create a separate branch from `main`, named to describe the change, e.g. `feat/auth-totp`, `fix/files-upload`.
 2. Complete your changes following the code style and commit conventions above.
-3. Pass `php -l`, `npm run typecheck`, `npm run lint`, and `vendor/bin/phpunit` locally.
+3. Pass `php -l`, `npm run typecheck`, and `vendor/bin/phpunit` locally.
 4. Submit the PR, describing the motivation, scope, and test coverage.
 5. Maintainers may suggest changes after review; please stay in communication.
 

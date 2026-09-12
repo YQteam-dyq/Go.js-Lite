@@ -12,6 +12,36 @@
 
 ---
 
+## 0.8.0 有什么新东西（未发布）
+
+- **多用户与 RBAC** — 真实用户体系（`users.json`，admin / operator / viewer），用户名 + 密码登录，按用户的偏好设置、锁定与密码过期。见下方「多用户」章节。
+- **路径级 ACL** — `path_allowlist` 限制 viewer 只能访问文件树的子集；用户组（`groups.json`）的白名单与用户自身白名单**取并集**生效。
+- **公开 API Token** — 带 scope 的 Bearer Token、按 Token 限速、只存 SHA-256（明文仅在创建时展示一次）。
+- **双人审批** — 敏感操作（数据库导入、回收站全部清空、会话全部下线、应用卸载）返回 `202 approval_pending`，需第二位 admin 在 60 分钟内批准。
+- **用户邀请、信任设备、GDPR 式数据导出、按用户通知偏好、权限提升（permissions_boost）**。
+- **PHP 工具链页面** — Composer、OPcache、扩展浏览器、错误日志解析、PHP-FPM 池、性能黑盒基准、ini diff / JIT / include_path、进程查看器、升级 dry-run、自动加载审计。
+- **运维** — 审计日志携带 `user_id`；`/api/audit/aggregate` 与单用户活动流；真实的在线会话管理（列表 / 踢人，禁止自踢）。
+
+完整变更见 [CHANGELOG.md](CHANGELOG.md)，破坏性变更见 [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md)。
+
+---
+
+## 多用户 — 协作工具，不是多租户
+
+> ⚠️ **请先阅读**
+>
+> - Go.js-Lite 的多用户是**团队协作工具**：用于内部分权、审计与个人偏好，不是租户隔离。
+> - 服务**多个独立客户**时，请**每个客户部署一个独立的面板实例**。不要试图用一个实例服务多个客户。
+> - `path_allowlist` **不是租户边界**。它只是同一共享文件树上 viewer 的最小权限子集。同一实例的所有用户共享同一份 `files_root`、`config.php`、数据库连接、审计与监控数据。
+
+| 角色 | 文件读取 | 文件写入 | 用户/会话管理 | PHP 工具链 | API Token |
+|---|---|---|---|---|---|
+| `admin` | 全部 | 全部 | 可以 | 可以 | 可以 |
+| `operator` | 全部 | 可以 | 不可以 | 不可以 | 可创建受限 Token |
+| `viewer` | 仅白名单 | 不可以（除非提升） | 不可以 | 不可以 | 不可以 |
+
+---
+
 ## 0.7.0 有什么新东西
 
 - **统一 REST 契约** — 保持**查询式** `/gojs/api?api=<action>` 作为主路由形态；同时**新增路径式** `/gojs/api/<action>` 作为兼容入口，`router.php` 与 `.htaccess` 双路识别。查询式是面板一直以来的默认形态，不会被弃用。
