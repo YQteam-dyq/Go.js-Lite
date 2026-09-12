@@ -41,7 +41,7 @@
 # 若你手动把 dist/ 内容平铺到本目录，请改为：DirectoryIndex index.html
 DirectoryIndex dist/index.html index.html
 
-# 关闭目录浏览
+# Disable directory browsing
 <IfModule mod_autoindex.c>
     Options -Indexes
 </IfModule>
@@ -52,7 +52,7 @@ RewriteEngine On
 # 本文件使用相对路径重写（不写 RewriteBase），自动适配任意挂载点：
 # 部署在 /gojs/、/panel/ 或根目录均无需修改任何配置。
 
-# 0) 禁止访问 .gojs 配置目录（不依赖 DirectoryMatch 是否被 AllowOverride 允许）
+# 0) Block access to the .gojs config directory (does not rely on DirectoryMatch being permitted by AllowOverride)
 RewriteRule (^|/)\.gojs(/|$) - [F,L]
 
 # 1) API 路由：/api/xxx -> api.php?api=xxx
@@ -69,7 +69,7 @@ RewriteCond %{REQUEST_URI} !/dist/
 RewriteCond %{REQUEST_URI} !^.*\.(php|phtml|phar|inc)$ [NC]
 RewriteRule ^ dist/index.html [L]
 
-# 4) 禁止直接访问面板内部源码（仅 api.php / webcron.php / dist 为合法入口）
+# 4) Block direct access to the panel internals (only api.php / webcron.php / dist are valid entry points)
 RewriteRule ^(backend|apps|tests|husky|shared)/ - [F,L]
 RewriteRule ^(router|phpunit)\.php$ - [F,L]
 
