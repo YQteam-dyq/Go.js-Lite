@@ -1,651 +1,460 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
-import { Badge } from '@/components/ui/Badge';
-import { Modal, ModalContent, ModalHeader, ModalTitle, ModalTrigger } from '@/components/ui/Modal';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/Tabs';
-import { dbApi } from '@/api/db';
-import { toast } from '@/components/ui/Toast';
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useParams, useSearchParams } from 'react-router-dom'
+import { ArrowLeft, Play, Plus, RefreshCw, Trash2 } from 'lucide-react'
+import { Button } from '@/components/ui/Button'
+import { Card, CardBody, CardHeader, CardTitle } from '@/components/ui/Card'
+import { Input } from '@/components/ui/Input'
+import { Badge } from '@/components/ui/Badge'
+import { Spinner } from '@/components/ui/Spinner'
+import { toast } from '@/components/ui/Toast'
+import { dbApi } from '@/api/db'
+import type { DbQueryCondition, DbQueryInput, DbQueryOrder, DbQueryResult } from '@/api/db'
+import type { DbColumn } from '@shared/types'
 
-interface TableColumn {
-  name: string;
-  type: string;
-  nullable: string;
-  key: string;
-  default: string | null;
-  extra: string;
+const OPERATORS = [
+  { value: 'eq', label: '=' },
+  { value: 'ne', label: '!=' },
+  { value: 'gt', label: '>' },
+  { value: 'gte', label: '>=' },
+  { value: 'lt', label: '<' },
+  { value: 'lte', label: '<=' },
+  { value: 'like', label: 'LIKE' },
+  { value: 'in', label: 'IN' },
+  { value: 'null', label: 'IS NULL' },
+  { value: 'notnull', label: 'IS NOT NULL' },
+]
+
+const VALUELESS_OPERATORS = ['null', 'notnull']
+
+interface ConditionRow {
+  id: number
+  field: string
+  operator: string
+  value: string
 }
 
-interface QueryCondition {
-  field: string;
-  operator: string;
-  value: any;
+interface OrderRow {
+  id: number
+  field: string
+  direction: 'ASC' | 'DESC'
 }
 
-interface QueryOrder {
-  field: string;
-  direction: 'ASC' | 'DESC';
+let rowId = 0
+const nextId = () => {
+  rowId += 1
+  return rowId
 }
 
-export function QueryBuilder() {
-  const [searchParams] = useSearchParams();
-  const navigate = useNavigate();
-  
-  const connId = searchParams.get('connId') || '';
-  const database = searchParams.get('database') || '';
-  const table = searchParams.get('table') || '';
-  
-  const [columns, setColumns] = useState<TableColumn[]>([]);
-  const [selectedColumns, setSelectedColumns] = useState<string[]>(['*']);
-  const [conditions, setConditions] = useState<QueryCondition[]>([]);
-  const [groupBy, setGroupBy] = useState<string[]>([]);
-  const [orderBy, setOrderBy] = useState<QueryOrder[]>([]);
-  const [limit, setLimit] = useState(100);
-  const [offset, setOffset] = useState(0);
-  const [results, setResults] = useState<any[]>([]);
-  const [sql, setSql] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
-  const [isExecuteModalOpen, setIsExecuteModalOpen] = useState(false);
-  
+export default function QueryBuilder() {
+  const { connId = '' } = useParams()
+  const [searchParams] = useSearchParams()
+  const database = searchParams.get('database') || ''
+  const table = searchParams.get('table') || ''
+
+  const [columns, setColumns] = useState<DbColumn[]>([])
+  const [selectedColumns, setSelectedColumns] = useState<string[]>([])
+  const [conditions, setConditions] = useState<ConditionRow[]>([])
+  const [groupBy, setGroupBy] = useState<string[]>([])
+  const [orderBy, setOrderBy] = useState<OrderRow[]>([])
+  const [limit, setLimit] = useState('100')
+
+  const [loading, setLoading] = useState(false)
+  const [running, setRunning] = useState(false)
+  const [previewing, setPreviewing] = useState(false)
+  const [result, setResult] = useState<DbQueryResult | null>(null)
+
+  const loadStructure = useCallback(async () => {
+    if (!connId || !database || !table) return
+    setLoading(true)
+    try {
+      const structure = await dbApi.getStructure(connId, database, table)
+      setColumns(structure)
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Failed to load table structure',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setLoading(false)
+    }
+  }, [connId, database, table])
+
   useEffect(() => {
-    if (connId && database && table) {
-      loadTableStructure();
-    }
-  }, [connId, database, table]);
+    loadStructure()
+  }, [loadStructure])
 
-  const loadTableStructure = async () => {
-    try {
-      const response = await dbApi.structure({
-        connId,
-        database,
-        table
-      });
-      
-      if (response.success) {
-        setColumns(response.data);
-      }
-    } catch (error) {
-      toast({
-        title: '加载表结构失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    }
-  };
+  const toggleColumn = (name: string) => {
+    setSelectedColumns((prev) =>
+      prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name],
+    )
+  }
 
-  const buildQuery = () => {
-    let query = 'SELECT ';
-    
-    if (selectedColumns.length === 0) {
-      query += '*';
-    } else {
-      const columnList = selectedColumns.map(col => {
-        if (col === '*') return '*';
-        return `\`${col.replace(/`/g, '``')}\``;
-      });
-      query += columnList.join(', ');
-    }
-    
-    query += ` FROM \`${table.replace(/`/g, '``')}\``;
-    
-    if (conditions.length > 0) {
-      const whereParts = conditions.map(condition => {
-        const field = `\`${condition.field.replace(/`/g, '``')}\``;
-        let value = condition.value;
-        
-        if (typeof value === 'string') {
-          value = `'${value.replace(/'/g, "''")}'`;
-        }
-        
-        switch (condition.operator) {
-          case 'eq': return `${field} = ${value}`;
-          case 'ne': return `${field} != ${value}`;
-          case 'gt': return `${field} > ${value}`;
-          case 'gte': return `${field} >= ${value}`;
-          case 'lt': return `${field} < ${value}`;
-          case 'lte': return `${field} <= ${value}`;
-          case 'like': return `${field} LIKE ${value}`;
-          case 'in': 
-            if (Array.isArray(value)) {
-              const values = value.map(v => typeof v === 'string' ? `'${v.replace(/'/g, "''")}'` : v);
-              return `${field} IN (${values.join(', ')})`;
-            }
-            return `${field} IN (${value})`;
-          case 'null': return `${field} IS NULL`;
-          case 'notnull': return `${field} IS NOT NULL`;
-          default: return `${field} = ${value}`;
-        }
-      });
-      query += ' WHERE ' + whereParts.join(' AND ');
-    }
-    
-    if (groupBy.length > 0) {
-      const groupParts = groupBy.map(field => `\`${field.replace(/`/g, '``')}\``);
-      query += ' GROUP BY ' + groupParts.join(', ');
-    }
-    
-    if (orderBy.length > 0) {
-      const orderParts = orderBy.map(order => {
-        const field = `\`${order.field.replace(/`/g, '``')}\``;
-        const direction = order.direction === 'DESC' ? 'DESC' : 'ASC';
-        return `${field} ${direction}`;
-      });
-      query += ' ORDER BY ' + orderParts.join(', ');
-    }
-    
-    if (limit > 0) {
-      query += ` LIMIT ${limit}`;
-      if (offset > 0) {
-        query += ` OFFSET ${offset}`;
-      }
-    }
-    
-    return query;
-  };
-
-  const executeQuery = async () => {
-    try {
-      setLoading(true);
-      const query = buildQuery();
-      setSql(query);
-      
-      const response = await fetch('/api.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'db_sql',
-          connId,
-          database,
-          sql: query
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setResults(data.results[0]?.rows || []);
-        toast({
-          title: '查询成功',
-          description: `返回 ${data.results[0]?.rows?.length || 0} 条记录`
-        });
-      } else {
-        toast({
-          title: '查询失败',
-          description: data.error || '未知错误',
-          variant: 'destructive'
-        });
-      }
-    } catch (error) {
-      toast({
-        title: '查询失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const previewQuery = async () => {
-    try {
-      setLoading(true);
-      const query = buildQuery();
-      setSql(query);
-      
-      const response = await fetch('/api.php', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/x-www-form-urlencoded',
-        },
-        body: new URLSearchParams({
-          action: 'db_query_builder_preview',
-          connId,
-          database,
-          table,
-          columns: selectedColumns,
-          conditions: JSON.stringify(conditions),
-          groupBy: JSON.stringify(groupBy),
-          orderBy: JSON.stringify(orderBy)
-        })
-      });
-      
-      const data = await response.json();
-      
-      if (data.success) {
-        setResults(data.data);
-        setIsPreviewModalOpen(true);
-      } else {
-        toast({
-          title: '预览失败',
-          description: data.error || '未知错误',
-          variant: 'destructive'
-        });
-      }
-    } catch (error) {
-      toast({
-        title: '预览失败',
-        description: error instanceof Error ? error.message : '未知错误',
-        variant: 'destructive'
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+  const toggleGroupBy = (name: string) => {
+    setGroupBy((prev) =>
+      prev.includes(name) ? prev.filter((item) => item !== name) : [...prev, name],
+    )
+  }
 
   const addCondition = () => {
-    setConditions([...conditions, {
-      field: columns[0]?.name || '',
-      operator: 'eq',
-      value: ''
-    }]);
-  };
+    setConditions((prev) => [
+      ...prev,
+      { id: nextId(), field: columns[0]?.name ?? '', operator: 'eq', value: '' },
+    ])
+  }
 
-  const removeCondition = (index: number) => {
-    setConditions(conditions.filter((_, i) => i !== index));
-  };
+  const updateCondition = (id: number, patch: Partial<ConditionRow>) => {
+    setConditions((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }
 
-  const updateCondition = (index: number, field: string, value: any) => {
-    const newConditions = [...conditions];
-    newConditions[index] = { ...newConditions[index], [field]: value };
-    setConditions(newConditions);
-  };
+  const removeCondition = (id: number) => {
+    setConditions((prev) => prev.filter((row) => row.id !== id))
+  }
 
-  const addGroupBy = () => {
-    if (groupBy.length < columns.length) {
-      setGroupBy([...groupBy, columns[groupBy.length]?.name || '']);
+  const addOrder = () => {
+    setOrderBy((prev) => [
+      ...prev,
+      { id: nextId(), field: columns[0]?.name ?? '', direction: 'ASC' },
+    ])
+  }
+
+  const updateOrder = (id: number, patch: Partial<OrderRow>) => {
+    setOrderBy((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)))
+  }
+
+  const removeOrder = (id: number) => {
+    setOrderBy((prev) => prev.filter((row) => row.id !== id))
+  }
+
+  const buildQueryInput = (): DbQueryInput => {
+    const mappedConditions: DbQueryCondition[] = conditions
+      .filter((row) => row.field && row.operator)
+      .map((row) => {
+        if (row.operator === 'in') {
+          const items = row.value
+            .split(',')
+            .map((item) => item.trim())
+            .filter((item) => item !== '')
+          return { field: row.field, operator: row.operator, value: items }
+        }
+        if (VALUELESS_OPERATORS.includes(row.operator)) {
+          return { field: row.field, operator: row.operator }
+        }
+        return { field: row.field, operator: row.operator, value: row.value }
+      })
+
+    const mappedOrder: DbQueryOrder[] = orderBy
+      .filter((row) => row.field)
+      .map((row) => ({ field: row.field, direction: row.direction }))
+
+    const parsedLimit = Number.parseInt(limit, 10)
+
+    return {
+      connId,
+      database,
+      table,
+      columns: selectedColumns,
+      conditions: mappedConditions,
+      groupBy,
+      orderBy: mappedOrder,
+      limit: Number.isFinite(parsedLimit) && parsedLimit > 0 ? parsedLimit : 100,
     }
-  };
+  }
 
-  const removeGroupBy = (index: number) => {
-    setGroupBy(groupBy.filter((_, i) => i !== index));
-  };
-
-  const addOrderBy = () => {
-    if (orderBy.length < columns.length) {
-      setOrderBy([...orderBy, {
-        field: columns[orderBy.length]?.name || '',
-        direction: 'ASC'
-      }]);
+  const runQuery = async (mode: 'preview' | 'run') => {
+    if (!connId || !database || !table) {
+      toast({ type: 'warning', title: 'Select a database and a table first' })
+      return
     }
-  };
 
-  const removeOrderBy = (index: number) => {
-    setOrderBy(orderBy.filter((_, i) => i !== index));
-  };
+    if (mode === 'preview') setPreviewing(true)
+    else setRunning(true)
 
-  const updateOrderBy = (index: number, field: string, value: any) => {
-    const newOrderBy = [...orderBy];
-    newOrderBy[index] = { ...newOrderBy[index], [field]: value };
-    setOrderBy(newOrderBy);
-  };
-
-  const toggleColumn = (column: string) => {
-    if (column === '*') {
-      setSelectedColumns(['*']);
-    } else {
-      setSelectedColumns(prev => 
-        prev.includes(column)
-          ? prev.filter(col => col !== column)
-          : [...prev.filter(col => col !== '*'), column]
-      );
+    try {
+      const input = buildQueryInput()
+      const response = mode === 'preview' ? await dbApi.queryPreview(input) : await dbApi.queryBuilder(input)
+      setResult(response)
+      toast({
+        type: 'success',
+        title: mode === 'preview' ? 'Preview generated' : 'Query executed',
+        description: `${response.count} row(s) returned`,
+      })
+    } catch (error) {
+      toast({
+        type: 'error',
+        title: 'Query failed',
+        description: error instanceof Error ? error.message : 'Unknown error',
+      })
+    } finally {
+      setPreviewing(false)
+      setRunning(false)
     }
-  };
+  }
 
-  const clearAll = () => {
-    setSelectedColumns(['*']);
-    setConditions([]);
-    setGroupBy([]);
-    setOrderBy([]);
-    setLimit(100);
-    setOffset(0);
-    setResults([]);
-    setSql('');
-  };
-
-  const operators = [
-    { value: 'eq', label: '=' },
-    { value: 'ne', label: '!=' },
-    { value: 'gt', label: '>' },
-    { value: 'gte', label: '>=' },
-    { value: 'lt', label: '<' },
-    { value: 'lte', label: '<=' },
-    { value: 'like', label: 'LIKE' },
-    { value: 'in', label: 'IN' },
-    { value: 'null', label: 'IS NULL' },
-    { value: 'notnull', label: 'IS NOT NULL' }
-  ];
+  const resultColumns = result && result.data.length > 0 ? Object.keys(result.data[0]) : []
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">查询构建器</h1>
-          <p className="text-gray-600">{database}.{table}</p>
+    <div className="p-4 md:p-6 space-y-5">
+      <div className="flex items-center gap-3">
+        <Link
+          to={`/db/${connId}/browse`}
+          className="p-1.5 -ml-1.5 rounded-md text-fg-muted hover:text-fg hover:bg-fg/5 transition-colors"
+        >
+          <ArrowLeft size={18} />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <h1 className="text-lg font-semibold text-fg">Query builder</h1>
+          <p className="text-xs text-fg-subtle truncate">
+            {database}.{table}
+          </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={() => setIsPreviewModalOpen(true)}>
-            预览SQL
-          </Button>
-          <Button variant="outline" onClick={() => setIsExecuteModalOpen(true)}>
-            执行查询
-          </Button>
-          <Button variant="outline" onClick={clearAll}>
-            清空
-          </Button>
-          <Button variant="outline" onClick={() => navigate('/db/browser')}>
-            返回
-          </Button>
-        </div>
+        <Button variant="secondary" size="sm" onClick={loadStructure} loading={loading}>
+          <RefreshCw size={14} />
+          Reload
+        </Button>
       </div>
 
-      <Tabs defaultValue="columns" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="columns">列选择</TabsTrigger>
-          <TabsTrigger value="conditions">条件</TabsTrigger>
-          <TabsTrigger value="grouping">分组</TabsTrigger>
-          <TabsTrigger value="ordering">排序</TabsTrigger>
-          <TabsTrigger value="limit">限制</TabsTrigger>
-        </TabsList>
+      <Card>
+        <CardHeader>
+          <CardTitle>Columns</CardTitle>
+        </CardHeader>
+        <CardBody>
+          {loading ? (
+            <div className="flex justify-center py-6">
+              <Spinner />
+            </div>
+          ) : columns.length === 0 ? (
+            <p className="text-sm text-fg-muted">No columns available</p>
+          ) : (
+            <div className="flex flex-wrap gap-4">
+              {columns.map((column) => (
+                <label key={column.name} className="flex items-center gap-2 text-sm text-fg">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-border"
+                    checked={selectedColumns.includes(column.name)}
+                    onChange={() => toggleColumn(column.name)}
+                  />
+                  <span className="font-mono text-xs">{column.name}</span>
+                </label>
+              ))}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-fg-subtle">
+            {selectedColumns.length === 0 ? 'No selection means SELECT *' : `${selectedColumns.length} column(s) selected`}
+          </p>
+        </CardBody>
+      </Card>
 
-        <TabsContent value="columns">
-          <Card>
-            <CardHeader>
-              <CardTitle>选择列</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="border rounded-lg p-4">
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => toggleColumn('*')}
-                    className={`px-3 py-1 rounded-md text-sm ${
-                      selectedColumns.includes('*')
-                        ? 'bg-blue-500 text-white'
-                        : 'bg-gray-200 hover:bg-gray-300'
-                    }`}
-                  >
-                    *
-                  </button>
+      <Card>
+        <CardHeader className="flex items-center justify-between gap-3">
+          <CardTitle>Conditions</CardTitle>
+          <Button variant="secondary" size="sm" onClick={addCondition}>
+            <Plus size={14} />
+            Add condition
+          </Button>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          {conditions.length === 0 ? (
+            <p className="text-sm text-fg-muted">No conditions. All rows will match.</p>
+          ) : (
+            conditions.map((row) => (
+              <div key={row.id} className="flex flex-wrap items-center gap-2">
+                <select
+                  className="input-base w-full sm:w-44"
+                  value={row.field}
+                  onChange={(event) => updateCondition(row.id, { field: event.target.value })}
+                >
                   {columns.map((column) => (
-                    <button
-                      key={column.name}
-                      onClick={() => toggleColumn(column.name)}
-                      className={`px-3 py-1 rounded-md text-sm ${
-                        selectedColumns.includes(column.name)
-                          ? 'bg-blue-500 text-white'
-                          : 'bg-gray-200 hover:bg-gray-300'
-                      }`}
-                    >
+                    <option key={column.name} value={column.name}>
                       {column.name}
-                    </button>
+                    </option>
                   ))}
-                </div>
-                <div className="mt-2 text-sm text-gray-600">
-                  已选择 {selectedColumns.length} 列
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="conditions">
-          <Card>
-            <CardHeader>
-              <CardTitle>查询条件</CardTitle>
-              <Button onClick={addCondition}>添加条件</Button>
-            </CardHeader>
-            <CardContent>
-              {conditions.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">暂无条件</p>
-              ) : (
-                <div className="space-y-3">
-                  {conditions.map((condition, index) => (
-                    <div key={index} className="border rounded-lg p-3">
-                      <div className="grid grid-cols-3 gap-2">
-                        <select
-                          className="px-3 py-2 border border-gray-300 rounded-md"
-                          value={condition.field}
-                          onChange={(e) => updateCondition(index, 'field', e.target.value)}
-                        >
-                          {columns.map(col => (
-                            <option key={col.name} value={col.name}>{col.name}</option>
-                          ))}
-                        </select>
-                        <select
-                          className="px-3 py-2 border border-gray-300 rounded-md"
-                          value={condition.operator}
-                          onChange={(e) => updateCondition(index, 'operator', e.target.value)}
-                        >
-                          {operators.map(op => (
-                            <option key={op.value} value={op.value}>{op.label}</option>
-                          ))}
-                        </select>
-                        {condition.operator !== 'null' && condition.operator !== 'notnull' ? (
-                          <Input
-                            value={condition.value}
-                            onChange={(e) => updateCondition(index, 'value', e.target.value)}
-                            placeholder="值"
-                          />
-                        ) : (
-                          <div className="flex items-center justify-center text-gray-500">
-                            -
-                          </div>
-                        )}
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="mt-2"
-                        onClick={() => removeCondition(index)}
-                      >
-                        删除
-                      </Button>
-                    </div>
+                </select>
+                <select
+                  className="input-base w-full sm:w-32"
+                  value={row.operator}
+                  onChange={(event) => updateCondition(row.id, { operator: event.target.value })}
+                >
+                  {OPERATORS.map((operator) => (
+                    <option key={operator.value} value={operator.value}>
+                      {operator.label}
+                    </option>
                   ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="grouping">
-          <Card>
-            <CardHeader>
-              <CardTitle>分组</CardTitle>
-              <Button onClick={addGroupBy} disabled={groupBy.length >= columns.length}>
-                添加分组
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {groupBy.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">暂无分组</p>
-              ) : (
-                <div className="space-y-2">
-                  {groupBy.map((field, index) => (
-                    <div key={index} className="flex items-center justify-between border rounded-lg p-2">
-                      <span>{field}</span>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        onClick={() => removeGroupBy(index)}
-                      >
-                        删除
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="ordering">
-          <Card>
-            <CardHeader>
-              <CardTitle>排序</CardTitle>
-              <Button onClick={addOrderBy} disabled={orderBy.length >= columns.length}>
-                添加排序
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {orderBy.length === 0 ? (
-                <p className="text-gray-500 text-center py-4">暂无排序</p>
-              ) : (
-                <div className="space-y-3">
-                  {orderBy.map((order, index) => (
-                    <div key={index} className="border rounded-lg p-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        <select
-                          className="px-3 py-2 border border-gray-300 rounded-md"
-                          value={order.field}
-                          onChange={(e) => updateOrderBy(index, 'field', e.target.value)}
-                        >
-                          {columns.map(col => (
-                            <option key={col.name} value={col.name}>{col.name}</option>
-                          ))}
-                        </select>
-                        <select
-                          className="px-3 py-2 border border-gray-300 rounded-md"
-                          value={order.direction}
-                          onChange={(e) => updateOrderBy(index, 'direction', e.target.value)}
-                        >
-                          <option value="ASC">升序</option>
-                          <option value="DESC">降序</option>
-                        </select>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="mt-2"
-                        onClick={() => removeOrderBy(index)}
-                      >
-                        删除
-                      </Button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="limit">
-          <Card>
-            <CardHeader>
-              <CardTitle>限制</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-sm font-medium">返回记录数</label>
+                </select>
+                <div className="flex-1 min-w-[10rem]">
                   <Input
-                    type="number"
-                    value={limit}
-                    onChange={(e) => setLimit(parseInt(e.target.value) || 100)}
-                    min="1"
-                    max="10000"
+                    value={row.value}
+                    disabled={VALUELESS_OPERATORS.includes(row.operator)}
+                    placeholder={row.operator === 'in' ? 'value1, value2' : 'value'}
+                    onChange={(event) => updateCondition(row.id, { value: event.target.value })}
                   />
                 </div>
-                <div>
-                  <label className="text-sm font-medium">偏移量</label>
-                  <Input
-                    type="number"
-                    value={offset}
-                    onChange={(e) => setOffset(parseInt(e.target.value) || 0)}
-                    min="0"
-                  />
-                </div>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Remove condition"
+                  onClick={() => removeCondition(row.id)}
+                >
+                  <Trash2 size={14} />
+                </Button>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+            ))
+          )}
+        </CardBody>
+      </Card>
 
-      {results.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>查询结果</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse border border-gray-300">
-                <thead>
-                  <tr className="bg-gray-50">
-                    {selectedColumns.map(col => (
-                      <th key={col} className="border border-gray-300 px-4 py-2 text-left">
-                        {col === '*' ? '*' : col}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {results.map((row, index) => (
-                    <tr key={index}>
-                      {selectedColumns.map(col => (
-                        <td key={col} className="border border-gray-300 px-4 py-2">
-                          {row[col] !== null && row[col] !== undefined ? row[col] : 'NULL'}
-                        </td>
+      <Card>
+        <CardHeader>
+          <CardTitle>Group by</CardTitle>
+        </CardHeader>
+        <CardBody>
+          <div className="flex flex-wrap gap-4">
+            {columns.map((column) => (
+              <label key={column.name} className="flex items-center gap-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  className="h-4 w-4 rounded border-border"
+                  checked={groupBy.includes(column.name)}
+                  onChange={() => toggleGroupBy(column.name)}
+                />
+                <span className="font-mono text-xs">{column.name}</span>
+              </label>
+            ))}
+          </div>
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardHeader className="flex items-center justify-between gap-3">
+          <CardTitle>Order by</CardTitle>
+          <Button variant="secondary" size="sm" onClick={addOrder}>
+            <Plus size={14} />
+            Add order
+          </Button>
+        </CardHeader>
+        <CardBody className="space-y-3">
+          {orderBy.length === 0 ? (
+            <p className="text-sm text-fg-muted">No ordering applied.</p>
+          ) : (
+            orderBy.map((row) => (
+              <div key={row.id} className="flex flex-wrap items-center gap-2">
+                <select
+                  className="input-base w-full sm:w-44"
+                  value={row.field}
+                  onChange={(event) => updateOrder(row.id, { field: event.target.value })}
+                >
+                  {columns.map((column) => (
+                    <option key={column.name} value={column.name}>
+                      {column.name}
+                    </option>
+                  ))}
+                </select>
+                <select
+                  className="input-base w-full sm:w-32"
+                  value={row.direction}
+                  onChange={(event) =>
+                    updateOrder(row.id, { direction: event.target.value as 'ASC' | 'DESC' })
+                  }
+                >
+                  <option value="ASC">ASC</option>
+                  <option value="DESC">DESC</option>
+                </select>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Remove order"
+                  onClick={() => removeOrder(row.id)}
+                >
+                  <Trash2 size={14} />
+                </Button>
+              </div>
+            ))
+          )}
+        </CardBody>
+      </Card>
+
+      <Card>
+        <CardBody className="flex flex-wrap items-end gap-3">
+          <label className="block space-y-1">
+            <span className="text-xs font-medium text-fg-muted">Row limit</span>
+            <Input
+              className="w-32"
+              value={limit}
+              onChange={(event) => setLimit(event.target.value)}
+            />
+          </label>
+          <Button
+            variant="secondary"
+            onClick={() => runQuery('preview')}
+            loading={previewing}
+            disabled={previewing || running}
+          >
+            Preview (10 rows)
+          </Button>
+          <Button onClick={() => runQuery('run')} loading={running} disabled={previewing || running}>
+            <Play size={16} />
+            Run query
+          </Button>
+          {result && <Badge variant="muted">{result.count} row(s)</Badge>}
+        </CardBody>
+      </Card>
+
+      {result && (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Generated SQL</CardTitle>
+            </CardHeader>
+            <CardBody>
+              <pre className="overflow-x-auto rounded-md bg-bg-sunken p-3 text-xs text-fg">
+                {result.sql}
+              </pre>
+            </CardBody>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Result</CardTitle>
+            </CardHeader>
+            <CardBody>
+              {result.data.length === 0 ? (
+                <p className="py-6 text-center text-sm text-fg-muted">No rows returned</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border text-left text-fg-subtle">
+                        {resultColumns.map((column) => (
+                          <th key={column} className="whitespace-nowrap px-3 py-2 font-medium">
+                            {column}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {result.data.map((row, index) => (
+                        <tr key={index} className="border-b border-border/60 hover:bg-fg/5">
+                          {resultColumns.map((column) => (
+                            <td
+                              key={column}
+                              className="max-w-xs truncate px-3 py-2 font-mono text-xs text-fg"
+                            >
+                              {row[column] === null || row[column] === undefined
+                                ? 'NULL'
+                                : String(row[column])}
+                            </td>
+                          ))}
+                        </tr>
                       ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </CardContent>
-        </Card>
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardBody>
+          </Card>
+        </>
       )}
-
-      <Modal open={isPreviewModalOpen} onOpenChange={setIsPreviewModalOpen}>
-        <ModalContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-          <ModalHeader>
-            <ModalTitle>预览SQL</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">生成的SQL</label>
-              <div className="border rounded-md p-3 bg-gray-50 font-mono text-sm">
-                {sql}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsPreviewModalOpen(false)}>
-                关闭
-              </Button>
-              <Button onClick={previewQuery}>
-                预览结果
-              </Button>
-            </div>
-          </div>
-        </ModalContent>
-      </Modal>
-
-      <Modal open={isExecuteModalOpen} onOpenChange={setIsExecuteModalOpen}>
-        <ModalContent className="max-w-3xl">
-          <ModalHeader>
-            <ModalTitle>执行查询</ModalTitle>
-          </ModalHeader>
-          <div className="space-y-4">
-            <div>
-              <label className="text-sm font-medium">确认执行以下SQL查询</label>
-              <div className="border rounded-md p-3 bg-gray-50 font-mono text-sm">
-                {sql}
-              </div>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={() => setIsExecuteModalOpen(false)}>
-                取消
-              </Button>
-              <Button onClick={executeQuery} disabled={loading}>
-                {loading ? '执行中...' : '执行查询'}
-              </Button>
-            </div>
-          </div>
-        </ModalContent>
-      </Modal>
     </div>
-  );
+  )
 }
