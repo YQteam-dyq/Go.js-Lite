@@ -1663,6 +1663,1000 @@ function gojs_api_db_update_row() {
     ));
 }
 
+// A1: Table Data Editor Functions
+function gojs_api_db_table_data() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $page = intval(gojs_get_param('page', 1));
+    $limit = intval(gojs_get_param('limit', 50));
+    $sort_by = gojs_get_param('sort_by', '');
+    $sort_order = gojs_get_param('sort_order', 'ASC');
+
+    if (empty($conn_id) || empty($database) || empty($table)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+        
+        // Get total count
+        $count_sql = 'SELECT COUNT(*) as total FROM ' . $table_escaped;
+        $total_result = gojs_db_query($db, $type, $count_sql);
+        $total = $total_result['success'] ? $total_result['data'][0]['total'] : 0;
+
+        // Get data with pagination
+        $offset = ($page - 1) * $limit;
+        $data_sql = 'SELECT * FROM ' . $table_escaped;
+        
+        if (!empty($sort_by)) {
+            $data_sql .= ' ORDER BY `' . str_replace('`', '``', $sort_by) . '` ' . ($sort_order === 'DESC' ? 'DESC' : 'ASC');
+        }
+        
+        $data_sql .= ' LIMIT ' . intval($offset) . ', ' . intval($limit);
+        
+        $data_result = gojs_db_query($db, $type, $data_sql);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => true,
+            'data' => $data_result['success'] ? $data_result['data'] : array(),
+            'pagination' => array(
+                'page' => $page,
+                'limit' => $limit,
+                'total' => $total,
+                'pages' => ceil($total / $limit)
+            )
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+function gojs_api_db_insert_row() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $data = gojs_get_param('data', array());
+
+    if (empty($conn_id) || empty($database) || empty($table) || empty($data)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+        $columns = array();
+        $values = array();
+        $placeholders = array();
+
+        foreach ($data as $key => $value) {
+            $columns[] = '`' . str_replace('`', '``', $key) . '`';
+            $values[] = $value;
+            $placeholders[] = '?';
+        }
+
+        $sql = 'INSERT INTO ' . $table_escaped . ' (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $placeholders) . ')';
+        
+        $insert_result = gojs_db_query($db, $type, $sql, $values);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $insert_result['success'],
+            'insertId' => $insert_result['insert_id'] ?? null,
+            'sql' => $insert_result['sql']
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+function gojs_api_db_update_row() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $primary_key = gojs_get_param('primary_key', 'id');
+    $primary_key_value = gojs_get_param('primary_key_value', '');
+    $data = gojs_get_param('data', array());
+
+    if (empty($conn_id) || empty($database) || empty($table) || empty($primary_key) || empty($primary_key_value) || empty($data)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+        $primary_key_escaped = '`' . str_replace('`', '``', $primary_key) . '`';
+        
+        $set_clauses = array();
+        $values = array();
+
+        foreach ($data as $key => $value) {
+            $set_clauses[] = '`' . str_replace('`', '``', $key) . '` = ?';
+            $values[] = $value;
+        }
+
+        $values[] = $primary_key_value;
+        $sql = 'UPDATE ' . $table_escaped . ' SET ' . implode(', ', $set_clauses) . ' WHERE ' . $primary_key_escaped . ' = ?';
+        
+        $update_result = gojs_db_query($db, $type, $sql, $values);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $update_result['success'],
+            'affectedRows' => $update_result['affected_rows'] ?? 0,
+            'sql' => $update_result['sql']
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+// A2: Table Structure Manager Functions
+function gojs_api_db_create_table() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('table_name', '');
+    $columns = gojs_get_param('columns', array());
+
+    if (empty($conn_id) || empty($database) || empty($table_name) || empty($columns)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+        
+        $column_definitions = array();
+        foreach ($columns as $column) {
+            $col_def = '`' . str_replace('`', '``', $column['name']) . '` ' . $column['type'];
+            if (!empty($column['length'])) {
+                $col_def .= '(' . $column['length'] . ')';
+            }
+            if (!empty($column['unsigned'])) {
+                $col_def .= ' UNSIGNED';
+            }
+            if (!empty($column['nullable']) && !$column['nullable']) {
+                $col_def .= ' NOT NULL';
+            }
+            if (!empty($column['auto_increment'])) {
+                $col_def .= ' AUTO_INCREMENT';
+            }
+            if (!empty($column['primary_key'])) {
+                $col_def .= ' PRIMARY KEY';
+            }
+            $column_definitions[] = $col_def;
+        }
+
+        $sql = 'CREATE TABLE ' . $table_escaped . ' (' . implode(', ', $column_definitions) . ')';
+        
+        $create_result = gojs_db_query($db, $type, $sql);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $create_result['success'],
+            'sql' => $create_result['sql']
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+function gojs_api_db_alter_table() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('table_name', '');
+    $operation = gojs_get_param('operation', '');
+    $column = gojs_get_param('column', array());
+
+    if (empty($conn_id) || empty($database) || empty($table_name) || empty($operation) || empty($column)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+        $column_escaped = '`' . str_replace('`', '``', $column['name']) . '`';
+        
+        $sql = '';
+        switch ($operation) {
+            case 'add':
+                $sql = 'ALTER TABLE ' . $table_escaped . ' ADD COLUMN ' . $column_escaped . ' ' . $column['type'];
+                if (!empty($column['length'])) {
+                    $sql .= '(' . $column['length'] . ')';
+                }
+                if (!empty($column['unsigned'])) {
+                    $sql .= ' UNSIGNED';
+                }
+                if (!empty($column['nullable']) && !$column['nullable']) {
+                    $sql .= ' NOT NULL';
+                }
+                break;
+            case 'modify':
+                $sql = 'ALTER TABLE ' . $table_escaped . ' MODIFY COLUMN ' . $column_escaped . ' ' . $column['type'];
+                if (!empty($column['length'])) {
+                    $sql .= '(' . $column['length'] . ')';
+                }
+                if (!empty($column['unsigned'])) {
+                    $sql .= ' UNSIGNED';
+                }
+                if (!empty($column['nullable']) && !$column['nullable']) {
+                    $sql .= ' NOT NULL';
+                }
+                break;
+            case 'drop':
+                $sql = 'ALTER TABLE ' . $table_escaped . ' DROP COLUMN ' . $column_escaped;
+                break;
+        }
+        
+        $alter_result = gojs_db_query($db, $type, $sql);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $alter_result['success'],
+            'sql' => $alter_result['sql']
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+function gojs_api_db_create_index() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('table_name', '');
+    $index_name = gojs_get_param('index_name', '');
+    $columns = gojs_get_param('columns', array());
+    $unique = gojs_get_param('unique', false);
+
+    if (empty($conn_id) || empty($database) || empty($table_name) || empty($index_name) || empty($columns)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+        $index_escaped = '`' . str_replace('`', '``', $index_name) . '`';
+        
+        $column_list = array();
+        foreach ($columns as $column) {
+            $column_list[] = '`' . str_replace('`', '``', $column) . '`';
+        }
+        
+        $sql = ($unique ? 'CREATE UNIQUE INDEX' : 'CREATE INDEX') . ' ' . $index_escaped . ' ON ' . $table_escaped . ' (' . implode(', ', $column_list) . ')';
+        
+        $index_result = gojs_db_query($db, $type, $sql);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $index_result['success'],
+            'sql' => $index_result['sql']
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+function gojs_api_db_drop_index() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('table_name', '');
+    $index_name = gojs_get_param('index_name', '');
+
+    if (empty($conn_id) || empty($database) || empty($table_name) || empty($index_name)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+        $index_escaped = '`' . str_replace('`', '``', $index_name) . '`';
+        
+        $sql = 'DROP INDEX ' . $index_escaped . ' ON ' . $table_escaped;
+        
+        $drop_result = gojs_db_query($db, $type, $sql);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $drop_result['success'],
+            'sql' => $drop_result['sql']
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+// A3: Query Builder Functions
+function gojs_api_db_query_builder() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $selected_columns = gojs_get_param('selected_columns', array());
+    $conditions = gojs_get_param('conditions', array());
+    $group_by = gojs_get_param('group_by', array());
+    $order_by = gojs_get_param('order_by', array());
+    $limit = intval(gojs_get_param('limit', 100));
+    $offset = intval(gojs_get_param('offset', 0));
+
+    if (empty($conn_id) || empty($database) || empty($table)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+        
+        // Build SELECT clause
+        $select_columns = array('*');
+        if (!empty($selected_columns) && $selected_columns[0] !== '*') {
+            $select_columns = array();
+            foreach ($selected_columns as $column) {
+                $select_columns[] = '`' . str_replace('`', '``', $column) . '`';
+            }
+        }
+        
+        $sql = 'SELECT ' . implode(', ', $select_columns) . ' FROM ' . $table_escaped;
+        
+        // Build WHERE clause
+        if (!empty($conditions)) {
+            $where_clauses = array();
+            $values = array();
+            
+            foreach ($conditions as $condition) {
+                $column_escaped = '`' . str_replace('`', '``', $condition['column']) . '`';
+                $where_clauses[] = $column_escaped . ' ' . $condition['operator'] . ' ?';
+                $values[] = $condition['value'];
+            }
+            
+            $sql .= ' WHERE ' . implode(' AND ', $where_clauses);
+        }
+        
+        // Build GROUP BY clause
+        if (!empty($group_by)) {
+            $group_columns = array();
+            foreach ($group_by as $column) {
+                $group_columns[] = '`' . str_replace('`', '``', $column) . '`';
+            }
+            $sql .= ' GROUP BY ' . implode(', ', $group_columns);
+        }
+        
+        // Build ORDER BY clause
+        if (!empty($order_by)) {
+            $order_clauses = array();
+            foreach ($order_by as $order) {
+                $column_escaped = '`' . str_replace('`', '``', $order['column']) . '`';
+                $order_clauses[] = $column_escaped . ' ' . strtoupper($order['direction']);
+            }
+            $sql .= ' ORDER BY ' . implode(', ', $order_clauses);
+        }
+        
+        // Build LIMIT clause
+        if ($limit > 0) {
+            $sql .= ' LIMIT ' . intval($limit);
+            if ($offset > 0) {
+                $sql .= ' OFFSET ' . intval($offset);
+            }
+        }
+        
+        $query_result = gojs_db_query($db, $type, $sql);
+        
+        gojs_db_close($db, $type);
+        
+        gojs_json_response(array(
+            'success' => $query_result['success'],
+            'data' => $query_result['success'] ? $query_result['data'] : array(),
+            'sql' => $sql,
+            'count' => $query_result['success'] ? count($query_result['data']) : 0
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+// A4: Export Enhanced Functions
+function gojs_api_db_export_enhanced() {
+    $capabilities = gojs_get_capabilities();
+    if (!$capabilities['db']) {
+        gojs_json_response(null, array(
+            'code' => 'capability_missing',
+            'message' => 'Database capability required',
+            'message_key' => 'capability.dbRequired',
+        ), 403);
+        return;
+    }
+
+    $conn_id = gojs_get_param('conn_id', '');
+    $database = gojs_get_param('database', '');
+    $tables = gojs_get_param('tables', array());
+    $format = gojs_get_param('format', 'sql');
+    $include_structure = gojs_get_param('include_structure', true);
+    $include_data = gojs_get_param('include_data', true);
+    $compression = gojs_get_param('compression', 'none');
+
+    if (empty($conn_id) || empty($database) || empty($tables) || empty($format)) {
+        gojs_json_response(null, array(
+            'code' => 'missing_params',
+            'message' => 'Missing required parameters',
+            'message_key' => 'error.missingParams',
+        ), 400);
+        return;
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (empty($conn_config)) {
+        gojs_json_response(null, array(
+            'code' => 'connection_not_found',
+            'message' => 'Database connection not found',
+            'message_key' => 'db.connectionNotFound',
+        ), 400);
+        return;
+    }
+
+    $conn_config['database'] = $database;
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => 'Database connection failed: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+        return;
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    try {
+        $export_data = array();
+        
+        foreach ($tables as $table) {
+            $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+            
+            if ($include_structure) {
+                // Get table structure
+                $structure_sql = 'SHOW CREATE TABLE ' . $table_escaped;
+                $structure_result = gojs_db_query($db, $type, $structure_sql);
+                if ($structure_result['success'] && !empty($structure_result['data'])) {
+                    $export_data[$table]['structure'] = $structure_result['data'][0]['Create Table'];
+                }
+            }
+            
+            if ($include_data) {
+                // Get table data
+                $data_sql = 'SELECT * FROM ' . $table_escaped;
+                $data_result = gojs_db_query($db, $type, $data_sql);
+                if ($data_result['success']) {
+                    $export_data[$table]['data'] = $data_result['data'];
+                }
+            }
+        }
+        
+        gojs_db_close($db, $type);
+        
+        $export_content = '';
+        $filename = '';
+        
+        switch ($format) {
+            case 'sql':
+                $export_content = gojs_export_sql($export_data);
+                $filename = 'database_export_' . date('Y-m-d_H-i-s') . '.sql';
+                break;
+            case 'json':
+                $export_content = json_encode($export_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+                $filename = 'database_export_' . date('Y-m-d_H-i-s') . '.json';
+                break;
+            case 'csv':
+                $export_content = gojs_export_csv($export_data);
+                $filename = 'database_export_' . date('Y-m-d_H-i-s') . '.csv';
+                break;
+            case 'xml':
+                $export_content = gojs_export_xml($export_data);
+                $filename = 'database_export_' . date('Y-m-d_H-i-s') . '.xml';
+                break;
+            default:
+                gojs_json_response(null, array(
+                    'code' => 'invalid_format',
+                    'message' => 'Invalid export format',
+                    'message_key' => 'export.invalidFormat',
+                ), 400);
+                return;
+        }
+        
+        if ($compression !== 'none' && !empty($export_content)) {
+            switch ($compression) {
+                case 'gzip':
+                    $export_content = gzencode($export_content);
+                    $filename .= '.gz';
+                    break;
+                case 'zip':
+                    $export_content = gojs_export_zip($export_data);
+                    $filename = 'database_export_' . date('Y-m-d_H-i-s') . '.zip';
+                    break;
+            }
+        }
+        
+        gojs_json_response(array(
+            'success' => true,
+            'content' => base64_encode($export_content),
+            'filename' => $filename,
+            'size' => strlen($export_content),
+            'format' => $format,
+            'compression' => $compression
+        ));
+    } catch (Exception $e) {
+        gojs_db_close($db, $type);
+        gojs_json_response(null, array(
+            'code' => 'db_error',
+            'message' => 'Database error: ' . $e->getMessage(),
+            'message_key' => 'db.error',
+        ), 500);
+    }
+}
+
+function gojs_export_sql($export_data) {
+    $sql = '-- Database Export\n';
+    $sql .= '-- Generated: ' . date('Y-m-d H:i:s') . '\n';
+    $sql .= '-- Database: ' . DB_NAME . '\n\n';
+    
+    foreach ($export_data as $table => $data) {
+        if (!empty($data['structure'])) {
+            $sql .= $data['structure'] . ";\n\n";
+        }
+        
+        if (!empty($data['data'])) {
+            $sql .= '-- Table data: ' . $table . '\n';
+            foreach ($data['data'] as $row) {
+                $values = array();
+                foreach ($row as $value) {
+                    $values[] = is_null($value) ? 'NULL' : "'" . addslashes($value) . "'";
+                }
+                $sql .= 'INSERT INTO `' . $table . '` VALUES (' . implode(', ', $values) . ");\n";
+            }
+            $sql .= "\n";
+        }
+    }
+    
+    return $sql;
+}
+
+function gojs_export_csv($export_data) {
+    $output = '';
+    
+    foreach ($export_data as $table => $data) {
+        if (!empty($data['data'])) {
+            $output .= '-- Table: ' . $table . '\n';
+            $headers = array_keys($data['data'][0]);
+            $output .= implode(',', $headers) . '\n';
+            
+            foreach ($data['data'] as $row) {
+                $values = array();
+                foreach ($row as $value) {
+                    $values[] = '"' . str_replace('"', '""', $value) . '"';
+                }
+                $output .= implode(',', $values) . '\n';
+            }
+            $output .= '\n';
+        }
+    }
+    
+    return $output;
+}
+
+function gojs_export_xml($export_data) {
+    $xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+    $xml .= '<database_export generated="' . date('Y-m-d H:i:s') . '" database="' . DB_NAME . '">\n';
+    
+    foreach ($export_data as $table => $data) {
+        $xml .= '  <table name="' . htmlspecialchars($table) . '">\n';
+        
+        if (!empty($data['structure'])) {
+            $xml .= '    <structure><![CDATA[' . $data['structure'] . ']]></structure>\n';
+        }
+        
+        if (!empty($data['data'])) {
+            $xml .= '    <data>\n';
+            foreach ($data['data'] as $row) {
+                $xml .= '      <row>\n';
+                foreach ($row as $column => $value) {
+                    $xml .= '        <column name="' . htmlspecialchars($column) . '">';
+                    $xml .= '<![CDATA[' . (is_null($value) ? '' : $value) . ']]></column>\n';
+                }
+                $xml .= '      </row>\n';
+            }
+            $xml .= '    </data>\n';
+        }
+        
+        $xml .= '  </table>\n';
+    }
+    
+    $xml .= '</database_export>';
+    
+    return $xml;
+}
+
+function gojs_export_zip($export_data) {
+    // Simple ZIP implementation - in production use ZipArchive
+    $temp_file = tempnam(sys_get_temp_dir(), 'db_export');
+    $zip = new ZipArchive();
+    
+    if ($zip->open($temp_file, ZipArchive::CREATE) === TRUE) {
+        foreach ($export_data as $table => $data) {
+            if (!empty($data['data'])) {
+                $csv_content = '';
+                $headers = array_keys($data['data'][0]);
+                $csv_content .= implode(',', $headers) . '\n';
+                
+                foreach ($data['data'] as $row) {
+                    $values = array();
+                    foreach ($row as $value) {
+                        $values[] = '"' . str_replace('"', '""', $value) . '"';
+                    }
+                    $csv_content .= implode(',', $values) . '\n';
+                }
+                
+                $zip->addFromString($table . '.csv', $csv_content);
+            }
+        }
+        $zip->close();
+    }
+    
+    $content = file_get_contents($temp_file);
+    unlink($temp_file);
+    return $content;
+}
+
 function gojs_api_db_create_table() {
     $capabilities = gojs_get_capabilities();
 
