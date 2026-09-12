@@ -43,7 +43,7 @@ function gojs_api_notification_channels($method) {
         } elseif ($type === 'webhook') {
             $channel['url'] = isset($body['url']) ? (string)$body['url'] : '';
             if (!gojs_webhook_url_allowed($channel['url'])) {
-                gojs_json_response(null, array('code' => 'invalid_url', 'message' => 'Webhook 地址无效，仅支持 http/https'), 400);
+                gojs_json_response(null, array('code' => 'invalid_url', 'message' => 'Invalid webhook URL; only http/https is supported'), 400);
             }
             if (isset($body['method'])) $channel['method'] = in_array(strtoupper((string)$body['method']), array('POST', 'PUT'), true) ? strtoupper((string)$body['method']) : 'POST';
             if (isset($body['headers']) && is_array($body['headers']) && count($body['headers']) > 0) {
@@ -96,7 +96,7 @@ function gojs_api_notification_channel($id, $method) {
             if (isset($body['url'])) {
                 $new_url = (string)$body['url'];
                 if (!gojs_webhook_url_allowed($new_url)) {
-                    gojs_json_response(null, array('code' => 'invalid_url', 'message' => 'Webhook 地址无效，仅支持 http/https'), 400);
+                    gojs_json_response(null, array('code' => 'invalid_url', 'message' => 'Invalid webhook URL; only http/https is supported'), 400);
                 }
                 $target['url'] = $new_url;
             }

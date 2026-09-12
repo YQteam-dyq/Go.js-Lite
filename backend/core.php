@@ -251,7 +251,7 @@ function gojs_dispatch() {
     if (!is_string($api) || strpos($api, "\0") !== false || strlen($api) > 512) {
         gojs_json_response(null, array(
             'code' => 'invalid_request',
-            'message' => '请求无效',
+            'message' => 'Invalid request',
         ), 400);
         return;
     }

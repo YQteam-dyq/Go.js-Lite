@@ -206,7 +206,7 @@ function gojs_api_ftp_accounts_create() {
     if (!gojs_ftp_validate_ip_list((string)$allow_client_ips) || !gojs_ftp_validate_ip_list((string)$deny_client_ips)) {
         gojs_json_response(null, array(
             'code' => 'invalid_ip_list',
-            'message' => 'IP 白/黑名单格式无效',
+            'message' => 'Invalid IP allow/deny list format',
         ), 400);
     }
 
@@ -344,7 +344,7 @@ function gojs_api_ftp_accounts_update($id) {
         if (!gojs_ftp_validate_ip_list((string)$allow_client_ips)) {
             gojs_json_response(null, array(
                 'code' => 'invalid_ip_list',
-                'message' => 'IP 白名单格式无效',
+                'message' => 'Invalid IP allow list format',
             ), 400);
         }
         $account['allow_client_ips'] = trim($allow_client_ips);
@@ -353,7 +353,7 @@ function gojs_api_ftp_accounts_update($id) {
         if (!gojs_ftp_validate_ip_list((string)$deny_client_ips)) {
             gojs_json_response(null, array(
                 'code' => 'invalid_ip_list',
-                'message' => 'IP 黑名单格式无效',
+                'message' => 'Invalid IP deny list format',
             ), 400);
         }
         $account['deny_client_ips'] = trim($deny_client_ips);

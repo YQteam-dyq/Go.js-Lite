@@ -219,7 +219,7 @@ function gojs_api_files() {
         if (gojs_is_panel_source_path($safe_path)) {
             gojs_json_response(null, array(
                 'code' => 'protected_path',
-                'message' => '该目录为 GOJS 系统目录，禁止访问',
+                'message' => 'This directory is a GOJS system directory and cannot be accessed',
             ), 403);
         }
 

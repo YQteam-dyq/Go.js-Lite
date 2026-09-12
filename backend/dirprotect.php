@@ -111,7 +111,7 @@ function gojs_dirprotect_status() {
 
     $htaccess = gojs_dirprotect_htaccess_path($path);
     if ($htaccess === false) {
-        gojs_json_response(null, array('code' => 'forbidden', 'message' => '路径访问被拒绝'), 403);
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
         return;
     }
 
@@ -149,12 +149,12 @@ function gojs_dirprotect_enable() {
 
     $dir = gojs_dirprotect_resolve_dir($path);
     if ($dir === false) {
-        gojs_json_response(null, array('code' => 'forbidden', 'message' => '路径访问被拒绝'), 403);
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
         return;
     }
 
     if (!is_writable($dir)) {
-        gojs_json_response(null, array('code' => 'not_writable', 'message' => '目录不可写'), 403);
+        gojs_json_response(null, array('code' => 'not_writable', 'message' => 'Directory is not writable'), 403);
         return;
     }
 
@@ -197,7 +197,7 @@ function gojs_dirprotect_disable() {
     $htpasswd = gojs_dirprotect_htpasswd_path($path);
 
     if ($htaccess === false || $htpasswd === false) {
-        gojs_json_response(null, array('code' => 'forbidden', 'message' => '路径访问被拒绝'), 403);
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
         return;
     }
 
@@ -244,12 +244,12 @@ function gojs_dirprotect_users() {
 
     $htpasswd = gojs_dirprotect_htpasswd_path($path);
     if ($htpasswd === false) {
-        gojs_json_response(null, array('code' => 'forbidden', 'message' => '路径访问被拒绝'), 403);
+        gojs_json_response(null, array('code' => 'forbidden', 'message' => 'Path access denied'), 403);
         return;
     }
 
     if (!is_string($password) || strpos($password, "\n") !== false || strpos($password, "\r") !== false) {
-        gojs_json_response(null, array('code' => 'invalid_password', 'message' => '密码包含非法字符'), 400);
+        gojs_json_response(null, array('code' => 'invalid_password', 'message' => 'Password contains invalid characters'), 400);
         return;
     }
 

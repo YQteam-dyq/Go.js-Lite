@@ -155,6 +155,37 @@ function gojs_api_install() {
         }
     }
 
+    // Serialize the install flow. Without this lock two concurrent requests can
+    // both pass the "not installed yet" check above and overwrite each other's
+    // config. The lock is held across the re-check and the config write.
+    $lock_file = CONFIG_DIR . '/config.php.install.lock';
+    $lock_fp = @fopen($lock_file, 'c');
+    if ($lock_fp === false) {
+        gojs_json_response(null, array(
+            'code' => 'write_config_failed',
+            'message' => 'Failed to write config file',
+        ), 500);
+    }
+    if (!@flock($lock_fp, LOCK_EX)) {
+        @fclose($lock_fp);
+        gojs_json_response(null, array(
+            'code' => 'write_config_failed',
+            'message' => 'Failed to write config file',
+        ), 500);
+    }
+
+    // Re-check under the lock: another request may have installed while this one
+    // waited, in which case the first writer wins.
+    clearstatcache(true, CONFIG_FILE);
+    if ($installed || file_exists(CONFIG_FILE)) {
+        @flock($lock_fp, LOCK_UN);
+        @fclose($lock_fp);
+        gojs_json_response(null, array(
+            'code' => 'already_installed',
+            'message' => 'Already installed',
+        ), 400);
+    }
+
     $encryption_key = bin2hex(random_bytes(16));
 
     $access_token = bin2hex(random_bytes(24));
@@ -172,14 +203,33 @@ function gojs_api_install() {
 
     $config_content = '<?php' . "\n" . 'return ' . var_export($config_data, true) . ';' . "\n";
 
-    if (@file_put_contents(CONFIG_FILE, $config_content, LOCK_EX) === false) {
+    // Write through a unique temp file and rename() so a reader never observes a
+    // half-written config; rename() is atomic on the same filesystem.
+    $tmp_config = CONFIG_FILE . '.tmp.' . bin2hex(random_bytes(8));
+    if (@file_put_contents($tmp_config, $config_content, LOCK_EX) === false) {
+        @unlink($tmp_config);
+        @flock($lock_fp, LOCK_UN);
+        @fclose($lock_fp);
         gojs_json_response(null, array(
             'code' => 'write_config_failed',
-            'message' => '写入配置文件失败',
+            'message' => 'Failed to write config file',
+        ), 500);
+    }
+    @chmod($tmp_config, 0600);
+    if (!@rename($tmp_config, CONFIG_FILE)) {
+        @unlink($tmp_config);
+        @flock($lock_fp, LOCK_UN);
+        @fclose($lock_fp);
+        gojs_json_response(null, array(
+            'code' => 'write_config_failed',
+            'message' => 'Failed to write config file',
         ), 500);
     }
 
     @chmod(CONFIG_FILE, 0600);
+
+    @flock($lock_fp, LOCK_UN);
+    @fclose($lock_fp);
 
     $config = $config_data;
     $installed = true;
