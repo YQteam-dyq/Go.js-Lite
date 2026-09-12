@@ -102,6 +102,10 @@ function gojs_init() {
         ->setFilesRoot($GLOBALS['files_root'])
         ->setInstalled($installed);
 
+    if (function_exists('gojs_waf_enforce_request')) {
+        gojs_waf_enforce_request();
+    }
+
     if (!defined('GOJS_SKIP_DISPATCH') || !GOJS_SKIP_DISPATCH) {
         gojs_dispatch();
     }

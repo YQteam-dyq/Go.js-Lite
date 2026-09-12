@@ -352,6 +352,153 @@ class WafTest extends TestCase
         $this->assertStringContainsString('SQL injection detected', $output);
     }
 
+    public function testStorageWriterReturnsStructuredFailure()
+    {
+        $blocker = tempnam(sys_get_temp_dir(), 'gojs-waf-blocker-');
+        $this->assertNotFalse($blocker);
+
+        $missingDirectoryFile = $blocker . '/nested/waf_rules.json';
+
+        try {
+            $result = gojs_waf_write_file_result($missingDirectoryFile, '{}');
+
+            $this->assertFalse($result['ok']);
+            $this->assertSame('storage_directory_unavailable', $result['code']);
+            $this->assertNotSame('', $result['message']);
+            $this->assertSame($missingDirectoryFile, $result['file']);
+            $this->assertSame($result, gojs_waf_last_storage_error());
+
+            $this->assertFalse(gojs_waf_write_file($missingDirectoryFile, '{}'));
+        } finally {
+            @unlink($blocker);
+        }
+
+        $writableFile = CONFIG_DIR . '/waf_structured_write.json';
+
+        try {
+            $result = gojs_waf_write_file_result($writableFile, '{}');
+
+            $this->assertTrue($result['ok']);
+            $this->assertSame('', $result['code']);
+            $this->assertFileExists($writableFile);
+            $this->assertEquals(0600, fileperms($writableFile) & 0777);
+        } finally {
+            @unlink($writableFile);
+        }
+    }
+
+    public function testInterceptorFailsClosedWhenStorageIsUnavailable()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        $blocker = tempnam(sys_get_temp_dir(), 'gojs-waf-blocked-');
+        $this->assertNotFalse($blocker);
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export($blocker . '/nested', true) . ');'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . 'echo gojs_waf_storage_ready() ? "READY" : "NOT_READY";'
+            . 'echo "|";'
+            . '$_SERVER["REMOTE_ADDR"] = "192.0.2.90";'
+            . '$_SERVER["REQUEST_URI"] = "/api/bootstrap";'
+            . '$_SERVER["REQUEST_METHOD"] = "GET";'
+            . '$_POST = array();'
+            . '$_GET = array();'
+            . 'gojs_waf_check_request();'
+            . 'echo "ALLOWED";';
+
+        $output = $this->runProbe($probe);
+        @unlink($blocker);
+
+        $this->assertStringContainsString('NOT_READY', $output);
+        $this->assertStringNotContainsString('ALLOWED', $output);
+        $this->assertStringContainsString('Security storage unavailable', $output);
+    }
+
+    public function testRateLimiterFailsClosedWhenStateCannotBePersisted()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        $blocker = tempnam(sys_get_temp_dir(), 'gojs-waf-rate-');
+        $this->assertNotFalse($blocker);
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export($blocker . '/nested', true) . ');'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . 'echo gojs_waf_check_rate_limit("192.0.2.92") ? "DENIED" : "ALLOWED";'
+            . 'echo "|";'
+            . 'echo gojs_waf_last_storage_error()["code"];';
+
+        $output = $this->runProbe($probe);
+        @unlink($blocker);
+
+        $this->assertStringContainsString('DENIED', $output);
+        $this->assertStringContainsString('storage_directory_unavailable', $output);
+    }
+
+    public function testGeoCacheMergesUpdatesWrittenWhileResolving()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        $cacheFile = CONFIG_DIR . '/ip_geo_cache.json';
+        file_put_contents($cacheFile, json_encode(array('198.51.100.1' => 'CN')));
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export(CONFIG_DIR, true) . ');'
+            . 'function geoip_country_code_by_name($ip) {'
+            . ' $current = json_decode((string) @file_get_contents(WAF_GEO_CACHE_FILE), true);'
+            . ' if (!is_array($current)) { $current = array(); }'
+            . ' $current["198.51.100.99"] = "CN";'
+            . ' file_put_contents(WAF_GEO_CACHE_FILE, json_encode($current));'
+            . ' return "CN";'
+            . '}'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . 'echo gojs_waf_get_ip_country("198.51.100.2");';
+
+        $this->assertSame('CN', $this->runProbe($probe));
+
+        $cache = json_decode((string) file_get_contents($cacheFile), true);
+        $this->assertIsArray($cache);
+        $this->assertSame('CN', $cache['198.51.100.1']);
+        $this->assertSame('CN', $cache['198.51.100.2']);
+        $this->assertSame('CN', $cache['198.51.100.99']);
+    }
+
+    public function testCliExecutionContextsAreNotEnforced()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export(CONFIG_DIR, true) . ');'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . '$_SERVER["REMOTE_ADDR"] = "192.0.2.91";'
+            . '$_SERVER["REQUEST_URI"] = "/api/bootstrap";'
+            . '$_SERVER["REQUEST_METHOD"] = "GET";'
+            . '$_POST = array();'
+            . '$_GET = array("id" => "1 OR 1=1");'
+            . 'gojs_waf_enforce_request();'
+            . 'echo "ALLOWED";';
+
+        $this->assertSame('ALLOWED', $this->runProbe($probe));
+    }
+
+    public function testRequestBootstrapInvokesWafInterceptor()
+    {
+        $bootstrap = file_get_contents(dirname(__DIR__) . '/backend/core.php');
+        $this->assertNotFalse($bootstrap);
+
+        $interceptor = strpos($bootstrap, 'gojs_waf_enforce_request()');
+        $dispatch = strpos($bootstrap, 'gojs_dispatch();');
+
+        $this->assertNotFalse($interceptor, 'The WAF interceptor is not invoked from the request bootstrap');
+        $this->assertNotFalse($dispatch);
+        $this->assertLessThan($dispatch, $interceptor, 'The WAF interceptor must run before request dispatch');
+    }
+
     private function runProbe($code)
     {
         $lines = array();
