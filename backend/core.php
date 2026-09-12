@@ -541,6 +541,18 @@ function gojs_build_router() {
     $r->add('POST', 'db/export', function () { gojs_api_db_export(); });
     $r->add('POST', 'db/import', function () { gojs_api_db_import(); });
 
+    $r->add($any, 'db/table/data', function () { gojs_api_db_table_data(); });
+    $r->add('POST', 'db/table/insert', function () { gojs_api_db_insert_row(); });
+    $r->add('POST', 'db/table/update', function () { gojs_api_db_update_row(); });
+    $r->add('POST', 'db/table/delete', function () { gojs_api_db_delete_row(); });
+    $r->add('POST', 'db/table/create', function () { gojs_api_db_create_table(); });
+    $r->add('POST', 'db/table/alter', function () { gojs_api_db_alter_table(); });
+    $r->add('POST', 'db/table/create-index', function () { gojs_api_db_create_index(); });
+    $r->add('POST', 'db/table/drop-index', function () { gojs_api_db_drop_index(); });
+    $r->add('POST', 'db/query/builder', function () { gojs_api_db_query_builder(); });
+    $r->add('POST', 'db/query/preview', function () { gojs_api_db_query_builder_preview(); });
+    $r->add('POST', 'db/export/enhanced', function () { gojs_api_db_export_enhanced(); });
+
     $r->add($any, 'htaccess', function () { gojs_api_htaccess(); });
     $r->add('POST', 'htaccess/generate', function () { gojs_api_htaccess_generate(); });
     $r->add('POST', 'htaccess/reset', function () { gojs_api_htaccess_reset(); });

@@ -1398,3 +1398,1446 @@ function gojs_api_db_import() {
         'errors' => $errors,
     ));
 }
+
+function gojs_api_db_table_data() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $page = gojs_get_param('page', 1);
+    $limit = gojs_get_param('limit', 50);
+    $sort_field = gojs_get_param('sortField', '');
+    $sort_order = gojs_get_param('sortOrder', 'ASC');
+
+    if (!$database || !$table) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '数据库名和表名不能为空',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+
+    $total_query = 'SELECT COUNT(*) as total FROM ' . $table_escaped;
+    $total_rows = 0;
+
+    if ($type === 'mysqli') {
+        $res = $db->query($total_query);
+        if ($res) {
+            $row = $res->fetch_assoc();
+            $total_rows = (int)$row['total'];
+            $res->free();
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->query($total_query);
+        if ($stmt) {
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            $total_rows = (int)$row['total'];
+        }
+    }
+
+    $offset = ($page - 1) * $limit;
+    $data_query = 'SELECT * FROM ' . $table_escaped;
+    
+    if ($sort_field) {
+        $data_query .= ' ORDER BY `' . str_replace('`', '``', $sort_field) . '` ' . $sort_order;
+    }
+    
+    $data_query .= ' LIMIT ' . (int)$offset . ', ' . (int)$limit;
+
+    $data = array();
+    if ($type === 'mysqli') {
+        $res = $db->query($data_query);
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $data[] = $row;
+            }
+            $res->free();
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->query($data_query);
+        if ($stmt) {
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $data[] = $row;
+            }
+        }
+    }
+
+    gojs_json_response(array(
+        'success' => true,
+        'data' => $data,
+        'pagination' => array(
+            'page' => (int)$page,
+            'limit' => (int)$limit,
+            'total' => $total_rows,
+            'totalPages' => ceil($total_rows / $limit)
+        )
+    ));
+}
+
+function gojs_api_db_insert_row() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $data = gojs_get_param('data', array());
+
+    if (!$database || !$table || empty($data)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+
+    $columns = array();
+    $values = array();
+    foreach ($data as $key => $value) {
+        $columns[] = '`' . str_replace('`', '``', $key) . '`';
+        $values[] = gojs_db_escape_value($db, $type, $value);
+    }
+
+    $sql = 'INSERT INTO ' . $table_escaped . ' (' . implode(', ', $columns) . ') VALUES (' . implode(', ', $values) . ')';
+
+    $insert_id = null;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        if ($res) {
+            $insert_id = $db->insert_id;
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        if ($stmt && $stmt->execute()) {
+            $insert_id = $db->lastInsertId();
+        }
+    }
+
+    gojs_json_response(array(
+        'success' => true,
+        'insertId' => $insert_id,
+        'sql' => $sql
+    ));
+}
+
+function gojs_api_db_update_row() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $primary_key = gojs_get_param('primaryKey', '');
+    $primary_key_value = gojs_get_param('primaryKeyValue', '');
+    $data = gojs_get_param('data', array());
+
+    if (!$database || !$table || !$primary_key || $primary_key_value === '' || empty($data)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+    $primary_key_escaped = '`' . str_replace('`', '``', $primary_key) . '`';
+
+    $set_parts = array();
+    foreach ($data as $key => $value) {
+        $set_parts[] = '`' . str_replace('`', '``', $key) . '` = ' . gojs_db_escape_value($db, $type, $value);
+    }
+
+    $sql = 'UPDATE ' . $table_escaped . ' SET ' . implode(', ', $set_parts) . ' WHERE ' . $primary_key_escaped . ' = ' . gojs_db_escape_value($db, $type, $primary_key_value);
+
+    $affected_rows = 0;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        if ($res) {
+            $affected_rows = $db->affected_rows;
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        if ($stmt && $stmt->execute()) {
+            $affected_rows = $stmt->rowCount();
+        }
+    }
+
+    gojs_json_response(array(
+        'success' => true,
+        'affectedRows' => $affected_rows,
+        'sql' => $sql
+    ));
+}
+
+function gojs_api_db_create_table() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('tableName', '');
+    $columns = gojs_get_param('columns', array());
+    $engine = gojs_get_param('engine', 'InnoDB');
+    $charset = gojs_get_param('charset', 'utf8mb4');
+
+    if (!$database || !$table_name || empty($columns)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+
+    $column_definitions = array();
+    foreach ($columns as $column) {
+        $col_def = '`' . str_replace('`', '``', $column['name']) . '` ' . $column['type'];
+        
+        if ($column['nullable'] !== 'YES') {
+            $col_def .= ' NOT NULL';
+        }
+        
+        if (isset($column['default']) && $column['default'] !== '') {
+            $col_def .= ' DEFAULT ' . gojs_db_escape_value($db, $type, $column['default']);
+        }
+        
+        if (isset($column['auto_increment']) && $column['auto_increment']) {
+            $col_def .= ' AUTO_INCREMENT';
+        }
+        
+        if (isset($column['comment']) && $column['comment'] !== '') {
+            $col_def .= ' COMMENT ' . gojs_db_escape_value($db, $type, $column['comment']);
+        }
+        
+        $column_definitions[] = $col_def;
+    }
+
+    $sql = 'CREATE TABLE ' . $table_escaped . ' (' . implode(', ', $column_definitions) . ') ENGINE=' . $engine . ' DEFAULT CHARSET=' . $charset;
+
+    $success = false;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        $success = $res !== false;
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        $success = $stmt && $stmt->execute();
+    }
+
+    gojs_json_response(array(
+        'success' => $success,
+        'sql' => $sql
+    ));
+}
+
+function gojs_api_db_query_builder() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $columns = gojs_get_param('columns', array());
+    $conditions = gojs_get_param('conditions', array());
+    $group_by = gojs_get_param('groupBy', array());
+    $order_by = gojs_get_param('orderBy', array());
+    $limit = gojs_get_param('limit', 100);
+    $offset = gojs_get_param('offset', 0);
+
+    if (!$database || !$table) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '数据库名和表名不能为空',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+
+    $sql = 'SELECT ';
+
+    if (empty($columns)) {
+        $sql .= '*';
+    } else {
+        $column_list = array();
+        foreach ($columns as $column) {
+            if ($column === '*') {
+                $column_list[] = '*';
+            } else {
+                $column_list[] = '`' . str_replace('`', '``', $column) . '`';
+            }
+        }
+        $sql .= implode(', ', $column_list);
+    }
+
+    $sql .= ' FROM ' . $table_escaped;
+
+    if (!empty($conditions)) {
+        $where_parts = array();
+        foreach ($conditions as $condition) {
+            $field_escaped = '`' . str_replace('`', '``', $condition['field']) . '`';
+            $value = gojs_db_escape_value($db, $type, $condition['value']);
+            
+            switch ($condition['operator']) {
+                case 'eq':
+                    $where_parts[] = $field_escaped . ' = ' . $value;
+                    break;
+                case 'ne':
+                    $where_parts[] = $field_escaped . ' != ' . $value;
+                    break;
+                case 'gt':
+                    $where_parts[] = $field_escaped . ' > ' . $value;
+                    break;
+                case 'gte':
+                    $where_parts[] = $field_escaped . ' >= ' . $value;
+                    break;
+                case 'lt':
+                    $where_parts[] = $field_escaped . ' < ' . $value;
+                    break;
+                case 'lte':
+                    $where_parts[] = $field_escaped . ' <= ' . $value;
+                    break;
+                case 'like':
+                    $where_parts[] = $field_escaped . ' LIKE ' . $value;
+                    break;
+                case 'in':
+                    if (is_array($condition['value'])) {
+                        $values = array();
+                        foreach ($condition['value'] as $val) {
+                            $values[] = gojs_db_escape_value($db, $type, $val);
+                        }
+                        $where_parts[] = $field_escaped . ' IN (' . implode(', ', $values) . ')';
+                    }
+                    break;
+                case 'null':
+                    $where_parts[] = $field_escaped . ' IS NULL';
+                    break;
+                case 'notnull':
+                    $where_parts[] = $field_escaped . ' IS NOT NULL';
+                    break;
+            }
+        }
+        
+        if (!empty($where_parts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where_parts);
+        }
+    }
+
+    if (!empty($group_by)) {
+        $group_parts = array();
+        foreach ($group_by as $field) {
+            $group_parts[] = '`' . str_replace('`', '``', $field) . '`';
+        }
+        $sql .= ' GROUP BY ' . implode(', ', $group_parts);
+    }
+
+    if (!empty($order_by)) {
+        $order_parts = array();
+        foreach ($order_by as $order) {
+            $field_escaped = '`' . str_replace('`', '``', $order['field']) . '`';
+            $direction = strtoupper($order['direction']) === 'DESC' ? 'DESC' : 'ASC';
+            $order_parts[] = $field_escaped . ' ' . $direction;
+        }
+        $sql .= ' ORDER BY ' . implode(', ', $order_parts);
+    }
+
+    if ($limit > 0) {
+        $sql .= ' LIMIT ' . (int)$limit;
+        if ($offset > 0) {
+            $sql .= ' OFFSET ' . (int)$offset;
+        }
+    }
+
+    $data = array();
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $data[] = $row;
+            }
+            $res->free();
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->query($sql);
+        if ($stmt) {
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $data[] = $row;
+            }
+        }
+    }
+
+    gojs_json_response(array(
+        'success' => true,
+        'data' => $data,
+        'sql' => $sql,
+        'count' => count($data)
+    ));
+}
+
+function gojs_api_db_export_enhanced() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $tables_param = gojs_get_param('tables', null);
+    $format = gojs_get_param('format', 'sql');
+    $compression = gojs_get_param('compression', 'none');
+    $include_structure = gojs_get_param('includeStructure', true);
+    $include_data = gojs_get_param('includeData', true);
+    $where_clause = gojs_get_param('whereClause', '');
+
+    if (!$database) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '数据库名不能为空',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $tables = array();
+    if (is_array($tables_param)) {
+        foreach ($tables_param as $t) {
+            if (is_string($t) && $t !== '') {
+                $tables[] = $t;
+            }
+        }
+    }
+
+    if (empty($tables)) {
+        $tables = gojs_db_fetch_tables_list($db, $type);
+    }
+
+    @set_time_limit(0);
+    if (function_exists('ini_set')) {
+        @ini_set('memory_limit', '1G');
+    }
+
+    while (ob_get_level() > 0) {
+        @ob_end_clean();
+    }
+
+    $timestamp = date('Ymd_His');
+    $filename = '';
+    
+    switch ($format) {
+        case 'sql':
+            $filename = 'backup_' . $timestamp . '.sql';
+            header('Content-Type: application/sql; charset=utf-8');
+            break;
+        case 'json':
+            $filename = 'backup_' . $timestamp . '.json';
+            header('Content-Type: application/json; charset=utf-8');
+            break;
+        case 'csv':
+            $filename = 'backup_' . $timestamp . '.csv';
+            header('Content-Type: text/csv; charset=utf-8');
+            break;
+        case 'xml':
+            $filename = 'backup_' . $timestamp . '.xml';
+            header('Content-Type: application/xml; charset=utf-8');
+            break;
+    }
+
+    header('Content-Disposition: attachment; filename="' . $filename . '"');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
+    header('Expires: 0');
+
+    $out = fopen('php://output', 'w');
+    if (!$out) {
+        gojs_json_response(null, array(
+            'code' => 'db_export_failed',
+            'message' => '导出失败：无法打开输出流',
+            'message_key' => 'db.exportFailed',
+        ), 400);
+    }
+
+    switch ($format) {
+        case 'sql':
+            gojs_export_sql_enhanced($out, $db, $type, $tables, $include_structure, $include_data, $where_clause);
+            break;
+        case 'json':
+            gojs_export_json_enhanced($out, $db, $type, $tables, $include_structure, $include_data, $where_clause);
+            break;
+        case 'csv':
+            gojs_export_csv_enhanced($out, $db, $type, $tables, $include_data, $where_clause);
+            break;
+        case 'xml':
+            gojs_export_xml_enhanced($out, $db, $type, $tables, $include_structure, $include_data, $where_clause);
+            break;
+    }
+
+    fclose($out);
+    exit;
+}
+
+function gojs_export_sql_enhanced($out, $db, $type, $tables, $include_structure, $include_data, $where_clause) {
+    fwrite($out, "-- Go.js Enhanced SQL Dump\n");
+    fwrite($out, "-- Host: " . (isset($GLOBALS['conn_config']['host']) ? $GLOBALS['conn_config']['host'] : 'localhost') . "\n");
+    fwrite($out, "-- Generation Time: " . date('Y-m-d H:i:s') . "\n");
+    fwrite($out, "-- Database: " . (isset($GLOBALS['conn_config']['database']) ? $GLOBALS['conn_config']['database'] : '') . "\n");
+    fwrite($out, "\n");
+    fwrite($out, "SET FOREIGN_KEY_CHECKS=0;\n");
+    fwrite($out, "SET NAMES utf8;\n");
+    fwrite($out, "SET SQL_MODE=\"\";\n");
+    fwrite($out, "\n");
+
+    foreach ($tables as $table) {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+
+        if ($include_structure) {
+            fwrite($out, "\n-- ------------------------------------------------------------\n");
+            fwrite($out, "-- Table structure for `" . $table . "`\n");
+            fwrite($out, "-- ------------------------------------------------------------\n");
+            fwrite($out, "DROP TABLE IF EXISTS " . $table_escaped . ";\n");
+
+            $create_sql = gojs_db_show_create_table($db, $type, $table_escaped);
+            if ($create_sql !== '') {
+                fwrite($out, $create_sql . ";\n");
+            }
+        }
+
+        if ($include_data) {
+            $columns = gojs_db_fetch_columns($db, $type, $table_escaped);
+            if (empty($columns)) {
+                continue;
+            }
+
+            $col_list_escaped = array();
+            foreach ($columns as $col) {
+                $col_list_escaped[] = '`' . str_replace('`', '``', $col) . '`';
+            }
+            $col_list_sql = implode(', ', $col_list_escaped);
+
+            fwrite($out, "\n-- Dumping data for `" . $table . "`\n");
+
+            $where_sql = '';
+            if ($where_clause) {
+                $where_sql = ' WHERE ' . $where_clause;
+            }
+
+            $offset = 0;
+            $batch_size = 1000;
+            $has_more = true;
+
+            while ($has_more) {
+                $limit_sql = 'SELECT * FROM ' . $table_escaped . $where_sql . ' LIMIT ' . (int)$offset . ', ' . (int)$batch_size;
+
+                $rows = array();
+                if ($type === 'mysqli') {
+                    $res = $db->query($limit_sql);
+                    if ($res === false) {
+                        fwrite($out, "-- ERROR fetching data: " . $db->error . "\n");
+                        break;
+                    }
+                    if ($res === true) {
+                        break;
+                    }
+                    while ($row = $res->fetch_assoc()) {
+                        $rows[] = $row;
+                    }
+                    $res->free();
+                } elseif ($type === 'pdo') {
+                    $stmt = $db->query($limit_sql);
+                    if ($stmt === false) {
+                        break;
+                    }
+                    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                }
+
+                if (empty($rows)) {
+                    break;
+                }
+
+                foreach ($rows as $row) {
+                    $values = array();
+                    foreach ($columns as $col) {
+                        $val = isset($row[$col]) ? $row[$col] : null;
+                        $values[] = gojs_db_escape_value($db, $type, $val);
+                    }
+                    fwrite($out, "INSERT INTO " . $table_escaped . " (" . $col_list_sql . ") VALUES (" . implode(', ', $values) . ");\n");
+                }
+
+                if (count($rows) < $batch_size) {
+                    $has_more = false;
+                } else {
+                    $offset += $batch_size;
+                }
+            }
+        }
+    }
+
+    fwrite($out, "\nSET FOREIGN_KEY_CHECKS=1;\n");
+}
+
+function gojs_export_json_enhanced($out, $db, $type, $tables, $include_structure, $include_data, $where_clause) {
+    $export_data = array(
+        'metadata' => array(
+            'export_time' => date('Y-m-d H:i:s'),
+            'database' => isset($GLOBALS['conn_config']['database']) ? $GLOBALS['conn_config']['database'] : '',
+            'host' => isset($GLOBALS['conn_config']['host']) ? $GLOBALS['conn_config']['host'] : 'localhost',
+            'format' => 'json',
+            'version' => '1.0'
+        ),
+        'tables' => array()
+    );
+
+    foreach ($tables as $table) {
+        $table_data = array(
+            'name' => $table,
+            'structure' => null,
+            'data' => array()
+        );
+
+        if ($include_structure) {
+            $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+            $structure = array();
+            
+            if ($type === 'mysqli') {
+                $res = $db->query('DESCRIBE ' . $table_escaped);
+                if ($res) {
+                    while ($row = $res->fetch_assoc()) {
+                        $structure[] = $row;
+                    }
+                    $res->free();
+                }
+            } elseif ($type === 'pdo') {
+                $stmt = $db->query('DESCRIBE ' . $table_escaped);
+                if ($stmt) {
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $structure[] = $row;
+                    }
+                }
+            }
+            
+            $table_data['structure'] = $structure;
+        }
+
+        if ($include_data) {
+            $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+            $where_sql = '';
+            if ($where_clause) {
+                $where_sql = ' WHERE ' . $where_clause;
+            }
+            
+            $data_query = 'SELECT * FROM ' . $table_escaped . $where_sql;
+            
+            if ($type === 'mysqli') {
+                $res = $db->query($data_query);
+                if ($res) {
+                    while ($row = $res->fetch_assoc()) {
+                        $table_data['data'][] = $row;
+                    }
+                    $res->free();
+                }
+            } elseif ($type === 'pdo') {
+                $stmt = $db->query($data_query);
+                if ($stmt) {
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $table_data['data'][] = $row;
+                    }
+                }
+            }
+        }
+
+        $export_data['tables'][] = $table_data;
+    }
+
+    fwrite($out, json_encode($export_data, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+}
+
+function gojs_export_csv_enhanced($out, $db, $type, $tables, $include_data, $where_clause) {
+    fputcsv($out, array('Table', 'Column', 'Value'));
+    
+    foreach ($tables as $table) {
+        $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+        $columns = gojs_db_fetch_columns($db, $type, $table_escaped);
+        
+        if (empty($columns)) {
+            continue;
+        }
+
+        $where_sql = '';
+        if ($where_clause) {
+            $where_sql = ' WHERE ' . $where_clause;
+        }
+        
+        $data_query = 'SELECT * FROM ' . $table_escaped . $where_sql;
+        
+        if ($type === 'mysqli') {
+            $res = $db->query($data_query);
+            if ($res) {
+                while ($row = $res->fetch_assoc()) {
+                    foreach ($columns as $col) {
+                        fputcsv($out, array($table, $col, isset($row[$col]) ? $row[$col] : ''));
+                    }
+                }
+                $res->free();
+            }
+        } elseif ($type === 'pdo') {
+            $stmt = $db->query($data_query);
+            if ($stmt) {
+                while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                    foreach ($columns as $col) {
+                        fputcsv($out, array($table, $col, isset($row[$col]) ? $row[$col] : ''));
+                    }
+                }
+            }
+        }
+    }
+}
+
+function gojs_export_xml_enhanced($out, $db, $type, $tables, $include_structure, $include_data, $where_clause) {
+    fwrite($out, '<?xml version="1.0" encoding="UTF-8"?>' . "\n");
+    fwrite($out, '<database_export>' . "\n");
+    fwrite($out, '  <metadata>' . "\n");
+    fwrite($out, '    <export_time>' . date('Y-m-d H:i:s') . '</export_time>' . "\n");
+    fwrite($out, '    <database>' . (isset($GLOBALS['conn_config']['database']) ? htmlspecialchars($GLOBALS['conn_config']['database']) : '') . '</database>' . "\n");
+    fwrite($out, '    <host>' . (isset($GLOBALS['conn_config']['host']) ? htmlspecialchars($GLOBALS['conn_config']['host']) : 'localhost') . '</host>' . "\n");
+    fwrite($out, '    <format>xml</format>' . "\n");
+    fwrite($out, '    <version>1.0</version>' . "\n");
+    fwrite($out, '  </metadata>' . "\n");
+
+    foreach ($tables as $table) {
+        fwrite($out, '  <table name="' . htmlspecialchars($table) . '">' . "\n");
+
+        if ($include_structure) {
+            $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+            
+            if ($type === 'mysqli') {
+                $res = $db->query('DESCRIBE ' . $table_escaped);
+                if ($res) {
+                    fwrite($out, '    <structure>' . "\n");
+                    while ($row = $res->fetch_assoc()) {
+                        fwrite($out, '      <column>' . "\n");
+                        fwrite($out, '        <name>' . htmlspecialchars($row['Field']) . '</name>' . "\n");
+                        fwrite($out, '        <type>' . htmlspecialchars($row['Type']) . '</type>' . "\n");
+                        fwrite($out, '        <nullable>' . htmlspecialchars($row['Null']) . '</nullable>' . "\n");
+                        fwrite($out, '        <key>' . htmlspecialchars($row['Key']) . '</key>' . "\n");
+                        fwrite($out, '        <default>' . htmlspecialchars($row['Default']) . '</default>' . "\n");
+                        fwrite($out, '        <extra>' . htmlspecialchars($row['Extra']) . '</extra>' . "\n");
+                        fwrite($out, '      </column>' . "\n");
+                    }
+                    fwrite($out, '    </structure>' . "\n");
+                    $res->free();
+                }
+            } elseif ($type === 'pdo') {
+                $stmt = $db->query('DESCRIBE ' . $table_escaped);
+                if ($stmt) {
+                    fwrite($out, '    <structure>' . "\n");
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        fwrite($out, '      <column>' . "\n");
+                        fwrite($out, '        <name>' . htmlspecialchars($row['Field']) . '</name>' . "\n");
+                        fwrite($out, '        <type>' . htmlspecialchars($row['Type']) . '</type>' . "\n");
+                        fwrite($out, '        <nullable>' . htmlspecialchars($row['Null']) . '</nullable>' . "\n");
+                        fwrite($out, '        <key>' . htmlspecialchars($row['Key']) . '</key>' . "\n");
+                        fwrite($out, '        <default>' . htmlspecialchars($row['Default']) . '</default>' . "\n");
+                        fwrite($out, '        <extra>' . htmlspecialchars($row['Extra']) . '</extra>' . "\n");
+                        fwrite($out, '      </column>' . "\n");
+                    }
+                    fwrite($out, '    </structure>' . "\n");
+                }
+            }
+        }
+
+        if ($include_data) {
+            $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+            $where_sql = '';
+            if ($where_clause) {
+                $where_sql = ' WHERE ' . $where_clause;
+            }
+            
+            $data_query = 'SELECT * FROM ' . $table_escaped . $where_sql;
+            
+            fwrite($out, '    <data>' . "\n");
+            
+            if ($type === 'mysqli') {
+                $res = $db->query($data_query);
+                if ($res) {
+                    while ($row = $res->fetch_assoc()) {
+                        fwrite($out, '      <row>' . "\n");
+                        foreach ($row as $key => $value) {
+                            fwrite($out, '        <' . htmlspecialchars($key) . '>' . htmlspecialchars($value) . '</' . htmlspecialchars($key) . '>' . "\n");
+                        }
+                        fwrite($out, '      </row>' . "\n");
+                    }
+                    $res->free();
+                }
+            } elseif ($type === 'pdo') {
+                $stmt = $db->query($data_query);
+                if ($stmt) {
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        fwrite($out, '      <row>' . "\n");
+                        foreach ($row as $key => $value) {
+                            fwrite($out, '        <' . htmlspecialchars($key) . '>' . htmlspecialchars($value) . '</' . htmlspecialchars($key) . '>' . "\n");
+                        }
+                        fwrite($out, '      </row>' . "\n");
+                    }
+                }
+            }
+            
+            fwrite($out, '    </data>' . "\n");
+        }
+
+        fwrite($out, '  </table>' . "\n");
+    }
+
+    fwrite($out, '</database_export>' . "\n");
+}
+
+function gojs_api_db_query_builder_preview() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $columns = gojs_get_param('columns', array());
+    $conditions = gojs_get_param('conditions', array());
+    $group_by = gojs_get_param('groupBy', array());
+    $order_by = gojs_get_param('orderBy', array());
+
+    if (!$database || !$table) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '数据库名和表名不能为空',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+
+    $sql = 'SELECT ';
+
+    if (empty($columns)) {
+        $sql .= '*';
+    } else {
+        $column_list = array();
+        foreach ($columns as $column) {
+            if ($column === '*') {
+                $column_list[] = '*';
+            } else {
+                $column_list[] = '`' . str_replace('`', '``', $column) . '`';
+            }
+        }
+        $sql .= implode(', ', $column_list);
+    }
+
+    $sql .= ' FROM ' . $table_escaped;
+
+    if (!empty($conditions)) {
+        $where_parts = array();
+        foreach ($conditions as $condition) {
+            $field_escaped = '`' . str_replace('`', '``', $condition['field']) . '`';
+            $value = gojs_db_escape_value($db, $type, $condition['value']);
+            
+            switch ($condition['operator']) {
+                case 'eq':
+                    $where_parts[] = $field_escaped . ' = ' . $value;
+                    break;
+                case 'ne':
+                    $where_parts[] = $field_escaped . ' != ' . $value;
+                    break;
+                case 'gt':
+                    $where_parts[] = $field_escaped . ' > ' . $value;
+                    break;
+                case 'gte':
+                    $where_parts[] = $field_escaped . ' >= ' . $value;
+                    break;
+                case 'lt':
+                    $where_parts[] = $field_escaped . ' < ' . $value;
+                    break;
+                case 'lte':
+                    $where_parts[] = $field_escaped . ' <= ' . $value;
+                    break;
+                case 'like':
+                    $where_parts[] = $field_escaped . ' LIKE ' . $value;
+                    break;
+                case 'in':
+                    if (is_array($condition['value'])) {
+                        $values = array();
+                        foreach ($condition['value'] as $val) {
+                            $values[] = gojs_db_escape_value($db, $type, $val);
+                        }
+                        $where_parts[] = $field_escaped . ' IN (' . implode(', ', $values) . ')';
+                    }
+                    break;
+                case 'null':
+                    $where_parts[] = $field_escaped . ' IS NULL';
+                    break;
+                case 'notnull':
+                    $where_parts[] = $field_escaped . ' IS NOT NULL';
+                    break;
+            }
+        }
+        
+        if (!empty($where_parts)) {
+            $sql .= ' WHERE ' . implode(' AND ', $where_parts);
+        }
+    }
+
+    if (!empty($group_by)) {
+        $group_parts = array();
+        foreach ($group_by as $field) {
+            $group_parts[] = '`' . str_replace('`', '``', $field) . '`';
+        }
+        $sql .= ' GROUP BY ' . implode(', ', $group_parts);
+    }
+
+    if (!empty($order_by)) {
+        $order_parts = array();
+        foreach ($order_by as $order) {
+            $field_escaped = '`' . str_replace('`', '``', $order['field']) . '`';
+            $direction = strtoupper($order['direction']) === 'DESC' ? 'DESC' : 'ASC';
+            $order_parts[] = $field_escaped . ' ' . $direction;
+        }
+        $sql .= ' ORDER BY ' . implode(', ', $order_parts);
+    }
+
+    $sql .= ' LIMIT 10';
+
+    $data = array();
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        if ($res) {
+            while ($row = $res->fetch_assoc()) {
+                $data[] = $row;
+            }
+            $res->free();
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->query($sql);
+        if ($stmt) {
+            while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                $data[] = $row;
+            }
+        }
+    }
+
+    gojs_json_response(array(
+        'success' => true,
+        'data' => $data,
+        'sql' => $sql,
+        'count' => count($data)
+    ));
+}
+
+function gojs_api_db_alter_table() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('tableName', '');
+    $action = gojs_get_param('action', '');
+    $column = gojs_get_param('column', array());
+
+    if (!$database || !$table_name || !$action || empty($column)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+    $column_escaped = '`' . str_replace('`', '``', $column['name']) . '`';
+
+    $sql = '';
+    switch ($action) {
+        case 'ADD':
+            $sql = 'ALTER TABLE ' . $table_escaped . ' ADD COLUMN `' . $column['name'] . '` ' . $column['type'];
+            if ($column['nullable'] !== 'YES') {
+                $sql .= ' NOT NULL';
+            }
+            if (isset($column['default']) && $column['default'] !== '') {
+                $sql .= ' DEFAULT ' . gojs_db_escape_value($db, $type, $column['default']);
+            }
+            if (isset($column['after']) && $column['after'] !== '') {
+                $sql .= ' AFTER `' . str_replace('`', '``', $column['after']) . '`';
+            }
+            break;
+        
+        case 'DROP':
+            $sql = 'ALTER TABLE ' . $table_escaped . ' DROP COLUMN ' . $column_escaped;
+            break;
+        
+        case 'MODIFY':
+            $sql = 'ALTER TABLE ' . $table_escaped . ' MODIFY COLUMN ' . $column_escaped . ' ' . $column['type'];
+            if ($column['nullable'] !== 'YES') {
+                $sql .= ' NOT NULL';
+            }
+            if (isset($column['default']) && $column['default'] !== '') {
+                $sql .= ' DEFAULT ' . gojs_db_escape_value($db, $type, $column['default']);
+            }
+            break;
+    }
+
+    $success = false;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        $success = $res !== false;
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        $success = $stmt && $stmt->execute();
+    }
+
+    gojs_json_response(array(
+        'success' => $success,
+        'sql' => $sql
+    ));
+}
+
+function gojs_api_db_create_index() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('tableName', '');
+    $index_name = gojs_get_param('indexName', '');
+    $columns = gojs_get_param('columns', array());
+    $index_type = gojs_get_param('indexType', 'INDEX');
+
+    if (!$database || !$table_name || !$index_name || empty($columns)) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+    $index_escaped = '`' . str_replace('`', '``', $index_name) . '`';
+
+    $column_list = array();
+    foreach ($columns as $column) {
+        $column_list[] = '`' . str_replace('`', '``', $column) . '`';
+    }
+
+    $sql = 'ALTER TABLE ' . $table_escaped . ' ADD ' . $index_type . ' ' . $index_escaped . ' (' . implode(', ', $column_list) . ')';
+
+    $success = false;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        $success = $res !== false;
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        $success = $stmt && $stmt->execute();
+    }
+
+    gojs_json_response(array(
+        'success' => $success,
+        'sql' => $sql
+    ));
+}
+
+function gojs_api_db_drop_index() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table_name = gojs_get_param('tableName', '');
+    $index_name = gojs_get_param('indexName', '');
+
+    if (!$database || !$table_name || !$index_name) {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table_name) . '`';
+    $index_escaped = '`' . str_replace('`', '``', $index_name) . '`';
+
+    $sql = 'ALTER TABLE ' . $table_escaped . ' DROP INDEX ' . $index_escaped;
+
+    $success = false;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        $success = $res !== false;
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        $success = $stmt && $stmt->execute();
+    }
+
+    gojs_json_response(array(
+        'success' => $success,
+        'sql' => $sql
+    ));
+}
+
+function gojs_api_db_delete_row() {
+    $capabilities = gojs_get_capabilities();
+
+    if (!$capabilities['mysql']) {
+        gojs_json_response(null, array(
+            'code' => 'mysql_not_available',
+            'message' => '系统不支持 MySQL（缺少 mysqli 或 PDO_MySQL 扩展）',
+            'message_key' => 'db.mysqlNotAvailable',
+        ), 400);
+    }
+
+    $conn_id = gojs_get_param('connId', '');
+    $database = gojs_get_param('database', '');
+    $table = gojs_get_param('table', '');
+    $primary_key = gojs_get_param('primaryKey', '');
+    $primary_key_value = gojs_get_param('primaryKeyValue', '');
+
+    if (!$database || !$table || !$primary_key || $primary_key_value === '') {
+        gojs_json_response(null, array(
+            'code' => 'invalid_request',
+            'message' => '请求参数不完整',
+        ), 400);
+    }
+
+    $conn_config = gojs_get_db_connection($conn_id);
+    if (!$conn_config) {
+        gojs_json_response(null, array(
+            'code' => 'db_not_connected',
+            'message' => '连接不存在或未选择数据库连接',
+            'message_key' => 'db.notConnected',
+        ), 400);
+    }
+
+    $conn_config['database'] = $database;
+
+    $result = gojs_db_connect($conn_config);
+    if (!$result['success']) {
+        gojs_json_response(null, array(
+            'code' => 'db_connect_failed',
+            'message' => '连接失败: ' . $result['error'],
+            'message_key' => 'db.connectFailed',
+        ), 400);
+    }
+
+    $db = $result['connection'];
+    $type = $result['type'];
+
+    $table_escaped = '`' . str_replace('`', '``', $table) . '`';
+    $primary_key_escaped = '`' . str_replace('`', '``', $primary_key) . '`';
+
+    $sql = 'DELETE FROM ' . $table_escaped . ' WHERE ' . $primary_key_escaped . ' = ' . gojs_db_escape_value($db, $type, $primary_key_value);
+
+    $affected_rows = 0;
+    if ($type === 'mysqli') {
+        $res = $db->query($sql);
+        if ($res) {
+            $affected_rows = $db->affected_rows;
+        }
+    } elseif ($type === 'pdo') {
+        $stmt = $db->prepare($sql);
+        if ($stmt && $stmt->execute()) {
+            $affected_rows = $stmt->rowCount();
+        }
+    }
+
+    gojs_json_response(array(
+        'success' => true,
+        'affectedRows' => $affected_rows,
+        'sql' => $sql
+    ));
+}

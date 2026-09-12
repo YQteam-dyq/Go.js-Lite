@@ -12,6 +12,10 @@ import FileEditor from '@/routes/files/FileEditor'
 import DbConnections from '@/routes/db/DbConnections'
 import DbBrowser from '@/routes/db/DbBrowser'
 import SqlConsole from '@/routes/db/SqlConsole'
+import TableDataEditor from '@/routes/db/TableDataEditor'
+import TableStructureManager from '@/routes/db/TableStructureManager'
+import QueryBuilder from '@/routes/db/QueryBuilder'
+import ExportEnhanced from '@/routes/db/ExportEnhanced'
 import PhpInfo from '@/routes/PhpInfo'
 import System from '@/routes/System'
 import Settings from '@/routes/Settings'
@@ -84,6 +88,10 @@ function DbRoutes() {
       <Route index element={<DbConnections />} />
       <Route path=":connId/browse" element={<DbBrowser />} />
       <Route path=":connId/sql" element={<SqlConsole />} />
+      <Route path=":connId/table/data" element={<TableDataEditor />} />
+      <Route path=":connId/table/structure" element={<TableStructureManager />} />
+      <Route path=":connId/query/builder" element={<QueryBuilder />} />
+      <Route path=":connId/export/enhanced" element={<ExportEnhanced />} />
       <Route path="*" element={<DbConnections />} />
     </Routes>
   )
