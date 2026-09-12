@@ -112,14 +112,17 @@ class OpcacheTest extends TestCase
 
     public function testToggleRejectsInvalidState(): void
     {
-        if (!gojs_opcache_available()) {
-            $this->markTestSkipped('OPcache 不可用');
-        }
         $GLOBALS['gojs_body_override'] = array('state' => 'maybe');
         $r = $this->call(function () { gojs_api_php_opcache_toggle(); });
         $this->assertSame(400, $r['status']);
         $this->assertSame('invalid_state', $r['error']['code']);
         $GLOBALS['gojs_body_override'] = null;
+    }
+
+    public function testAvailabilityMatchesStatusEndpoint(): void
+    {
+        $r = $this->call(function () { gojs_api_php_opcache_status(); });
+        $this->assertSame(gojs_opcache_available() ? 200 : 501, $r['status']);
     }
 
     public function testProfileTargetsContainJitBaseline(): void
