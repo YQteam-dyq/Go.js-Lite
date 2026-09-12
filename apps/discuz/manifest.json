@@ -1,0 +1,11 @@
+{
+  "id": "discuz",
+  "name": "Discuz!",
+  "description": "国内最流行的社区论坛软件，功能强大，扩展丰富",
+  "version": "3.4",
+  "website": "https://www.discuz.net",
+  "icon": "https://www.discuz.net/favicon.ico",
+  "category": "forum",
+  "dependencies": ["php", "mysql"],
+  "install_type": "php"
+}

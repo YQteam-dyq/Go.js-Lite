@@ -1,0 +1,11 @@
+{
+  "id": "halo",
+  "name": "Halo",
+  "description": "现代化的开源博客发布平台，支持多种主题和插件",
+  "version": "2.11.0",
+  "website": "https://halo.run",
+  "icon": "https://halo.run/favicon.ico",
+  "category": "blog",
+  "dependencies": ["java", "mysql"],
+  "install_type": "java"
+}

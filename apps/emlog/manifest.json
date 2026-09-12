@@ -1,0 +1,11 @@
+{
+  "id": "emlog",
+  "name": "Emlog",
+  "description": "轻量级博客系统，简单易用，扩展性强",
+  "version": "6.0.1",
+  "website": "https://www.emlog.net",
+  "icon": "https://www.emlog.net/favicon.ico",
+  "category": "blog",
+  "dependencies": ["php", "mysql"],
+  "install_type": "php"
+}

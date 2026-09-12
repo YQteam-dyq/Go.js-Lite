@@ -1,0 +1,11 @@
+{
+  "id": "thinkphp-template",
+  "name": "ThinkPHP 模板",
+  "description": "ThinkPHP 6.0 框架项目模板，快速开发PHP应用",
+  "version": "6.1.0",
+  "website": "https://www.thinkphp.cn",
+  "icon": "https://www.thinkphp.cn/favicon.ico",
+  "category": "framework",
+  "dependencies": ["php", "composer"],
+  "install_type": "php"
+}
