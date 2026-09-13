@@ -156,7 +156,7 @@ The frontend does not yet include a unit testing framework; please use `npm run 
 
 ## Commit Conventions (Conventional Commits)
 
-Please use the Conventional Commits convention to make generating CHANGELOGs and locating changes easier:
+The Conventional Commits convention is required for every commit of a pull request. The review bot reads every commit message and asks for a rewrite when one does not follow the convention or is not written in English, so a change of wording means a new commit rather than an edited history. This also makes generating CHANGELOGs and locating changes easier:
 
 ```
 <type>(<scope>): <subject>
@@ -190,6 +190,18 @@ Recommended practices:
 
 ---
 
+## Pull Request Review Bot
+
+The `PR Review` workflow reviews every pull request automatically, and it reviews the pull request again every time new commits are pushed to the branch.
+
+- The review is posted as a single sticky comment that is updated in place, so the pull request timeline stays clean.
+- The bot checks the pull request title and description, the required description sections, the checklist items and the added lines of the diff.
+- When the review finds no problem, the bot approves the pull request with the `APPROVE` review state. This relies on the `Allow GitHub Actions to create and approve pull requests` repository setting, which is enabled on this repository.
+- When a later push stops passing the checks, the bot dismisses its earlier approval, so the pull request has to be reviewed again.
+- Add the `review-bypass` label to skip the review, and explain in the pull request description why the exception is needed.
+
+---
+
 ## How to Open an Issue / PR
 
 ### Opening an Issue
@@ -204,6 +216,6 @@ Recommended practices:
 2. Complete your changes following the code style and commit conventions above.
 3. Pass `php -l`, `npm run typecheck`, `npm run lint`, and `vendor/bin/phpunit` locally.
 4. Submit the PR, describing the motivation, scope, and test coverage.
-5. Maintainers may suggest changes after review; please stay in communication.
+5. The `PR Review` bot reviews the pull request automatically and approves it when it finds no problem. Maintainers may still suggest changes after review, so please stay in communication.
 
 Thank you for your contribution!
