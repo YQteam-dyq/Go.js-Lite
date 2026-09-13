@@ -26,7 +26,7 @@ const en: Translation = {
     success: 'Success',
     failure: 'Failed',
     reload: 'Reload',
-    typeToConfirm: 'Type the full name above to confirm. This action cannot be undone.',
+    typeToConfirm: 'Type the value shown above to confirm. This action cannot be undone.',
     requiredFields: 'Please fill in all required fields',
     updated: 'Updated',
     added: 'Added',

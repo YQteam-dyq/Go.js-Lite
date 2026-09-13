@@ -24,7 +24,7 @@ const zh = {
     success: '成功',
     failure: '失败',
     reload: '重新加载',
-    typeToConfirm: '输入上方完整名称以确认，此操作无法撤销。',
+    typeToConfirm: '请输入上方所示内容以确认，此操作无法撤销。',
     requiredFields: '请填写必填项',
     updated: '已更新',
     added: '已添加',

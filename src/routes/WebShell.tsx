@@ -48,7 +48,13 @@ export default function WebShell() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: cmd })
       })
-      if (!response.ok) throw new Error('Failed to execute command')
+      if (!response.ok) {
+        const errData = await response.json().catch(() => null)
+        const errBody = errData?.error && typeof errData.error === 'object' ? errData.error : errData
+        const err = new Error(errBody?.message || t('webshell.executeFailed'))
+        if (errBody?.code) Object.assign(err, { code: errBody.code })
+        throw err
+      }
       return response.json()
     },
     onSuccess: () => {
