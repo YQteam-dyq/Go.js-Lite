@@ -113,7 +113,6 @@ export default function WebShell() {
     newFitAddon.fit()
 
     setTerminal(newTerminal)
-    // fitAddon and webLinksAddon are no longer needed
 
     const handleResize = () => {
       newFitAddon?.fit()

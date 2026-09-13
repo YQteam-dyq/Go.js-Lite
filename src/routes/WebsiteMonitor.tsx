@@ -149,16 +149,11 @@ export default function WebsiteMonitor() {
     if (!editingWebsite) return
 
     const newConfig = { ...config }
-    if (editingWebsite.id) {
-      const index = newConfig.websites.findIndex(w => w.id === editingWebsite.id)
-      if (index !== -1) {
-        newConfig.websites[index] = editingWebsite
-      }
+    const index = newConfig.websites.findIndex(w => w.id === editingWebsite.id)
+    if (index !== -1) {
+      newConfig.websites[index] = editingWebsite
     } else {
-      newConfig.websites.push({
-        ...editingWebsite,
-        id: ''
-      })
+      newConfig.websites.push(editingWebsite)
     }
 
     updateConfigMutation.mutate(newConfig)
@@ -203,13 +198,13 @@ export default function WebsiteMonitor() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'up':
-        return <Badge variant="success">正常</Badge>
+        return <Badge variant="success">{t('websiteMonitor.statusUp')}</Badge>
       case 'down':
-        return <Badge variant="danger">异常</Badge>
+        return <Badge variant="danger">{t('websiteMonitor.statusDown')}</Badge>
       case 'error':
-        return <Badge variant="warning">错误</Badge>
+        return <Badge variant="warning">{t('websiteMonitor.statusError')}</Badge>
       default:
-        return <Badge variant="muted">未知</Badge>
+        return <Badge variant="muted">{t('websiteMonitor.statusUnknown')}</Badge>
     }
   }
 
@@ -217,11 +212,11 @@ export default function WebsiteMonitor() {
     return new Date(timestamp * 1000).toLocaleString()
   }
 
-  const getWebsiteStatus = (websiteId: string) => {
+  const getWebsiteStatus = (websiteUrl: string) => {
     if (!history) return null
-    
+
     const websiteHistory = history
-      .filter((h: MonitorHistory) => h.website_id === websiteId)
+      .filter((h: MonitorHistory) => h.url === websiteUrl)
       .slice(-5)
     
     if (websiteHistory.length === 0) return null
@@ -298,11 +293,11 @@ export default function WebsiteMonitor() {
                         <div className="flex items-center gap-2">
                           {status && (
                             <div className="text-sm text-muted-foreground">
-                              响应时间: {status.response_time}ms
+                              {t('websiteMonitor.responseTime')}: {status.response_time}ms
                             </div>
                           )}
                           <Badge variant={website.enabled ? 'success' : 'muted'}>
-                            {website.enabled ? '启用' : '禁用'}
+                            {website.enabled ? t('websiteMonitor.enabled') : t('websiteMonitor.disabled')}
                           </Badge>
                         </div>
                       </div>
@@ -312,7 +307,7 @@ export default function WebsiteMonitor() {
                           size="sm"
                           onClick={() => setEditingWebsite(website)}
                         >
-                          编辑
+                          {t('websiteMonitor.edit')}
                         </Button>
                         <Button
                           variant="ghost"
@@ -440,20 +435,20 @@ export default function WebsiteMonitor() {
                         </div>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                           <div>
-                            <span className="text-muted-foreground">状态码:</span>
+                            <span className="text-muted-foreground">{t('websiteMonitor.statusCode')}:</span>
                             <span className="ml-2 font-mono">{item.status_code}</span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">响应时间:</span>
+                            <span className="text-muted-foreground">{t('websiteMonitor.responseTime')}:</span>
                             <span className="ml-2">{item.response_time}ms</span>
                           </div>
                           <div>
-                            <span className="text-muted-foreground">大小:</span>
+                            <span className="text-muted-foreground">{t('websiteMonitor.contentSize')}:</span>
                             <span className="ml-2">{item.content_size} bytes</span>
                           </div>
                           {item.error && (
                             <div className="text-red-600">
-                              <span className="text-muted-foreground">错误:</span>
+                              <span className="text-muted-foreground">{t('websiteMonitor.error')}:</span>
                               <span className="ml-2">{item.error}</span>
                             </div>
                           )}
@@ -512,16 +507,16 @@ export default function WebsiteMonitor() {
                                 size="sm"
                                 onClick={() => handleAcknowledgeNotification(notification.id)}
                               >
-                                确认
+                                {t('websiteMonitor.acknowledge')}
                               </Button>
                             )}
                           </div>
                         </div>
                         <div className="text-sm text-muted-foreground">
-                          <div>状态码: {notification.status_code}</div>
-                          <div>响应时间: {notification.response_time}ms</div>
+                          <div>{t('websiteMonitor.statusCode')}: {notification.status_code}</div>
+                          <div>{t('websiteMonitor.responseTime')}: {notification.response_time}ms</div>
                           {notification.error && (
-                            <div className="text-red-600 mt-1">错误: {notification.error}</div>
+                            <div className="text-red-600 mt-1">{t('websiteMonitor.error')}: {notification.error}</div>
                           )}
                         </div>
                       </div>

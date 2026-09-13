@@ -1,7 +1,5 @@
 <?php
 
-// Monitor helper functions to handle the new gojs_write_json_lock_safe return format
-
 function gojs_safe_write_json(string $path, array $data, bool $pretty = true): array {
     $result = gojs_write_json_lock_safe($path, $data, $pretty);
     if (!$result['success']) {

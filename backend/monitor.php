@@ -11,33 +11,6 @@ function gojs_outbox_path(): string {
     return CONFIG_DIR . '/outbox.json';
 }
 
-function gojs_read_json_lock_safe(string $path, $default = array()) {
-    if (!file_exists($path)) return $default;
-    $fp = @fopen($path, 'r');
-    if (!$fp) {
-        $fallback = @file_get_contents($path);
-        if ($fallback === false) return $default;
-        $data = json_decode($fallback, true);
-        return is_array($data) ? $data : $default;
-    }
-    if (!@flock($fp, LOCK_SH)) {
-        fclose($fp);
-        $fallback = @file_get_contents($path);
-        if ($fallback === false) return $default;
-        $data = json_decode($fallback, true);
-        return is_array($data) ? $data : $default;
-    }
-    $raw = '';
-    while (!feof($fp)) $raw .= fread($fp, 8192);
-    @flock($fp, LOCK_UN);
-    fclose($fp);
-    if ($raw === '') return $default;
-    $data = json_decode($raw, true);
-    return is_array($data) ? $data : $default;
-}
-
-
-
 function gojs_load_notifications(): array {
     global $config;
     $items = gojs_read_json_lock_safe(gojs_notifications_path(), array());

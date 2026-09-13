@@ -34,7 +34,7 @@ export default function CustomErrorPages() {
   const { data: templates, isLoading } = useQuery<ErrorPageConfig>({
     queryKey: ['custom-error-pages'],
     queryFn: async () => {
-      const response = await fetch('/api/custom-error-pages')
+      const response = await fetch('/api/custom-error-pages/config')
       if (!response.ok) throw new Error('Failed to load templates')
       return response.json()
     }
@@ -42,12 +42,10 @@ export default function CustomErrorPages() {
 
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: { error_code: string; title: string; content: string }) => {
-      // 如果没有保存的模板，先初始化默认配置
       const currentTemplates = templates?.templates || {}
-      
-      // 如果该错误码还没有模板，先创建一个空的配置
+
       if (!currentTemplates[data.error_code]) {
-        const initResponse = await fetch('/api/custom-error-pages', {
+        const initResponse = await fetch('/api/custom-error-pages/template', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -59,9 +57,8 @@ export default function CustomErrorPages() {
         if (!initResponse.ok) throw new Error('Failed to initialize template')
         return initResponse.json()
       }
-      
-      // 否则更新现有模板
-      const response = await fetch('/api/custom-error-pages', {
+
+      const response = await fetch('/api/custom-error-pages/template', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
@@ -95,7 +92,7 @@ export default function CustomErrorPages() {
       '403': {
         title: '403 Forbidden',
         content: `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -113,9 +110,9 @@ export default function CustomErrorPages() {
 <body>
     <div class="error-container">
         <div class="error-code">403</div>
-        <div class="error-message">禁止访问</div>
-        <div class="error-details">您没有权限访问此页面。</div>
-        <button class="back-button" onclick="history.back()">返回上一页</button>
+        <div class="error-message">Forbidden</div>
+        <div class="error-details">You do not have permission to access this page.</div>
+        <button class="back-button" onclick="history.back()">Back to previous page</button>
     </div>
 </body>
 </html>`
@@ -123,7 +120,7 @@ export default function CustomErrorPages() {
       '404': {
         title: '404 Not Found',
         content: `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -141,9 +138,9 @@ export default function CustomErrorPages() {
 <body>
     <div class="error-container">
         <div class="error-code">404</div>
-        <div class="error-message">页面未找到</div>
-        <div class="error-details">您访问的页面不存在或已被删除。</div>
-        <button class="back-button" onclick="history.back()">返回上一页</button>
+        <div class="error-message">Page Not Found</div>
+        <div class="error-details">The page you are looking for does not exist or has been removed.</div>
+        <button class="back-button" onclick="history.back()">Back to previous page</button>
     </div>
 </body>
 </html>`
@@ -151,7 +148,7 @@ export default function CustomErrorPages() {
       '500': {
         title: '500 Internal Server Error',
         content: `<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -169,9 +166,9 @@ export default function CustomErrorPages() {
 <body>
     <div class="error-container">
         <div class="error-code">500</div>
-        <div class="error-message">服务器内部错误</div>
-        <div class="error-details">服务器遇到了一个意外错误，无法完成您的请求。</div>
-        <button class="back-button" onclick="history.back()">返回上一页</button>
+        <div class="error-message">Internal Server Error</div>
+        <div class="error-details">The server encountered an unexpected error and could not complete your request.</div>
+        <button class="back-button" onclick="history.back()">Back to previous page</button>
     </div>
 </body>
 </html>`
@@ -181,14 +178,13 @@ export default function CustomErrorPages() {
   }
 
   const handleEditTemplate = (error_code: string) => {
-    const template = templates?.templates[error_code]
-    if (template) {
-      setEditingTemplate({
-        error_code,
-        title: template.title,
-        content: template.content
-      })
-    }
+    const saved = templates?.templates[error_code]
+    const fallback = generateTemplate(error_code)
+    setEditingTemplate({
+      error_code,
+      title: saved?.title || fallback.title,
+      content: saved?.content || fallback.content
+    })
   }
 
   const handleSaveTemplate = () => {
@@ -277,7 +273,7 @@ export default function CustomErrorPages() {
                     <span className="font-medium">403</span>
                     {(templates.templates as any)['403']?.updated_at && (
                       <Badge variant="accent" className="text-xs">
-                        已自定义
+                        {t('customErrorPages.customized')}
                       </Badge>
                     )}
                   </div>
@@ -287,7 +283,7 @@ export default function CustomErrorPages() {
                       dangerouslySetInnerHTML={{ __html: (templates.templates as any)['403']?.content || '' }}
                     />
                     <div className="p-3 bg-muted text-sm text-muted-foreground">
-                      最后更新: {new Date((templates.templates as any)['403']?.updated_at || 0).toLocaleString()}
+                      {t('customErrorPages.lastUpdated')}: {new Date((templates.templates as any)['403']?.updated_at || 0).toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -298,7 +294,7 @@ export default function CustomErrorPages() {
                     dangerouslySetInnerHTML={{ __html: generateTemplate('403').content }}
                   />
                   <div className="p-3 bg-muted text-sm text-muted-foreground">
-                    使用默认模板
+                    {t('customErrorPages.usingDefault')}
                   </div>
                 </div>
               )}
@@ -339,7 +335,7 @@ export default function CustomErrorPages() {
                     <span className="font-medium">404</span>
                     {(templates.templates as any)['404']?.updated_at && (
                       <Badge variant="accent" className="text-xs">
-                        已自定义
+                        {t('customErrorPages.customized')}
                       </Badge>
                     )}
                   </div>
@@ -349,7 +345,7 @@ export default function CustomErrorPages() {
                       dangerouslySetInnerHTML={{ __html: (templates.templates as any)['404']?.content || '' }}
                     />
                     <div className="p-3 bg-muted text-sm text-muted-foreground">
-                      最后更新: {new Date((templates.templates as any)['404']?.updated_at || 0).toLocaleString()}
+                      {t('customErrorPages.lastUpdated')}: {new Date((templates.templates as any)['404']?.updated_at || 0).toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -360,7 +356,7 @@ export default function CustomErrorPages() {
                     dangerouslySetInnerHTML={{ __html: generateTemplate('404').content }}
                   />
                   <div className="p-3 bg-muted text-sm text-muted-foreground">
-                    使用默认模板
+                    {t('customErrorPages.usingDefault')}
                   </div>
                 </div>
               )}
@@ -401,7 +397,7 @@ export default function CustomErrorPages() {
                     <span className="font-medium">500</span>
                     {(templates.templates as any)['500']?.updated_at && (
                       <Badge variant="accent" className="text-xs">
-                        已自定义
+                        {t('customErrorPages.customized')}
                       </Badge>
                     )}
                   </div>
@@ -411,7 +407,7 @@ export default function CustomErrorPages() {
                       dangerouslySetInnerHTML={{ __html: (templates.templates as any)['500']?.content || '' }}
                     />
                     <div className="p-3 bg-muted text-sm text-muted-foreground">
-                      最后更新: {new Date((templates.templates as any)['500']?.updated_at || 0).toLocaleString()}
+                      {t('customErrorPages.lastUpdated')}: {new Date((templates.templates as any)['500']?.updated_at || 0).toLocaleString()}
                     </div>
                   </div>
                 </div>
@@ -422,7 +418,7 @@ export default function CustomErrorPages() {
                     dangerouslySetInnerHTML={{ __html: generateTemplate('500').content }}
                   />
                   <div className="p-3 bg-muted text-sm text-muted-foreground">
-                    使用默认模板
+                    {t('customErrorPages.usingDefault')}
                   </div>
                 </div>
               )}
