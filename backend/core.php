@@ -803,5 +803,36 @@ function gojs_build_router() {
     $r->add('POST', 'dir-protect/disable', function () { gojs_dirprotect_disable(); });
     $r->add('POST', 'dir-protect/users', function () { gojs_dirprotect_users(); });
 
+    $r->addPrefix('webshell/', function ($path, $method) {
+        if ($method === 'GET' && $path === 'history') { gojs_api_webshell_history(); }
+        elseif ($method === 'POST' && $path === 'execute') { gojs_api_webshell_execute(); }
+        elseif ($method === 'POST' && $path === 'clear-history') { gojs_api_webshell_clear_history(); }
+        elseif ($method === 'GET' && $path === 'autocomplete') { gojs_api_webshell_autocomplete(); }
+        else { gojs_json_response(null, array('code' => 'not_found', 'message' => 'Endpoint not found'), 404); }
+    });
+
+    $r->addPrefix('website-monitor/', function ($path, $method) {
+        if ($method === 'GET' && $path === 'config') { gojs_api_website_monitor_config(); }
+        elseif ($method === 'POST' && $path === 'config') { gojs_api_website_monitor_update_config(); }
+        elseif ($method === 'GET' && $path === 'history') { gojs_api_website_monitor_history(); }
+        elseif ($method === 'POST' && $path === 'run-check') { gojs_api_website_monitor_run_check(); }
+        elseif ($method === 'GET' && $path === 'notifications') { gojs_api_website_monitor_notifications(); }
+        elseif ($method === 'POST' && $path === 'clear-notifications') { gojs_api_website_monitor_clear_notifications(); }
+        elseif ($method === 'POST' && $path === 'send-notifications') { gojs_api_website_monitor_send_notifications(); }
+        elseif ($method === 'PATCH' && strpos($path, 'notifications/') === 0) {
+            $id = substr($path, strlen('notifications/'));
+            gojs_api_website_monitor_notification_acknowledge($id);
+        }
+        else { gojs_json_response(null, array('code' => 'not_found', 'message' => 'Endpoint not found'), 404); }
+    });
+
+    $r->addPrefix('custom-error-pages/', function ($path, $method) {
+        if ($method === 'GET' && $path === 'config') { gojs_api_custom_error_pages_config(); }
+        elseif ($method === 'POST' && $path === 'template') { gojs_api_custom_error_pages_update_template(); }
+        elseif ($method === 'POST' && $path === 'reset-template') { gojs_api_custom_error_pages_reset_template(); }
+        elseif ($method === 'POST' && $path === 'preview') { gojs_api_custom_error_pages_preview(); }
+        else { gojs_json_response(null, array('code' => 'not_found', 'message' => 'Endpoint not found'), 404); }
+    });
+
     return $r;
 }
