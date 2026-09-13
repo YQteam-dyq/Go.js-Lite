@@ -91,11 +91,18 @@ function gojs_appstore_install() {
     }
 
     if ($result['success']) {
-        file_put_contents($app_dir . '/.installed', date('c'), LOCK_EX);
+        $install_info = array(
+            'version' => isset($meta['version']) ? $meta['version'] : 'latest',
+            'installed_at' => date('c')
+        );
+        file_put_contents($app_dir . '/.installed', json_encode($install_info), LOCK_EX);
     }
 
     gojs_json_response($result);
 }
+
+// App Store 扩展功能实现 - 并行组 D
+// 作者：yq-nova-agent小组
 
 function gojs_appstore_uninstall() {
     $app_id = gojs_get_param('app_id');
@@ -289,7 +296,9 @@ function gojs_appstore_clone() {
 
     try {
         if (!is_dir($new_target_dir)) {
-            mkdir($new_target_dir, 0755, true);
+            if (!mkdir($new_target_dir, 0755, true)) {
+                throw new Exception("Failed to create target directory: " . $new_target_dir);
+            }
             $result['steps'][] = array('action' => 'create_directory', 'path' => $new_target_dir);
         }
 
@@ -302,24 +311,33 @@ function gojs_appstore_clone() {
             
             if (is_dir($source_file)) {
                 if (!is_dir($target_file)) {
-                    mkdir($target_file, 0755, true);
+                    if (!mkdir($target_file, 0755, true)) {
+                        throw new Exception("Failed to create target directory: " . $target_file);
+                    }
                     $result['steps'][] = array('action' => 'create_directory', 'path' => $target_file);
                 }
                 
                 $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($source_file, RecursiveDirectoryIterator::SKIP_DOTS), RecursiveIteratorIterator::SELF_FIRST);
                 foreach ($iterator as $item) {
-                    $target_item = $new_target_dir . '/' . $iterator->getSubPathName();
+                    $relative_path = $iterator->getSubPathName();
+                    $target_item = $new_target_dir . '/' . $file . '/' . $relative_path;
                     if ($item->isDir()) {
                         if (!is_dir($target_item)) {
-                            mkdir($target_item, 0755, true);
+                            if (!mkdir($target_item, 0755, true)) {
+                                throw new Exception("Failed to create target directory: " . $target_item);
+                            }
                         }
                     } else {
-                        copy($item->getPathname(), $target_item);
+                        if (!copy($item->getPathname(), $target_item)) {
+                            throw new Exception("Failed to copy file: " . $item->getPathname() . " -> " . $target_item);
+                        }
                         $result['steps'][] = array('action' => 'copy_file', 'from' => $item->getPathname(), 'to' => $target_item);
                     }
                 }
             } else {
-                copy($source_file, $target_file);
+                if (!copy($source_file, $target_file)) {
+                    throw new Exception("Failed to copy file: " . $source_file . " -> " . $target_file);
+                }
                 $result['steps'][] = array('action' => 'copy_file', 'from' => $source_file, 'to' => $target_file);
             }
         }
@@ -329,7 +347,10 @@ function gojs_appstore_clone() {
             if (is_array($install_info)) {
                 $install_info['cloned_from'] = $source_app_id;
                 $install_info['cloned_at'] = date('c');
-                file_put_contents($new_target_dir . '/.installed', json_encode($install_info), LOCK_EX);
+                $installed_file = $new_target_dir . '/.installed';
+                if (!file_put_contents($installed_file, json_encode($install_info), LOCK_EX)) {
+                    throw new Exception("Failed to write install file: " . $installed_file);
+                }
                 $result['steps'][] = array('action' => 'create_install_marker', 'app_id' => $target_app_id);
             }
         }
@@ -341,7 +362,9 @@ function gojs_appstore_clone() {
                 $meta['id'] = $target_app_id;
                 $meta['name'] = $meta['name'] . ' (Clone)';
                 $meta['description'] = $meta['description'] . ' (Cloned from ' . $source_app_id . ')';
-                file_put_contents($manifest, json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX);
+                if (!file_put_contents($manifest, json_encode($meta, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES), LOCK_EX)) {
+                    throw new Exception("Failed to write manifest file: " . $manifest);
+                }
                 $result['steps'][] = array('action' => 'update_manifest', 'app_id' => $target_app_id);
             }
         }
@@ -349,14 +372,24 @@ function gojs_appstore_clone() {
     } catch (Exception $e) {
         if (is_dir($new_target_dir)) {
             $iterator = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($new_target_dir, RecursiveDirectoryIterator::SKIP_DOTS), RecursiveIteratorIterator::CHILD_FIRST);
+            $rollback_errors = array();
             foreach ($iterator as $item) {
                 if ($item->isDir()) {
-                    rmdir($item->getPathname());
+                    if (!@rmdir($item->getPathname())) {
+                        $rollback_errors[] = "Failed to remove directory: " . $item->getPathname();
+                    }
                 } else {
-                    unlink($item->getPathname());
+                    if (!@unlink($item->getPathname())) {
+                        $rollback_errors[] = "Failed to remove file: " . $item->getPathname();
+                    }
                 }
             }
-            rmdir($new_target_dir);
+            if (!@rmdir($new_target_dir)) {
+                $rollback_errors[] = "Failed to remove target directory: " . $new_target_dir;
+            }
+            if (!empty($rollback_errors)) {
+                $result['rollback_errors'] = $rollback_errors;
+            }
         }
         $result['success'] = false;
         $result['error'] = $e->getMessage();
