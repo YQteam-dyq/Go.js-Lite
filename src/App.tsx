@@ -57,6 +57,9 @@ import PhpBench from '@/routes/PhpBench'
 import PhpIni from '@/routes/PhpIni'
 import PhpProcesses from '@/routes/PhpProcesses'
 import PhpUpgrade from '@/routes/PhpUpgrade'
+import WebShell from '@/routes/WebShell'
+import WebsiteMonitor from '@/routes/WebsiteMonitor'
+import CustomErrorPages from '@/routes/CustomErrorPages'
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -141,6 +144,9 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/php-ini': 'phpIni.documentTitle',
   '/php-processes': 'phpProcesses.documentTitle',
   '/php-upgrade': 'phpUpgrade.documentTitle',
+  '/webshell': 'webshell.documentTitle',
+  '/website-monitor': 'websiteMonitor.documentTitle',
+  '/custom-error-pages': 'customErrorPages.documentTitle',
   '/invite': 'inviteAccept.documentTitle',
   '/404': 'notFound.documentTitle',
 }
@@ -233,6 +239,9 @@ export default function App() {
                 <Route path="php-ini" element={<PhpIni />} />
                 <Route path="php-processes" element={<PhpProcesses />} />
                 <Route path="php-upgrade" element={<PhpUpgrade />} />
+                <Route path="webshell" element={<WebShell />} />
+                <Route path="website-monitor" element={<WebsiteMonitor />} />
+                <Route path="custom-error-pages" element={<CustomErrorPages />} />
                 <Route path="settings" element={<Settings />} />
                 <Route path="*" element={<NotFound />} />
               </Routes>

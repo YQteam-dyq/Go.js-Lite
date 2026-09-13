@@ -36,6 +36,9 @@ import {
   Timer,
   FileCog,
   ArrowUpCircle,
+  Terminal,
+  Globe,
+  FileX,
 } from 'lucide-react'
 import { Logo } from '@/components/branding/Logo'
 import { useCapabilities } from '@/hooks/useCapabilities'
@@ -124,6 +127,9 @@ export function Sidebar() {
     { to: '/php-ini', label: t('nav.phpIni'), icon: <FileCog size={18} />, show: isAdmin },
     { to: '/php-processes', label: t('nav.phpProcesses'), icon: <Cpu size={18} />, show: isAdmin },
     { to: '/php-upgrade', label: t('nav.phpUpgrade'), icon: <ArrowUpCircle size={18} />, show: isAdmin },
+    { to: '/webshell', label: t('nav.webshell'), icon: <Terminal size={18} />, show: true },
+    { to: '/website-monitor', label: t('nav.websiteMonitor'), icon: <Globe size={18} />, show: true },
+    { to: '/custom-error-pages', label: t('nav.customErrorPages'), icon: <FileX size={18} />, show: true },
     { to: '/settings', label: t('nav.settings'), icon: <Settings size={18} />, show: true },
   ]
 

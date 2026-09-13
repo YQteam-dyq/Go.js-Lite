@@ -50,3 +50,6 @@ require_once __DIR__ . '/appstore.php';
 require_once __DIR__ . '/share.php';
 require_once __DIR__ . '/dirprotect.php';
 require_once __DIR__ . '/waf.php';
+require_once __DIR__ . '/webshell.php';
+require_once __DIR__ . '/website_monitor.php';
+require_once __DIR__ . '/custom_error_pages.php';
