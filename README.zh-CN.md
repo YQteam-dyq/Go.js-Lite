@@ -8,22 +8,44 @@
 [![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4.svg)](https://php.net)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org)
-[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](CHANGELOG.md)
 
 ---
 
-## 0.7.0 有什么新东西
+## 0.8.0 有什么新东西
 
-- **统一 REST 契约** — 保持**查询式** `/gojs/api?api=<action>` 作为主路由形态；同时**新增路径式** `/gojs/api/<action>` 作为兼容入口，`router.php` 与 `.htaccess` 双路识别。查询式是面板一直以来的默认形态，不会被弃用。
-- **文件管理** — 每次保存生成历史快照（可在 `.gojs/file-history/` 找回）；内置图片 / 视频 / 音频 / Markdown / PDF / CSV 浏览器预览；批量操作（多选删除 / 复制 / 移动 / 打包 / chmod）；可选 AES-256-GCM 单文件加密，密钥由管理员口令经 HKDF 派生。
-- **数据库管理** — 持久化连接、慢查询日志（`.gojs/slow_queries.log`）、schema 快照（`.gojs/db_snapshots/`）、导出时敏感列脱敏。
-- **资源监控** — CPU / 内存 / 磁盘趋势图（5m / 1h / 24h 窗口，存于 `monitor_history.json`），每个 API 调用量 / 延迟 / 错误率写入 `.gojs/api_metrics.json`（滚动 7 天）。
-- **通知中心** — 在原有邮件 / 钉钉 / 飞书 / Telegram 之外，新增 Microsoft Teams 与 Slack Incoming Webhook 适配器。
-- **安全加固** — 暴力破解封禁升级为「IP + UA + 国家」三重判定；新增 per-user / per-endpoint 限流，默认 60 req/min，文件操作 20 req/min，超额返回 429 并带 `retry_after`。
-- **运维追溯** — 所有写操作日志都带上 `request_id` / `trace_id`；30 天未活动会话自动清理，`auth.log` 归档。
-- **诊断导出** — `/.gojs/diagnostics/export` 一键打包脱敏后的运行时快照，方便排障。
+- **多用户与 RBAC** — `users.json` 中的真实用户账户（admin / operator / viewer），用户名 + 密码登录，按用户偏好，锁定与密码过期。详见下方「多用户 —— 协作，而非多租户」。
+- **基于路径的 ACL** — `path_allowlist` 将 viewer 限制在文件树的子集内；用户组（`groups.json`）的允许列表与用户自身的取并集。
+- **公共 API Token** — 带作用域的 Bearer token，按 token 限流，SHA-256 存储（明文仅在创建时展示一次）。
+- **双人审批** — 敏感操作（数据库导入、回收站清空、全部会话踢出、应用卸载）返回 `202 approval_pending`，需第二管理员在 60 分钟内批准。
+- **邀请、信任设备、GDPR 式导出、按用户的通知偏好、权限提升**。
+- **PHP 工具链页面** — Composer、OPcache、扩展、错误日志解析、PHP-FPM 池、黑盒基准、ini 差异 / JIT / include_path、进程查看、升级预检、autoload 审计。
+- **运维** — 审计日志携带 `user_id`；`/api/audit/aggregate` 与按用户的活动流；真实的在线会话管理（列表 / 踢出，自我保护）。
+- **WAF 安全系统** — Web 应用防火墙，带 SQL 注入 / XSS / 路径穿越检测、请求体检查、可配置规则集、实时拦截与审计日志。
+- **应用商店** — 热门 PHP 应用（Discuz!、Emlog、Ghost、Halo、Laravel、Nextcloud、ThinkPHP、Vue 模板）一键安装，支持应用更新、克隆与卸载。
+- **Web Shell** — 浏览器内终端模拟器，带命令历史、Tab 补全、彩色输出，以及锚定到 `files_root` 的类 chroot 沙箱。
+- **网站监控** — 对用户自定义网站做在线率 / 响应时间 / SSL 证书监控，支持通知渠道告警与历史趋势图。
+- **自定义错误页** — 部署在文档根目录的品牌化 403 / 404 / 500 / 503 页面，Markdown 编辑并实时预览。
+- **日志分析** — Apache / Nginx 访问日志解析器，含热门页面、来源、状态码分布、机器人检测、地理 IP 汇总与慢请求排行。
+- **安全加固** — 更深的路径穿越防御、认证绕过缓解、配置注入防护，以及更多暴力破解锁定维度。
 
-0.7.0 继续保持 Go.js Lite 的轻量级定位——单文件 PHP 入口（`api.php` + `router.php`），模块化的 `backend/`，内置 `webcron.php`，不引入任何外部服务。完整变更与升级说明见 [CHANGELOG.md](CHANGELOG.md)。
+完整列表见 [CHANGELOG.md](CHANGELOG.md)，破坏性变更见 [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md)。
+
+---
+
+## 多用户 —— 协作，而非多租户
+
+> ⚠️ **务必先读**
+>
+> - Go.js-Lite 的多用户是面向团队的**协作工具**：角色分离、审计与按用户偏好。
+> - 若是**多个互不相关的客户**，请为**每个客户部署独立的面板实例**，**不要**用单个实例服务多个客户。
+> - `path_allowlist` **不是租户边界**，只是 viewer 在共享文件树上的最小权限子集。同一实例的所有用户共享同一个 `files_root`、`config.php`、数据库连接、审计日志与监控数据。
+
+| 角色 | 文件读取 | 文件写入 | 用户 / 会话管理 | PHP 工具链 | API Token |
+|---|---|---|---|---|---|
+| `admin` | 全部 | 全部 | 是 | 是 | 是 |
+| `operator` | 全部 | 是 | 否 | 否 | 可创建受限 token |
+| `viewer` | 仅白名单 | 否（除非临时提升） | 否 | 否 | 否 |
 
 ---
 
