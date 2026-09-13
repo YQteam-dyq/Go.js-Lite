@@ -8,11 +8,11 @@
 [![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4.svg)](https://php.net)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org)
-[![Version](https://img.shields.io/badge/version-0.7.0-blue.svg)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](CHANGELOG.md)
 
 ---
 
-## What's new in 0.8.0 (unreleased)
+## What's new in 0.8.0
 
 - **Multi-user & RBAC** — real user accounts in `users.json` (admin / operator / viewer), username + password login, per-user preferences, lockout & password expiry. See [Multi-user](#multi-user--collaboration-not-multi-tenancy) below.
 - **Path-based ACL** — `path_allowlist` restricts viewers to a subset of the file tree; user groups (`groups.json`) contribute their allowlist as a union with the user's own.
@@ -21,6 +21,13 @@
 - **Invitations, trusted devices, GDPR-style export, per-user notification preferences, permission boosts**.
 - **PHP toolchain pages** — Composer, OPcache, extensions, error-log parser, PHP-FPM pools, black-box benchmark, ini diff / JIT / include_path, process viewer, upgrade dry-run, autoload audit.
 - **Operations** — audit log carries `user_id`; `/api/audit/aggregate` and per-user activity feeds; real online-session management (list / kick, self-kick protected).
+- **WAF Security System** — Web Application Firewall with SQL injection / XSS / path-traversal detection, request-body inspection, configurable rule sets, real-time blocking and audit logging.
+- **App Store** — one-click installer for popular PHP apps (Discuz!, Emlog, Ghost, Halo, Laravel, Nextcloud, ThinkPHP, Vue template), with app updates, cloning and uninstall support.
+- **Web Shell** — in-browser terminal emulator with command history, tab-completion, colour output, and a chroot-like sandbox anchored to `files_root`.
+- **Website Monitor** — uptime / response-time / SSL-certificate monitoring for user-defined sites, with alerting via notification channels and historical trend charts.
+- **Custom Error Pages** — branded 403 / 404 / 500 / 503 pages deployed at the document root, fully editable in Markdown with live preview.
+- **Log Analysis** — Apache / Nginx access-log parser with top pages, referrers, status-code breakdown, bot detection, geo-IP summary and slow-request ranking.
+- **Security hardening** — deeper path-traversal defences, auth-bypass mitigations, config-injection protection, and additional brute-force lockout dimensions.
 
 See [CHANGELOG.md](CHANGELOG.md) for the full list and [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md) for breaking changes.
 
@@ -93,11 +100,17 @@ Visit http://localhost:5173/gojs/ to start developing.
 - **[Access]** Secret access URL — Access the panel via a token-based URL to hide its existence from public discovery.
 - **[Hosting]** Shared hosting friendly — Automatically detects `disable_functions`, gracefully degrades based on available capabilities.
 - **[Mobile]** Mobile-first — Responsive design, perfect on phones, tablets, and desktops. Touch-friendly.
-- **[Security]** Secure & reliable — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection.
+- **[Security]** Secure & reliable — BCrypt password hashing, CSRF protection, path traversal prevention, system file protection, WAF web application firewall.
+- **[WAF]** Web Application Firewall — SQL injection / XSS / path-traversal detection, request-body inspection, configurable rule sets, real-time blocking.
+- **[App Store]** One-click app installer — Install popular PHP apps (Discuz!, Emlog, Ghost, Halo, Laravel, Nextcloud, ThinkPHP, Vue template) with updates and cloning.
+- **[Web Shell]** In-browser terminal — Terminal emulator with command history, tab-completion, colour output, sandboxed to `files_root`.
 - **[Files]** File management — Browse / edit / upload / download files online, permission changes supported.
 - **[Archives]** Zip / Tar archives — Compress & extract zip / tar.gz archives online.
 - **[Database]** Database management — MySQL connections, SQL console, table structure browser, **.sql import & export**.
 - **[Logs]** PHP error log viewer — Auto-detects log paths, categorised filtering, live refresh.
+- **[Log Analysis]** Access log analytics — Apache / Nginx access-log parser with top pages, referrers, status breakdown, bot detection, geo-IP summary.
+- **[Monitor]** Website monitor — Uptime / response-time / SSL-certificate monitoring with alerting and historical trend charts.
+- **[Error Pages]** Custom error pages — Branded 403 / 404 / 500 / 503 pages, editable in Markdown with live preview.
 - **[Health]** Health check — One-click PHP security / performance / compatibility audit.
 - **[Disk]** Disk analysis — Visualises per-directory usage and identifies large files.
 - **[System]** System info — PHP info, server environment, disk usage, **memory monitor**, process CPU.
@@ -207,13 +220,23 @@ Both forms end up at the same `api.php` action handler — there is only one cod
 | Database Mgmt | MySQL connections, database/table/column browser, SQL console | OK |
 | SQL Import/Export | One-click full/single-table export, chunked .sql import | OK |
 | PHP Error Log | Auto-detects log path, categorised filtering, live refresh | OK |
+| Log Analysis | Apache / Nginx access-log parser, top pages, referrers, status breakdown, bot detection | OK |
 | Health Check | One-click PHP security / performance / compatibility audit | OK |
 | Disk Analysis | Per-directory size visualisation, large files list | OK |
 | PHP Info | Version, extensions, ini directives, one-click copy php.ini path | OK |
 | System Info | Disk, load, uptime, memory usage, process CPU, Cron | OK |
 | Resource Trends | CPU / memory / disk trend charts | OK |
+| Website Monitor | Uptime / response-time / SSL-certificate monitoring with alerting and trend charts | OK |
 | Notifications | Email / SMTP / Webhook / DingTalk / Lark / Telegram / Microsoft Teams / Slack incoming webhooks | OK |
 | Operation Log | Every write log carries `request_id` / `trace_id` | OK |
+| WAF Security | SQL injection / XSS / path-traversal detection, configurable rules, real-time blocking | OK |
+| App Store | One-click installer for PHP apps, updates, cloning and uninstall | OK |
+| Web Shell | In-browser terminal emulator with command history and colour output | OK |
+| Custom Error Pages | Branded 403/404/500/503 pages, Markdown editable with live preview | OK |
+| Multi-user & RBAC | Admin / operator / viewer roles, user groups, path-based ACL | OK |
+| Two-person Approvals | Sensitive actions require a second admin approval within 60 minutes | OK |
+| PHP Toolchain | Composer, OPcache, extensions, PHP-FPM, benchmark, upgrade dry-run | OK |
+| API Tokens | Bearer tokens with scopes, per-token rate limiting, SHA-256 storage | OK |
 | Settings | Theme / language switch, session settings, password change, access URL i18n | OK |
 
 ### Capability-based Degradation
@@ -240,6 +263,7 @@ Go.js Lite automatically detects your server environment and hides unavailable f
 - Config directory `.gojs/` blocked from direct web access via `.htaccess`.
 - CSRF token validation — cross-site request forgery protection. Server-side rate limiting enforces `X-CSRF-Token` on writes.
 - Session / Cookie scope shrunk to `/gojs/` — never leaks to sibling apps in the web root.
+- **[WAF]** Web Application Firewall — SQL injection, XSS, path-traversal, command-injection and config-injection detection with real-time blocking and audit logging.
 - **[Access]** Secret access URL — Panel requires a token in the URL, hiding its existence.
 - **[Isolation]** Subdirectory isolation — Panel owns the `/gojs/` path and nothing else.
 - **[Lockout]** Brute-force lockout — IP + UA + country triple check (configurable thresholds).
