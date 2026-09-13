@@ -95,14 +95,15 @@ function gojs_appstore_install() {
             'version' => isset($meta['version']) ? $meta['version'] : 'latest',
             'installed_at' => date('c')
         );
-        file_put_contents($app_dir . '/.installed', json_encode($install_info), LOCK_EX);
+        $written = file_put_contents($app_dir . '/.installed', json_encode($install_info), LOCK_EX);
+        if ($written === false) {
+            $result['success'] = false;
+            $result['error'] = 'Failed to write install record';
+        }
     }
 
     gojs_json_response($result);
 }
-
-// App Store 扩展功能实现 - 并行组 D
-// 作者：yq-nova-agent小组
 
 function gojs_appstore_uninstall() {
     $app_id = gojs_get_param('app_id');
@@ -252,7 +253,11 @@ function gojs_appstore_update() {
             'version' => isset($meta['version']) ? $meta['version'] : 'latest',
             'updated_at' => date('c')
         );
-        file_put_contents($install_file, json_encode($install_info), LOCK_EX);
+        $written = file_put_contents($install_file, json_encode($install_info), LOCK_EX);
+        if ($written === false) {
+            $result['success'] = false;
+            $result['error'] = 'Failed to write update record';
+        }
     }
 
     gojs_json_response($result);
