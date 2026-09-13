@@ -122,14 +122,6 @@ function gojs_webshell_validate_command_args(string $base_command, array $args):
             'args' => array('max_args' => 5, 'allowed_flags' => array('-i', '-u', '-c', '-d', '-s', '-w')),
             'description' => 'Remove duplicate lines'
         ),
-        'awk' => array(
-            'args' => array('max_args' => 10, 'allowed_flags' => array('-F', '-f', '-v', '-O')),
-            'description' => 'Text processing language'
-        ),
-        'sed' => array(
-            'args' => array('max_args' => 5, 'allowed_flags' => array('-n', 'e', 'f', 'i', 'r')),
-            'description' => 'Stream editor'
-        ),
         'chmod' => array(
             'args' => array('max_args' => 5, 'allowed_flags' => array('-R', '-v', '-c', '-f')),
             'description' => 'Change file permissions'

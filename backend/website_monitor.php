@@ -76,11 +76,11 @@ function gojs_website_monitor_validate_redirect_url(string $url, int $max_redire
         
         $host = $parsed_url['host'];
         if (filter_var($host, FILTER_VALIDATE_IP)) {
-            if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+            if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
                 return array('valid' => false, 'error' => 'Redirect to private IP not allowed');
             }
         } else {
-            if (preg_match('/\.(localhost|local|test|example\.com|internal|private)$/i', $host)) {
+            if (preg_match('/(^|\.)(localhost|local|test|example\.com|internal|private)\.?$/i', $host)) {
                 return array('valid' => false, 'error' => 'Redirect to local/internal domain not allowed');
             }
         }
@@ -142,13 +142,13 @@ function gojs_website_monitor_check_url(string $url, int $timeout = 10): array {
     
     $host = $parsed_url['host'];
     if (filter_var($host, FILTER_VALIDATE_IP)) {
-        if (filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+        if (!filter_var($host, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
             $result['status'] = 'invalid_url';
             $result['error'] = 'Monitoring private or local IP addresses is not allowed';
             return $result;
         }
     } else {
-        if (preg_match('/\.(localhost|local|test|example\.com|internal|private)$/i', $host)) {
+        if (preg_match('/(^|\.)(localhost|local|test|example\.com|internal|private)\.?$/i', $host)) {
             $result['status'] = 'invalid_url';
             $result['error'] = 'Monitoring local/internal domains is not allowed';
             return $result;

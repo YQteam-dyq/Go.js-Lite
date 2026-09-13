@@ -22,10 +22,6 @@ function gojs_read_json_lock_safe(string $path, $default = array()) {
 }
 
 function gojs_write_json_lock_safe(string $path, array $data, bool $pretty = true): array {
-    if (empty($data)) {
-        return array('success' => false, 'error' => 'Data cannot be empty');
-    }
-
     $dir = dirname($path);
     if (!is_dir($dir)) {
         if (!@mkdir($dir, 0700, true)) {

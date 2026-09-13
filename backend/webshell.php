@@ -85,8 +85,6 @@ function gojs_webshell_execute_command(string $command): array {
     $base_command = $command_parts[0];
 
     return gojs_webshell_execute_safe_command($base_command, array_slice($command_parts, 1));
-
-    return array('output' => $output, 'success' => $success);
 }
 
 function gojs_api_webshell_history() {
@@ -115,6 +113,7 @@ function gojs_api_webshell_clear_history() {
     $result = gojs_write_json_lock_safe(gojs_webshell_history_path(), array(), true);
     if (!$result['success']) {
         gojs_json_response(array('success' => false, 'error' => $result['error']));
+        return;
     }
     gojs_json_response(array('success' => true, 'message' => 'History cleared'));
 }
@@ -122,7 +121,7 @@ function gojs_api_webshell_clear_history() {
 function gojs_api_webshell_autocomplete() {
     $input = gojs_get_param('input', '');
     $allowed_commands = array(
-        'ls', 'll', 'dir', 'pwd', 'cd', 'mkdir', 'rmdir', 'rm', 'cp', 'mv', 'touch', 'cat', 'head', 'tail', 'grep', 'find', 'ps', 'top', 'htop', 'df', 'du', 'free', 'uname', 'whoami', 'id', 'date', 'cal', 'wc', 'sort', 'uniq', 'awk', 'sed', 'chmod', 'chown', 'tar', 'zip', 'unzip', 'gzip', 'gunzip'
+        'ls', 'll', 'dir', 'pwd', 'cd', 'mkdir', 'rmdir', 'rm', 'cp', 'mv', 'touch', 'cat', 'head', 'tail', 'grep', 'find', 'ps', 'top', 'htop', 'df', 'du', 'free', 'uname', 'whoami', 'id', 'date', 'cal', 'wc', 'sort', 'uniq', 'chmod', 'chown', 'tar', 'zip', 'unzip', 'gzip', 'gunzip'
     );
 
     $suggestions = array();
