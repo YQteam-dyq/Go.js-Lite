@@ -45,6 +45,8 @@ function gojs_fpm_http_get($url, $timeout = 3) {
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT => (int)$timeout,
             CURLOPT_CONNECTTIMEOUT => (int)$timeout,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ));
         $raw = @curl_exec($ch);
         $code = (int)@curl_getinfo($ch, CURLINFO_HTTP_CODE);

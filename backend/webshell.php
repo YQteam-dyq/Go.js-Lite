@@ -14,69 +14,78 @@ function gojs_webshell_history_load(): array {
     return $items;
 }
 
-function gojs_webshell_history_save(array $items): void {
+function gojs_webshell_history_save(array $items): array {
     $cap = 100;
     if (count($items) > $cap) {
         $items = array_slice($items, -$cap);
     }
-    gojs_write_json_lock_safe(gojs_webshell_history_path(), $items, true);
+    $result = gojs_write_json_lock_safe(gojs_webshell_history_path(), $items, true);
+    if (!$result['success']) {
+        return array('success' => false, 'error' => $result['error']);
+    }
+    return array('success' => true);
 }
 
 function gojs_webshell_history_append(string $command, string $output, bool $success = true): string {
-    $items = gojs_webshell_history_load();
-    $id = uniqid('cmd_', true);
-    $item = array(
-        'id' => $id,
-        'command' => $command,
-        'output' => $output,
-        'success' => $success,
-        'timestamp' => time(),
-    );
-    $items[] = $item;
-    gojs_webshell_history_save($items);
-    return $id;
+    $lock_file = sys_get_temp_dir() . '/gojs_webshell.lock';
+    $lock_handle = @fopen($lock_file, 'w+');
+
+    $lock_acquired = false;
+    for ($i = 0; $i < 20; $i++) {
+        if (@flock($lock_handle, LOCK_EX | LOCK_NB)) {
+            $lock_acquired = true;
+            break;
+        }
+        usleep(100000);
+    }
+
+    if (!$lock_acquired) {
+        $id = uniqid('cmd_', true);
+        $item = array(
+            'id' => $id,
+            'command' => $command,
+            'output' => $output,
+            'success' => $success,
+            'timestamp' => time(),
+        );
+
+        $result = gojs_write_json_lock_safe(gojs_webshell_history_path(), array($item), true);
+        if (!$result['success']) {
+            $id = 'error';
+        }
+        return $id;
+    }
+
+    try {
+        $items = gojs_webshell_history_load();
+        $id = uniqid('cmd_', true);
+        $item = array(
+            'id' => $id,
+            'command' => $command,
+            'output' => $output,
+            'success' => $success,
+            'timestamp' => time(),
+        );
+        $items[] = $item;
+        gojs_webshell_history_save($items);
+        return $id;
+    } finally {
+        @flock($lock_handle, LOCK_UN);
+        @fclose($lock_handle);
+        @unlink($lock_file);
+    }
 }
 
 function gojs_webshell_execute_command(string $command): array {
-    $output = '';
-    $success = false;
-    
     if (empty($command)) {
         return array('output' => '', 'success' => false);
     }
-    
-    $allowed_commands = array(
-        'ls', 'll', 'dir', 'pwd', 'cd', 'mkdir', 'rmdir', 'rm', 'cp', 'mv', 'touch', 'cat', 'head', 'tail', 'grep', 'find', 'ps', 'top', 'htop', 'df', 'du', 'free', 'uname', 'whoami', 'id', 'date', 'cal', 'wc', 'sort', 'uniq', 'awk', 'sed', 'chmod', 'chown', 'tar', 'zip', 'unzip', 'gzip', 'gunzip'
-    );
-    
+
     $command_parts = explode(' ', trim($command));
     $base_command = $command_parts[0];
-    
-    if (!in_array($base_command, $allowed_commands, true)) {
-        return array('output' => 'Error: Command not allowed: ' . $base_command, 'success' => false);
-    }
-    
-    $temp_file = tempnam(sys_get_temp_dir(), 'gojs_webshell_');
-    if ($temp_file === false) {
-        return array('output' => 'Error: Cannot create temporary file', 'success' => false);
-    }
-    
-    $safe_command = escapeshellcmd($command);
-    $result = array();
-    $return_var = 0;
-    
-    exec($safe_command . ' 2>&1', $result, $return_var);
-    
-    if ($return_var === 0) {
-        $success = true;
-    }
-    
-    $output = implode("\n", $result);
-    
-    if (file_exists($temp_file)) {
-        @unlink($temp_file);
-    }
-    
+
+    return gojs_webshell_execute_safe_command($base_command, array_slice($command_parts, 1));
+
     return array('output' => $output, 'success' => $success);
 }
 
@@ -91,10 +100,10 @@ function gojs_api_webshell_execute() {
         gojs_json_response(null, array('code' => 'missing_command', 'message' => 'Command is required'), 400);
         return;
     }
-    
+
     $result = gojs_webshell_execute_command($command);
     $history_id = gojs_webshell_history_append($command, $result['output'], $result['success']);
-    
+
     gojs_json_response(array(
         'output' => $result['output'],
         'success' => $result['success'],
@@ -103,8 +112,11 @@ function gojs_api_webshell_execute() {
 }
 
 function gojs_api_webshell_clear_history() {
-    gojs_write_json_lock_safe(gojs_webshell_history_path(), array(), true);
-    gojs_json_response(array('message' => 'History cleared'));
+    $result = gojs_write_json_lock_safe(gojs_webshell_history_path(), array(), true);
+    if (!$result['success']) {
+        gojs_json_response(array('success' => false, 'error' => $result['error']));
+    }
+    gojs_json_response(array('success' => true, 'message' => 'History cleared'));
 }
 
 function gojs_api_webshell_autocomplete() {
@@ -112,13 +124,13 @@ function gojs_api_webshell_autocomplete() {
     $allowed_commands = array(
         'ls', 'll', 'dir', 'pwd', 'cd', 'mkdir', 'rmdir', 'rm', 'cp', 'mv', 'touch', 'cat', 'head', 'tail', 'grep', 'find', 'ps', 'top', 'htop', 'df', 'du', 'free', 'uname', 'whoami', 'id', 'date', 'cal', 'wc', 'sort', 'uniq', 'awk', 'sed', 'chmod', 'chown', 'tar', 'zip', 'unzip', 'gzip', 'gunzip'
     );
-    
+
     $suggestions = array();
     foreach ($allowed_commands as $cmd) {
         if (strpos($cmd, $input) === 0) {
             $suggestions[] = $cmd;
         }
     }
-    
+
     gojs_json_response($suggestions);
 }

@@ -21,6 +21,7 @@ interface WebsiteConfig {
 }
 
 interface MonitorHistory {
+  website_id: string
   url: string
   timestamp: number
   status: string
@@ -156,7 +157,7 @@ export default function WebsiteMonitor() {
     } else {
       newConfig.websites.push({
         ...editingWebsite,
-        id: Date.now().toString()
+        id: ''
       })
     }
 
@@ -220,7 +221,7 @@ export default function WebsiteMonitor() {
     if (!history) return null
     
     const websiteHistory = history
-      .filter((h: MonitorHistory) => h.url === websiteId)
+      .filter((h: MonitorHistory) => h.website_id === websiteId)
       .slice(-5)
     
     if (websiteHistory.length === 0) return null

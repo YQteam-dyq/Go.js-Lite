@@ -36,16 +36,7 @@ function gojs_read_json_lock_safe(string $path, $default = array()) {
     return is_array($data) ? $data : $default;
 }
 
-function gojs_write_json_lock_safe(string $path, array $data, bool $pretty = true): void {
-    $dir = dirname($path);
-    if (!is_dir($dir)) @mkdir($dir, 0700, true);
-    $flags = $pretty ? (JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : JSON_UNESCAPED_UNICODE;
-    $json = json_encode($data, $flags);
-    $tmp = $path . '.tmp.' . bin2hex(random_bytes(4));
-    @file_put_contents($tmp, $json, LOCK_EX);
-    @chmod($tmp, 0600);
-    @rename($tmp, $path);
-}
+
 
 function gojs_load_notifications(): array {
     global $config;
@@ -60,7 +51,7 @@ function gojs_load_notifications(): array {
     return $items;
 }
 
-function gojs_save_notifications(array $items): void {
+function gojs_save_notifications(array $items): array {
     global $config;
     $meta = isset($config['notifications_meta']) ? $config['notifications_meta'] : array();
     $cap = isset($meta['trim_cap']) ? (int)$meta['trim_cap'] : 10000;
@@ -68,7 +59,11 @@ function gojs_save_notifications(array $items): void {
     if (count($items) > $cap) {
         $items = array_slice($items, -$cap);
     }
-    gojs_write_json_lock_safe(gojs_notifications_path(), $items, true);
+    $result = gojs_write_json_lock_safe(gojs_notifications_path(), $items, true);
+    if (!$result['success']) {
+        return array('success' => false, 'error' => $result['error']);
+    }
+    return array('success' => true);
 }
 
 function gojs_append_notification(array $payload): string {
@@ -135,12 +130,16 @@ function gojs_monitor_history_load(): array {
     return $items;
 }
 
-function gojs_monitor_history_save(array $items): void {
+function gojs_monitor_history_save(array $items): array {
     $cap = gojs_monitor_history_cap();
     if (count($items) > $cap) {
         $items = array_slice($items, -$cap);
     }
-    gojs_write_json_lock_safe(gojs_monitor_history_path(), $items, true);
+    $result = gojs_write_json_lock_safe(gojs_monitor_history_path(), $items, true);
+    if (!$result['success']) {
+        return array('success' => false, 'error' => $result['error']);
+    }
+    return array('success' => true);
 }
 
 function gojs_monitor_count_inodes(): array {

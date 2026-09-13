@@ -42,6 +42,25 @@ export default function CustomErrorPages() {
 
   const updateTemplateMutation = useMutation({
     mutationFn: async (data: { error_code: string; title: string; content: string }) => {
+      // 如果没有保存的模板，先初始化默认配置
+      const currentTemplates = templates?.templates || {}
+      
+      // 如果该错误码还没有模板，先创建一个空的配置
+      if (!currentTemplates[data.error_code]) {
+        const initResponse = await fetch('/api/custom-error-pages', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            error_code: data.error_code,
+            title: data.title,
+            content: data.content
+          })
+        })
+        if (!initResponse.ok) throw new Error('Failed to initialize template')
+        return initResponse.json()
+      }
+      
+      // 否则更新现有模板
       const response = await fetch('/api/custom-error-pages', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -58,8 +77,10 @@ export default function CustomErrorPages() {
 
   const resetTemplateMutation = useMutation({
     mutationFn: async (error_code: string) => {
-      const response = await fetch(`/api/custom-error-pages/reset/${error_code}`, {
-      method: 'POST'
+      const response = await fetch(`/api/custom-error-pages/reset-template`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ error_code })
     })
       if (!response.ok) throw new Error('Failed to reset template')
       return response.json()

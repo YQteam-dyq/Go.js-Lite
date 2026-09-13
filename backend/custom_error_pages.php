@@ -4,48 +4,18 @@ function gojs_custom_error_pages_config_path(): string {
     return CONFIG_DIR . '/custom_error_pages.json';
 }
 
-function gojs_read_json_lock_safe(string $path, $default = array()) {
-    if (!file_exists($path)) return $default;
-    $fp = @fopen($path, 'r');
-    if (!$fp) {
-        $fallback = @file_get_contents($path);
-        if ($fallback === false) return $default;
-        $data = json_decode($fallback, true);
-        return is_array($data) ? $data : $default;
-    }
-    if (!@flock($fp, LOCK_SH)) {
-        fclose($fp);
-        $fallback = @file_get_contents($path);
-        if ($fallback === false) return $default;
-        $data = json_decode($fallback, true);
-        return is_array($data) ? $data : $default;
-    }
-    $raw = '';
-    while (!feof($fp)) $raw .= fread($fp, 8192);
-    @flock($fp, LOCK_UN);
-    fclose($fp);
-    if ($raw === '') return $default;
-    $data = json_decode($raw, true);
-    return is_array($data) ? $data : $default;
-}
 
-function gojs_write_json_lock_safe(string $path, array $data, bool $pretty = true): void {
-    $dir = dirname($path);
-    if (!is_dir($dir)) @mkdir($dir, 0700, true);
-    $flags = $pretty ? (JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT) : JSON_UNESCAPED_UNICODE;
-    $json = json_encode($data, $flags);
-    $tmp = $path . '.tmp.' . bin2hex(random_bytes(4));
-    @file_put_contents($tmp, $json, LOCK_EX);
-    @chmod($tmp, 0600);
-    @rename($tmp, $path);
-}
 
 function gojs_custom_error_pages_load_config(): array {
     return gojs_read_json_lock_safe(gojs_custom_error_pages_config_path(), array());
 }
 
-function gojs_custom_error_pages_save_config(array $config): void {
-    gojs_write_json_lock_safe(gojs_custom_error_pages_config_path(), $config, true);
+function gojs_custom_error_pages_save_config(array $config): array {
+    $result = gojs_write_json_lock_safe(gojs_custom_error_pages_config_path(), $config, true);
+    if (!$result['success']) {
+        gojs_json_response(array('success' => false, 'error' => $result['error']));
+    }
+    gojs_json_response(array('success' => true));
 }
 
 function gojs_custom_error_pages_get_default_template(string $error_code): string {
@@ -53,7 +23,7 @@ function gojs_custom_error_pages_get_default_template(string $error_code): strin
         '403' => array(
             'title' => '403 Forbidden',
             'content' => '<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -73,10 +43,10 @@ function gojs_custom_error_pages_get_default_template(string $error_code): strin
         <div class="error-code">403</div>
         <div class="error-title">Forbidden</div>
         <div class="error-message">
-            抱歉，您没有权限访问此页面。<br>
-            请联系管理员或返回上一页。
+            Sorry, you do not have permission to access this page.<br>
+            Please contact the administrator or go back to the previous page.
         </div>
-        <a href="javascript:history.back()" class="back-link">← 返回上一页</a>
+        <a href="javascript:history.back()" class="back-link">← Back to previous page</a>
     </div>
 </body>
 </html>'
@@ -84,7 +54,7 @@ function gojs_custom_error_pages_get_default_template(string $error_code): strin
         '404' => array(
             'title' => '404 Not Found',
             'content' => '<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -102,12 +72,12 @@ function gojs_custom_error_pages_get_default_template(string $error_code): strin
 <body>
     <div class="error-container">
         <div class="error-code">404</div>
-        <div class="error-title">页面未找到</div>
+        <div class="error-title">Page Not Found</div>
         <div class="error-message">
-            抱歉，您访问的页面不存在。<br>
-            请检查URL是否正确，或返回首页。
+            Sorry, the page you are looking for does not exist.<br>
+            Please check the URL or return to the home page.
         </div>
-        <a href="/" class="back-link">← 返回首页</a>
+        <a href="/" class="back-link">← Back to home</a>
     </div>
 </body>
 </html>'
@@ -115,7 +85,7 @@ function gojs_custom_error_pages_get_default_template(string $error_code): strin
         '500' => array(
             'title' => '500 Internal Server Error',
             'content' => '<!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -133,12 +103,12 @@ function gojs_custom_error_pages_get_default_template(string $error_code): strin
 <body>
     <div class="error-container">
         <div class="error-code">500</div>
-        <div class="error-title">服务器内部错误</div>
+        <div class="error-title">Internal Server Error</div>
         <div class="error-message">
-            抱歉，服务器遇到了一个错误。<br>
-            请稍后再试，或联系网站管理员。
+            Sorry, the server encountered an error.<br>
+            Please try again later or contact the site administrator.
         </div>
-        <a href="/" class="back-link">← 返回首页</a>
+        <a href="/" class="back-link">← Back to home</a>
     </div>
 </body>
 </html>'
@@ -152,28 +122,28 @@ function gojs_custom_error_pages_validate_template(string $content): array {
     $errors = array();
     
     if (empty($content)) {
-        $errors[] = '模板内容不能为空';
+        $errors[] = 'Template content cannot be empty';
         return $errors;
     }
     
     if (strlen($content) > 50000) {
-        $errors[] = '模板内容过大，最大支持50KB';
+        $errors[] = 'Template content is too large, maximum supported size is 50KB';
     }
     
     if (!preg_match('/<!DOCTYPE/i', $content)) {
-        $errors[] = '模板必须包含DOCTYPE声明';
+        $errors[] = 'Template must include a DOCTYPE declaration';
     }
     
     if (!preg_match('/<html/i', $content) || !preg_match('/<\/html\s*>/i', $content)) {
-        $errors[] = '模板必须包含完整的html标签';
+        $errors[] = 'Template must include complete html tags';
     }
     
     if (!preg_match('/<head/i', $content) || !preg_match('/<\/head\s*>/i', $content)) {
-        $errors[] = '模板必须包含head标签';
+        $errors[] = 'Template must include head tags';
     }
     
     if (!preg_match('/<body/i', $content) || !preg_match('/<\/body\s*>/i', $content)) {
-        $errors[] = '模板必须包含body标签';
+        $errors[] = 'Template must include body tags';
     }
     
     return $errors;

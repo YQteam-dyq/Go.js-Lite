@@ -814,6 +814,7 @@ function gojs_build_router() {
         elseif ($method === 'POST' && $path === 'run-check') { gojs_api_website_monitor_run_check(); }
         elseif ($method === 'GET' && $path === 'notifications') { gojs_api_website_monitor_notifications(); }
         elseif ($method === 'POST' && $path === 'clear-notifications') { gojs_api_website_monitor_clear_notifications(); }
+        elseif ($method === 'POST' && $path === 'send-notifications') { gojs_api_website_monitor_send_notifications(); }
         elseif ($method === 'PATCH' && strpos($path, 'notifications/') === 0) {
             $id = substr($path, strlen('notifications/'));
             gojs_api_website_monitor_notification_acknowledge($id);
