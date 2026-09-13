@@ -31,6 +31,19 @@ Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, appr
 - `.user.ini` writes (JIT, include_path) are managed through `backend/php_ini.php` helpers.
 - `gojs_relative_path()` normalises directory separators, fixing Windows backslash leakage in file paths.
 
+### Fixed
+- WebShell: API requests now use the `/gojs/api/webshell` base path, restoring command execution, history, clear-history and autocomplete.
+- API client: `buildApiError` no longer crashes when the backend returns an empty error body.
+- i18n: added the missing `nav.webshell`, `nav.websiteMonitor` and `nav.customErrorPages` keys to the Chinese and English locales.
+- Versioning: the backend `VERSION` / `APP_VERSION` (and `tests/bootstrap.php`) now match the frontend `0.8.0`.
+
+### UX
+- System info and WebShell failures now show readable, localized messages instead of raw exception text.
+- WebShell history shows an explicit failure state with a retry action instead of a silent empty list.
+- File deletion confirmation now states that files are moved to the trash and can be restored.
+- Backup deletion now requires typing the backup filename to confirm, and states that the file is permanently removed.
+- Settings shows a warning when the frontend and backend versions differ.
+
 ### Breaking
 - Login is now username + password against `users.json`; the legacy admin-password-only login flow is replaced (the access-token URL keeps working for admins during the 0.8 compatibility window and is scheduled for removal in 1.0).
 - Unauthenticated `settings` writes no longer exist: preferences are per user via `/api/profile`; the global settings write endpoint was removed.

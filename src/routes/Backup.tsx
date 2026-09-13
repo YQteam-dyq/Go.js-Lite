@@ -491,6 +491,8 @@ function ArchivesTab() {
         confirmText={t('common.delete')}
         variant="danger"
         loading={deleteMutation.isPending}
+        requireKeyword={showDelete?.filename}
+        keywordPlaceholder={t('backup.typeFilename')}
         onConfirm={() => {
           if (showDelete) deleteMutation.mutate(showDelete.filename)
         }}

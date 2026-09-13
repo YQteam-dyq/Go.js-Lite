@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Sun, Moon, Monitor, Clock, Lock, Download, RefreshCw, Eye, EyeOff, CheckCircle2, Code2, Server, Palette, Users, ExternalLink, Heart, Shield, Copy, RotateCcw, History, KeyRound, QrCode, X } from 'lucide-react'
+import { Sun, Moon, Monitor, Clock, Lock, Download, RefreshCw, Eye, EyeOff, CheckCircle2, Code2, Server, Palette, Users, ExternalLink, Heart, Shield, Copy, RotateCcw, History, KeyRound, QrCode, X, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card, CardBody, CardHeader } from '@/components/ui/Card'
@@ -871,6 +871,12 @@ export default function Settings() {
             </span>
             <Badge variant="muted" className="font-mono">{backendVersion || '—'}</Badge>
           </div>
+          {backendVersion && frontendVersion && backendVersion !== frontendVersion && (
+            <div className="flex items-center gap-2 py-2 border-t border-border/50">
+              <AlertCircle size={14} className="text-warning shrink-0" />
+              <span className="text-xs text-warning">{t('settings.versionMismatch')}</span>
+            </div>
+          )}
         </CardBody>
       </Card>
 
