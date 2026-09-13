@@ -9,6 +9,7 @@ import { useCapabilities } from '@/hooks/useCapabilities'
 import { useAuthBootstrap } from '@/hooks/useAuth'
 import { formatBytes } from '@/lib/format'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 export default function System() {
   const { t } = useI18n()
@@ -49,7 +50,7 @@ export default function System() {
           </div>
           <p className="text-sm font-medium text-fg mb-1">{t('system.loadFailed')}</p>
           <p className="text-xs text-fg-muted mb-5">
-            {sysError instanceof Error ? sysError.message : t('system.cannotRead')}
+            {resolveErrorText(sysError) || t('system.cannotRead')}
           </p>
           <Button variant="secondary" size="sm" onClick={() => refetchSys()}>
             <RefreshCw size={16} />

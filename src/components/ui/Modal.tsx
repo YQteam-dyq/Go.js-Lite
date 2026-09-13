@@ -1,6 +1,7 @@
-import { useEffect, useRef, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { Button } from './Button'
+import { Input } from './Input'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { useI18n } from '@/hooks/useI18n'
 
@@ -101,6 +102,8 @@ interface ConfirmProps {
   onConfirm: () => void
   onCancel: () => void
   loading?: boolean
+  requireKeyword?: string
+  keywordPlaceholder?: string
 }
 
 export function Confirm({
@@ -113,8 +116,15 @@ export function Confirm({
   onConfirm,
   onCancel,
   loading,
+  requireKeyword,
+  keywordPlaceholder,
 }: ConfirmProps) {
   const { t } = useI18n()
+  const [keyword, setKeyword] = useState('')
+  useEffect(() => {
+    if (open) setKeyword('')
+  }, [open])
+  const keywordMatched = !requireKeyword || keyword === requireKeyword
   const defaultConfirmText = variant === 'danger' ? t('common.delete') : t('common.confirm')
   const finalConfirmText = confirmText ?? defaultConfirmText
   const finalCancelText = cancelText ?? t('common.cancel')
@@ -129,13 +139,24 @@ export function Confirm({
           <Button variant="secondary" onClick={onCancel}>
             {finalCancelText}
           </Button>
-          <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading}>
+          <Button variant={variant === 'danger' ? 'danger' : 'primary'} onClick={onConfirm} loading={loading} disabled={!keywordMatched}>
             {finalConfirmText}
           </Button>
         </>
       }
     >
       <p className="text-sm text-fg-muted leading-relaxed">{message}</p>
+      {requireKeyword && (
+        <div className="mt-3">
+          <Input
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+            placeholder={keywordPlaceholder || requireKeyword}
+            autoComplete="off"
+          />
+          <p className="text-xs text-danger mt-1.5">{t('common.typeToConfirm')}</p>
+        </div>
+      )}
     </Modal>
   )
 }

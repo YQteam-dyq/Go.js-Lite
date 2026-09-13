@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Play, RotateCcw, History } from 'lucide-react'
 import { useI18n } from '@/hooks/useI18n'
+import { resolveErrorText } from '@/lib/errorMessages'
 
 interface CommandHistory {
   id: string
@@ -31,10 +32,10 @@ export default function WebShell() {
   
   const queryClient = useQueryClient()
 
-  const { data: history, isLoading: historyLoading } = useQuery({
+  const { data: history, isLoading: historyLoading, isError: historyError, refetch: refetchHistory } = useQuery({
     queryKey: ['webshell', 'history'],
     queryFn: async () => {
-      const response = await fetch('/api/webshell/history')
+      const response = await fetch('/gojs/api/webshell/history')
       if (!response.ok) throw new Error('Failed to fetch history')
       return response.json()
     }
@@ -42,7 +43,7 @@ export default function WebShell() {
 
   const executeMutation = useMutation({
     mutationFn: async (cmd: string) => {
-      const response = await fetch('/api/webshell/execute', {
+      const response = await fetch('/gojs/api/webshell/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: cmd })
@@ -57,7 +58,7 @@ export default function WebShell() {
 
   const clearHistoryMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/webshell/clear-history', { method: 'POST' })
+      const response = await fetch('/gojs/api/webshell/clear-history', { method: 'POST' })
       if (!response.ok) throw new Error('Failed to clear history')
       return response.json()
     },
@@ -68,7 +69,7 @@ export default function WebShell() {
 
   const autocompleteMutation = useMutation({
     mutationFn: async (input: string) => {
-      const response = await fetch(`/api/webshell/autocomplete?input=${encodeURIComponent(input)}`)
+      const response = await fetch(`/gojs/api/webshell/autocomplete?input=${encodeURIComponent(input)}`)
       if (!response.ok) throw new Error('Failed to get autocomplete')
       return response.json()
     }
@@ -156,12 +157,12 @@ export default function WebShell() {
         inputRef.current?.focus()
       },
       onError: (error) => {
-        terminal.write(`Error: ${error.message}\r\n`)
+        terminal.write(`\r\n${t('webshell.executeFailed')}: ${resolveErrorText(error)}\r\n`)
         setCommand('')
         inputRef.current?.focus()
       }
     })
-  }, [command, terminal, executeMutation])
+  }, [command, terminal, executeMutation, t])
 
   const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !executeMutation.isPending) {
@@ -255,6 +256,14 @@ export default function WebShell() {
             {historyLoading ? (
               <div className="text-center py-8 text-muted-foreground">
                 {t('common.loading')}
+              </div>
+            ) : historyError ? (
+              <div className="text-center py-8">
+                <p className="text-sm text-muted-foreground mb-3">{t('webshell.historyLoadFailed')}</p>
+                <Button variant="secondary" size="sm" onClick={() => refetchHistory()}>
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  {t('common.retry')}
+                </Button>
               </div>
             ) : (
               <div className="space-y-2 max-h-96 overflow-y-auto">
