@@ -34,7 +34,7 @@ export default function WebShell() {
   const { data: history, isLoading: historyLoading } = useQuery({
     queryKey: ['webshell', 'history'],
     queryFn: async () => {
-      const response = await fetch('/api/webshell/history')
+      const response = await fetch('/gojs/api/webshell/history')
       if (!response.ok) throw new Error('Failed to fetch history')
       return response.json()
     }
@@ -42,7 +42,7 @@ export default function WebShell() {
 
   const executeMutation = useMutation({
     mutationFn: async (cmd: string) => {
-      const response = await fetch('/api/webshell/execute', {
+      const response = await fetch('/gojs/api/webshell/execute', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ command: cmd })
@@ -57,7 +57,7 @@ export default function WebShell() {
 
   const clearHistoryMutation = useMutation({
     mutationFn: async () => {
-      const response = await fetch('/api/webshell/clear-history', { method: 'POST' })
+      const response = await fetch('/gojs/api/webshell/clear-history', { method: 'POST' })
       if (!response.ok) throw new Error('Failed to clear history')
       return response.json()
     },
@@ -68,7 +68,7 @@ export default function WebShell() {
 
   const autocompleteMutation = useMutation({
     mutationFn: async (input: string) => {
-      const response = await fetch(`/api/webshell/autocomplete?input=${encodeURIComponent(input)}`)
+      const response = await fetch(`/gojs/api/webshell/autocomplete?input=${encodeURIComponent(input)}`)
       if (!response.ok) throw new Error('Failed to get autocomplete')
       return response.json()
     }

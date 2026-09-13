@@ -116,18 +116,19 @@ function buildApiError(
   fallbackCode?: string,
 ): ApiError {
   const raw = errBody && typeof errBody === 'object' ? errBody.error || errBody : errBody
+  const isObj = raw !== null && typeof raw === 'object'
   const code =
-    (typeof raw === 'object' && (raw.code || fallbackCode)) ||
+    (isObj && (raw.code || fallbackCode)) ||
     fallbackCode ||
     httpErrorCode(status)
   const message =
-    (typeof raw === 'object' && raw.message) ||
+    (isObj && raw.message) ||
     (typeof raw === 'string' && raw) ||
     fallbackMessage ||
     `HTTP ${status}`
   const retryAfter =
-    (typeof raw === 'object' && (raw.retryAfter ?? raw.retry_after)) || undefined
-  return new ApiError(code, message, status, { retryAfter, ...(typeof raw === 'object' ? raw : {}) })
+    (isObj && (raw.retryAfter ?? raw.retry_after)) || undefined
+  return new ApiError(code, message, status, { retryAfter, ...(isObj ? raw : {}) })
 }
 
 function httpErrorCode(status: number): string {
