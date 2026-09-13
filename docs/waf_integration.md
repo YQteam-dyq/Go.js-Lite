@@ -79,7 +79,19 @@ The WAF system intercepts all incoming requests and applies security checks in t
 3. Geographic blocking
 4. Attack pattern detection (SQL injection, XSS, command injection)
 
-### 3. Configuration Management
+When an IP matches the allowlist, all remaining checks are skipped for that request.
+
+### 3. Bypass and Exemption Mechanisms
+For operational flexibility, the WAF supports two controlled bypass mechanisms:
+
+- **`GOJS_SKIP_WAF`**: Define this constant before `gojs_init()` is invoked to
+  completely skip the WAF request check. Use this escape hatch in emergency
+  situations, CLI-only endpoints, or during maintenance.
+- **CLI contexts**: The WAF interceptor is automatically skipped when PHP is
+  running from the command line (`PHP_SAPI === 'cli'`), so cron scripts, tests,
+  and other CLI tools are not blocked.
+
+### 4. Configuration Management
 All WAF configurations are stored in JSON files within the `.gojs` directory:
 - Rules can be modified directly in the JSON files
 - Changes are applied immediately without requiring application restart

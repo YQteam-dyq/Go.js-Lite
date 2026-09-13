@@ -499,6 +499,41 @@ class WafTest extends TestCase
         $this->assertLessThan($dispatch, $interceptor, 'The WAF interceptor must run before request dispatch');
     }
 
+    public function testAllowlistedIpSkipsAllRemainingChecks()
+    {
+        $wafPath = realpath(__DIR__ . '/../backend/waf.php');
+        $this->assertNotFalse($wafPath);
+
+        gojs_waf_add_ip_rule($this->testCidr, 'allow');
+        gojs_waf_save_rules([
+            'sql_injection' => true,
+            'xss' => true,
+            'command_injection' => true
+        ]);
+        gojs_waf_add_geo_block($this->testCountry);
+
+        // Simulate that the country cache already resolved our test IP to the
+        // blocked country, then confirm the allowlist still bypasses everything.
+        gojs_waf_store_geo_cache($this->testIp, $this->testCountry);
+
+        $probe = 'define("ROOT", ' . var_export(dirname(__DIR__), true) . ');'
+            . 'define("CONFIG_DIR", ' . var_export(CONFIG_DIR, true) . ');'
+            . 'require ' . var_export($wafPath, true) . ';'
+            . '$_SERVER["REMOTE_ADDR"] = ' . var_export($this->testIp, true) . ';'
+            . '$_SERVER["REQUEST_URI"] = "/api/bootstrap";'
+            . '$_SERVER["REQUEST_METHOD"] = "GET";'
+            . '$_POST = array();'
+            . '$_GET = array("id" => "1 OR 1=1", "cmd" => "cat /etc/passwd", "xss" => "<script>alert(1)</script>");'
+            . 'gojs_waf_check_request();'
+            . 'echo "ALLOWED";';
+
+        $output = $this->runProbe($probe);
+        $this->assertSame('ALLOWED', $output);
+
+        gojs_waf_remove_ip_rule($this->testCidr);
+        gojs_waf_remove_geo_block($this->testCountry);
+    }
+
     private function runProbe($code)
     {
         $lines = array();
