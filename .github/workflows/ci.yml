@@ -5,6 +5,14 @@ on:
     branches: [ "**" ]
   pull_request:
 
+permissions:
+  contents: read
+  checks: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   php-lint:
     name: PHP Lint
@@ -25,6 +33,47 @@ jobs:
           php -l router.php
           php -l webcron.php
 
+  php74-guard:
+    name: PHP 7.4 Compat Guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: "7.4"
+          coverage: none
+
+      - name: Lint production sources with PHP 7.4
+        run: |
+          find backend -name '*.php' ! -name 'php_upgrade.php' -print0 | xargs -0 -n1 php -l
+          find apps -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l api.php
+          php -l router.php
+          php -l webcron.php
+
+      - name: Grep for PHP 8-only syntax
+        run: |
+          set -u
+          pattern='\bmatch\s*\(|\?->|#\[\s*[A-Za-z\\]|\benum\s+[A-Za-z_]|\breadonly\s+(public|protected|private|\$)|:\s*mixed\b|\bstr_contains\s*\(|\bstr_starts_with\s*\(|\bstr_ends_with\s*\('
+          status=0
+          for file in $(find backend apps -name '*.php' ! -name 'php_upgrade.php' -print) api.php router.php webcron.php; do
+            matches=$(grep -nP "$pattern" "$file" || true)
+            if [ -n "$matches" ]; then
+              while IFS= read -r line; do
+                number=${line%%:*}
+                text=${line#*:}
+                echo "::error file=${file},line=${number}::PHP 8-only syntax is not allowed on the PHP 7.4 target: ${text}"
+              done <<< "$matches"
+              status=1
+            fi
+          done
+          if [ "$status" = "0" ]; then
+            echo "No PHP 8-only syntax found, the tree stays compatible with PHP 7.4."
+          fi
+          exit $status
+
   phpunit:
     name: PHPUnit
     runs-on: ubuntu-latest
@@ -37,14 +86,7 @@ jobs:
           php-version: "8.4"
           tools: composer:v2
           coverage: none
-
-      - name: Cache Composer dependencies
-        uses: actions/cache@v3
-        with:
-          path: vendor
-          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-composer-
+          cache: composer
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
@@ -62,7 +104,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "npm"
+          cache: npm
 
       - name: Install dependencies
         run: npm ci
@@ -70,20 +112,72 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # An earlier comment claimed that eslint was not installed in this project. That
-      # reason was not accurate: eslint is already listed in devDependencies. The real
-      # cause was two configuration mistakes in .eslintrc.json, where the plugin prefix
-      # was missing from extends and the plugin name react-hooks was used as a rule name.
-      # Those mistakes made lint fail immediately, so the whole block used to be commented
-      # out.
-      #
-      # The configuration is fixed in this change. Some pre-existing issues remain in the
-      # code base (see the lint report), so lint currently runs in non-blocking mode and
-      # publishes the report on the pull request. Once the code is cleaned up, the
-      # continue-on-error switch should be removed and this step should become a real gate.
       - name: Lint
         continue-on-error: true
         run: npx eslint . --ext ts,tsx
 
       - name: Build
         run: npm run build
+
+  merge-gate:
+    name: Merge Gate
+    needs: [php-lint, php74-guard, phpunit, frontend]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce CI job results
+        run: |
+          set -u
+          status=0
+          for pair in "php-lint ${{ needs.php-lint.result }}" "php74-guard ${{ needs.php74-guard.result }}" "phpunit ${{ needs.phpunit.result }}" "frontend ${{ needs.frontend.result }}"; do
+            job=$(printf '%s' "$pair" | cut -d ' ' -f 1)
+            result=$(printf '%s' "$pair" | cut -d ' ' -f 2)
+            if [ "$result" != "success" ]; then
+              echo "::error::CI job ${job} finished with status ${result}."
+              status=1
+            fi
+          done
+          exit $status
+
+      - name: Wait for policy gates on the pull request
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          MAX_ATTEMPTS: 60
+          POLL_INTERVAL: 15
+        run: |
+          set -u
+          gate_names=("English Only" "PR Review")
+          for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
+            report=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" --paginate --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' 2>/dev/null || true)
+            pending=0
+            failed=0
+            for name in "${gate_names[@]}"; do
+              row=$(printf '%s\n' "$report" | awk -F '\t' -v n="$name" '$1 == n {last=$2 "\t" $3} END {print last}')
+              status=$(printf '%s' "$row" | cut -f 1)
+              conclusion=$(printf '%s' "$row" | cut -f 2)
+              if [ -z "$status" ]; then
+                echo "Gate ${name} has not reported yet."
+                pending=1
+              elif [ "$status" != "completed" ]; then
+                echo "Gate ${name} is ${status}."
+                pending=1
+              elif [ "$conclusion" != "success" ] && [ "$conclusion" != "skipped" ] && [ "$conclusion" != "neutral" ]; then
+                echo "::error::Gate ${name} finished with conclusion ${conclusion}."
+                failed=1
+              else
+                echo "Gate ${name} passed with conclusion ${conclusion}."
+              fi
+            done
+            if [ "$failed" = "1" ]; then
+              exit 1
+            fi
+            if [ "$pending" = "0" ]; then
+              echo "All policy gates passed."
+              exit 0
+            fi
+            sleep "$POLL_INTERVAL"
+          done
+          echo "::error::Timed out waiting for the policy gates after $((MAX_ATTEMPTS * POLL_INTERVAL)) seconds."
+          exit 1
