@@ -207,14 +207,31 @@ The frontend ships a service worker (`public/sw.js`) that precaches the applicat
 
 ### API Routes
 
-The panel accepts both API call shapes; pick whichever suits your client:
+The panel accepts both API call shapes:
 
 | Form | Example | Notes |
 |------|---------|-------|
-| Query form (default) | `/gojs/api?api=login` | The historical default used by the bundled frontend. |
-| Path form (alias) | `/gojs/api/login` | Recognised by `router.php` and `.htaccess`, dispatched to the same handler. |
+| Path form (recommended) | `/gojs/api/login` | The supported shape. `router.php` and `.htaccess` dispatch it. |
+| Query form (deprecated) | `/gojs/api?api=login` | The historical default, deprecated in 0.8.0 and removed in 1.0.0. Responses carry deprecation headers. |
 
-Both forms end up at the same `api.php` action handler — there is only one code path.
+Both forms end up at the same `api.php` action handler — there is only one code path. See [docs/deprecations.md](docs/deprecations.md) for the removal schedule.
+
+---
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [CHANGELOG.md](CHANGELOG.md) | Every release, with the breaking changes and the migration note for each one. |
+| [docs/api.md](docs/api.md) | The backend API reference: conventions, the endpoint overview table and a reference entry per endpoint. |
+| [docs/deprecations.md](docs/deprecations.md) | What is deprecated, how it is announced at runtime, and the 1.0.0 removal schedule. |
+| [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md) | Upgrading from the single-admin panel to multi-user. |
+| [docs/migration-0.8-to-0.9.md](docs/migration-0.8-to-0.9.md) | Upgrading to the hardened 0.9.0 release: uploads, session binding, backup verification and response headers. |
+| [docs/scheduled-tasks.md](docs/scheduled-tasks.md) | Running recurring work through the system crontab or, without shell access, through `webcron.php`. |
+| [docs/mfa.md](docs/mfa.md) | Per-user two-factor authentication: enrolment, the login challenge and recovery codes. |
+| [docs/database-query-builder.md](docs/database-query-builder.md) | Building and running queries from the panel, and what the preview endpoint actually does. |
+| [docs/waf_integration.md](docs/waf_integration.md) | The Web Application Firewall rules, modes and integration points. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow, the language policy and the gates a pull request has to pass. |
 
 ---
 
