@@ -35,6 +35,14 @@ Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, appr
 - Trash purge-all and other gated actions require a second admin when more than one admin exists; single-item trash purge stays un-gated.
 - `.user.ini` writes (JIT, include_path) are managed through `backend/php_ini.php` helpers.
 - `gojs_relative_path()` normalises directory separators, fixing Windows backslash leakage in file paths.
+- Frontend: every route is now loaded on demand through `React.lazy`, so the initial payload carries only the shell (React, router, query client, layout) instead of the whole application. Initial JS dropped from `330.55 KB` to `137.41 KB` gzip.
+- Frontend: the `icons` manual chunk was removed so `lucide-react` icons are tree-shaken into the route that uses them instead of being hoisted into one shared initial chunk.
+
+### Removed
+- Dead dependencies `recharts`, `date-fns`, `clsx` and `class-variance-authority`: none of them had a single import in `src/`, and charts are already served by the in-house `Sparkline` component. Removing them drops 37 packages from the lockfile.
+
+### Added
+- Bundle budget: `npm run size` prints a per-chunk gzip report for `dist/` and fails when the initial JS exceeds the `180 KB` gzip budget (`BUNDLE_BUDGET_KB` overrides it). `npm run size:report` prints the same report without failing and `npm run build:analyze` runs it right after a build. The budget is enforced in CI. See [docs/bundle-budget.md](docs/bundle-budget.md).
 
 ### Fixed
 - WebShell: API requests now use the `/gojs/api/webshell` base path, restoring command execution, history, clear-history and autocomplete.

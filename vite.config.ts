@@ -23,12 +23,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
+    reportCompressedSize: true,
+    chunkSizeWarningLimit: 300,
     rollupOptions: {
       output: {
         manualChunks: {
           vendor: ['react', 'react-dom', 'react-router-dom'],
           query: ['@tanstack/react-query'],
-          icons: ['lucide-react'],
         },
       },
     },
