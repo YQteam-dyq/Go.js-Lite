@@ -106,6 +106,10 @@ function gojs_init() {
         gojs_waf_enforce_request();
     }
 
+    if (function_exists('gojs_security_headers_apply_base')) {
+        gojs_security_headers_apply_base();
+    }
+
     if (!defined('GOJS_SKIP_DISPATCH') || !GOJS_SKIP_DISPATCH) {
         gojs_dispatch();
     }
@@ -186,22 +190,11 @@ function gojs_json_response($data = null, $error = null, $status_code = 200) {
     }
 
     if (!headers_sent()) {
-        $sent_headers = array_map(function ($h) {
-            $parts = explode(':', $h, 2);
-            return strtolower(trim($parts[0]));
-        }, headers_list());
-
         header('Content-Type: application/json; charset=utf-8');
         http_response_code($status_code);
 
-        if (!in_array('x-content-type-options', $sent_headers)) {
-            header('X-Content-Type-Options: nosniff');
-        }
-        if (!in_array('x-frame-options', $sent_headers)) {
-            header('X-Frame-Options: DENY');
-        }
-        if (!in_array('referrer-policy', $sent_headers)) {
-            header('Referrer-Policy: strict-origin-when-cross-origin');
+        if (function_exists('gojs_security_headers_apply')) {
+            gojs_security_headers_apply('api');
         }
     }
 
@@ -408,7 +401,7 @@ function gojs_acl_route_precheck($api, $method) {
             if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
         } elseif (strpos($api, 'tokens') === 0) {
             if (gojs_role_rank($role) < gojs_role_rank('operator')) $deny = true;
-        } elseif (strpos($api, 'devices') === 0) {
+        } elseif (strpos($api, 'devices') === 0 || $api === 'session-fingerprint') {
 
         } elseif (strpos($api, 'notification-preferences') === 0) {
 
@@ -571,6 +564,9 @@ function gojs_build_router() {
     $r->add($any, 'backup/download', function () { gojs_api_backup_download(); });
     $r->add('POST', 'backup/delete', function () { gojs_api_backup_delete(); });
     $r->add('POST', 'backup/restore', function () { gojs_api_backup_restore(); });
+    $r->add(array('GET', 'POST'), 'session-fingerprint', function () { gojs_api_session_fingerprint(); });
+    $r->add(array('GET', 'POST'), 'backup/verify', function () { gojs_api_backup_verify(); });
+    $r->add(array('GET', 'POST'), 'backup/precheck', function () { gojs_api_backup_precheck(); });
     $r->add('GET', 'trash', function () { gojs_api_trash_list(); });
     $r->add('POST', 'trash/restore', function () { gojs_api_trash_restore(); });
     $r->add('POST', 'trash/purge', function () { gojs_api_trash_purge(); });
@@ -638,6 +634,8 @@ function gojs_build_router() {
         if ($m === 'GET') { gojs_json_response(gojs_secscan_backend(false)); }
         else { gojs_json_response(gojs_secscan_backend(true)); }
     });
+
+    $r->add('GET', 'security/headers', function () { gojs_api_security_headers(); });
 
     $r->add('GET', 'ftp/capabilities', function () { gojs_api_ftp_capabilities(); });
     $r->add(array('GET', 'POST'), 'ftp/accounts', function ($m) {
