@@ -52,6 +52,7 @@ require_once __DIR__ . '/appstore.php';
 require_once __DIR__ . '/share.php';
 require_once __DIR__ . '/dirprotect.php';
 require_once __DIR__ . '/waf.php';
+require_once __DIR__ . '/security_headers.php';
 require_once __DIR__ . '/json_helpers.php';
 require_once __DIR__ . '/monitor_helper.php';
 require_once __DIR__ . '/webshell.php';
