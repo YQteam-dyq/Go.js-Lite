@@ -20,6 +20,9 @@
     "prepare": "husky install",
     "version:check": "node scripts/version-check.mjs",
     "version:bump": "node scripts/version-bump.mjs",
+    "size": "node scripts/bundle-report.mjs",
+    "size:report": "node scripts/bundle-report.mjs --warn",
+    "build:analyze": "npm run build && npm run size:report",
     "validate": "npm run version:check && npm run typecheck && npm run lint && npm run format:check"
   },
   "dependencies": {
@@ -27,14 +30,10 @@
     "@xterm/addon-fit": "^0.11.0",
     "@xterm/addon-web-links": "^0.12.0",
     "@xterm/xterm": "^6.0.0",
-    "class-variance-authority": "^0.7.0",
-    "clsx": "^2.1.1",
-    "date-fns": "^3.6.0",
     "lucide-react": "^0.454.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^6.27.0",
-    "recharts": "^2.12.7",
     "zustand": "^5.0.1"
   },
   "devDependencies": {
