@@ -16,6 +16,7 @@ import { Card, CardBody, CardHeader } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
 import { Skeleton, SkeletonCard } from '@/components/ui/Skeleton'
+import { StorageMeter } from '@/components/disk/StorageMeter'
 import { diskAnalysisApi } from '@/api/diskAnalysis'
 import { useFormat } from '@/lib/format'
 import { useI18n } from '@/hooks/useI18n'
@@ -166,18 +167,12 @@ export default function DiskAnalysis() {
                 color="success"
               />
             </div>
-            <div className="space-y-1.5">
-              <div className="flex justify-between text-sm">
-                <span className="text-fg-muted">{t('diskAnalysis.usage')}</span>
-                <span className="text-fg font-medium">{usagePercent.toFixed(1)}%</span>
-              </div>
-              <div className="h-2.5 bg-bg-sunken rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-accent rounded-full transition-all duration-500"
-                  style={{ width: `${Math.min(usagePercent, 100)}%` }}
-                />
-              </div>
-            </div>
+            <StorageMeter
+              used={diskUsed}
+              total={diskTotal}
+              free={diskFree}
+              label={t('diskAnalysis.usage')}
+            />
           </CardBody>
         </Card>
       ) : null}
