@@ -3,7 +3,64 @@
 > Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 > Project language policy: this file is **English only** starting from v0.3.1; Chinese is no longer maintained here.
 
-## [0.8.0] - Unreleased
+## [0.9.0] - Unreleased
+
+Hardening for uploads, sessions, response headers and backup archives, alongside frontend performance, offline and accessibility work. No surface is removed in this release: the two deprecated surfaces below keep working and are scheduled for removal in 1.0.0.
+
+### Added
+- Frontend: every route component is loaded through a Vite dynamic `import()` wrapped in `React.lazy` with a shared `Suspense` fallback, and `manualChunks` isolates the heavy route-only dependencies, so the first paint downloads only the module that belongs to the opened route instead of the whole application bundle.
+- Frontend: directory listings render through a windowed list that mounts only the visible rows plus an overscan band, and falls back to the plain DOM below the windowing threshold so find-in-page, text selection and tab order are unaffected for ordinary directories. The window follows the scroll offset through `requestAnimationFrame` and the viewport through `ResizeObserver`, and the grid derives its column count from the measured width. Delete, rename and chmod patch the query cache instead of refetching the whole directory.
+- Frontend: offline shell - a service worker, a web manifest and an offline fallback page keep the panel shell loading without a network. Push support is detected before it is used and every failure path returns a typed reason (`unsupported`, `insecure_context`, `no_service_worker`, `no_push_manager`, `permission_denied`, `subscribe_failed`, `no_application_server_key`), so the notification settings explain the state instead of rendering a broken control. The application server key is read from the environment and the service worker is only registered in production builds.
+- Frontend: a public `/status` page that keeps working without a session and degrades to the data it can read, with the overall verdict derived from the health summary and the disk usage, plus an accessible storage meter (`role="progressbar"` with `aria-valuetext`) that the disk analysis page reuses.
+- Frontend: a Cmd+K command palette driven by the same navigation model as the sidebar, a focus trap and an accessible name for the modal, and the navigation items moved into one data source.
+- Tests: the Vitest + jsdom foundation with a v8 coverage threshold of 70% statements, branches, functions and lines over `src/api/client.ts`, `src/hooks/useI18n.ts`, `src/i18n`, `src/lib`, `src/stores/authStore.ts` and `shared/version.ts`.
+- CI: the unit test, English-only and review gates are aggregated behind a single `Merge Gate` required status check, and a new `PHP 7.4 Compat Guard` job lints the production sources with PHP 7.4 itself and greps them for PHP 8-only syntax.
+- Docs: operator guides for [scheduled tasks](docs/scheduled-tasks.md), [two-factor authentication](docs/mfa.md) and the [database query builder](docs/database-query-builder.md), and the API reference now carries reference entries for most of the endpoints that shipped in 0.8.0 without one.
+
+### Security
+- Upload guard: `backend/upload_guard.php` centralises upload validation and runs it from both `upload` and `upload-chunk` — bypass-resistant extension checks (`photo.php.jpg`, `payload.php.`, `payload.php `, `payload.ph%70`), reserved server configuration names (`.htaccess`, `.user.ini`, `php.ini`, `.env`, `web.config`), file name length limits, optional allow list mode, content sniffing against the declared type (`finfo` with a magic-byte fallback) and active content detection (SVG scripts, event handlers, frames, external entities, meta refresh, polyglot images). `GET|POST /api/upload-guard` returns the active policy and can inspect a single path.
+- Security: `backend/security_headers.php` centralises the response header policy and emits it on every response - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `X-Permitted-Cross-Domain-Policies`, `Strict-Transport-Security` over HTTPS, plus a context-aware `Content-Security-Policy` (a locked-down policy for API and download responses, and a self-only policy for rendered pages). Overridable per deployment through `config.php`. Inspect it with `GET /api/security/headers`.
+- Backup integrity: `backup/create` writes a `manifest.json` entry into the archive that records the size and SHA-256 of every other entry plus a digest over that list, so the manifest itself is tamper evident, and writes the SHA-256 of the finished archive to `<filename>.sha256` next to it (also returned as `sha256`). `backup/verify` recomputes every entry hash, compares the entry list with the manifest and reports `mismatched`, `missing` and `extra` entries; `backup/precheck` then checks the restore target (the `backup.json` metadata entry, parent directory segments in entry names, files root availability and writability, and free space against the uncompressed footprint). Archives written before this release are reported with a `legacy` flag.
+- Session fingerprint: every authenticated request derives a fingerprint from the client signals and a random per-session salt and compares it with the binding stored in the session. The binding is issued on the first authenticated request and the salt is re-issued after `rotate_seconds` (900 by default), so a fingerprint derived from an old salt stops being useful. A mismatched request is rejected with `401` and `error.code = "session_fingerprint_mismatch"` and the session is destroyed; the mismatch counter and timestamp stay for the audit trail. `GET|POST /api/session-fingerprint` reports the binding state or rotates it on demand.
+
+### Deprecated
+- Deprecated: the `?api=<action>` query form now answers with `Deprecation`, `Sunset`, `Link ... rel="deprecation"` and `X-Gojs-Deprecations` headers and is scheduled for removal in 1.0.0.
+- Deprecated: the legacy access token (`?token=`, `X-Access-Token`, `POST /api/regenerate-access-token`) now answers with the same deprecation headers and `deprecated` / `removeIn` / `replacement` fields, and is scheduled for removal in 1.0.0.
+- This release is the **warn** milestone of the schedule in [docs/deprecations.md](docs/deprecations.md): the deprecated surfaces keep working, are frozen in 0.9.9 and are removed in 1.0.0. Whether a caller is affected can be checked from the response headers alone; see the section "How to check whether you are affected" in that document.
+
+### Changed
+- Version: `version.json` is now the single source of truth. `api.php` and `tests/bootstrap.php` derive `VERSION` / `APP_VERSION` from it through `gojs_version()`, `shared/version.ts` imports it, and `package.json` / `package-lock.json` are kept in sync by `npm run version:bump` and verified by `npm run version:check`.
+- `GET /api/bootstrap` returns a `deprecations` object with the full registry.
+- The removal schedule lives in `docs/deprecations.md`.
+- Dependencies: xterm is unified on the `@xterm/xterm@6` generation that the Web Shell actually imports, and the unused legacy v5 packages, `socket.io-client` and `react-hook-form` were removed.
+
+### Breaking
+- Uploads are validated on the server before the file is written. Names that rely on a trailing dot, a trailing space, a semicolon or a zero-width character to smuggle an executable extension, and content that does not match its declared type, are now rejected instead of stored. Deployments that intentionally upload such names need an explicit `allowed_extensions` policy or the guard relaxed in `config.php`.
+- An authenticated session is bound to the client signals it was created with and the binding rotates while the session is live. A request from a different network or browser is rejected with `401 session_fingerprint_mismatch` and the session is destroyed, so long-lived sessions that legitimately move between networks have to sign in again.
+- Restoring a backup runs verification first. Archives written before 0.9.0 are flagged `legacy` and a mismatch is reported instead of being extracted over the files root.
+- Every response now carries the header policy in `backend/security_headers.php`, including a `Content-Security-Policy`. Rendered pages get a self-only policy; a page that relies on inline script or on remote origins must be adjusted or the policy overridden through `security_headers.csp` in `config.php`.
+
+### Migration (0.8 → 0.9)
+See [docs/migration-0.8-to-0.9.md](docs/migration-0.8-to-0.9.md).
+
+## [0.8.1] - 2026-09-14
+
+Patch release that stabilises the 0.8.0 feature drop. These entries were listed under 0.8.0 until this release; the 0.8.1 tag is the release that shipped them.
+
+### Fixed
+- WebShell: API requests now use the `/gojs/api/webshell` base path, restoring command execution, history, clear-history and autocomplete.
+- API client: `buildApiError` no longer crashes when the backend returns an empty error body.
+- i18n: added the missing `nav.webshell`, `nav.websiteMonitor` and `nav.customErrorPages` keys to the Chinese and English locales.
+- Versioning: the backend `VERSION` / `APP_VERSION` (and `tests/bootstrap.php`) now match the frontend `0.8.0`.
+
+### UX
+- System info and WebShell failures now show readable, localized messages instead of raw exception text.
+- WebShell history shows an explicit failure state with a retry action instead of a silent empty list.
+- File deletion confirmation now states that files are moved to the trash and can be restored.
+- Backup deletion now requires typing the backup filename to confirm, and states that the file is permanently removed.
+- Settings shows a warning when the frontend and backend versions differ.
+
+## [0.8.0] - 2026-09-13
 
 Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, approvals and a PHP toolchain. Multi-user is a **collaboration tool, not multi-tenancy** — deploy one instance per customer.
 
@@ -23,33 +80,13 @@ Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, appr
 - Frontend pages: Users, Sessions, User Activity, Profile, Groups, API Tokens, Invitations, Devices, Notification Preferences, Approvals, Composer, OPcache, PHP Extensions, PHP Errors, PHP-FPM, PHP Benchmark, PHP Config/JIT, PHP Processes, PHP Upgrade.
 - Composer integration: `backend/autoload.php` transparently requires `vendor/autoload.php` when present.
 - Tests: 314 PHPUnit tests (from 106) covering users, ACL, sessions, quotas, groups, tokens, invitations, devices, exports, notification preferences, approvals, permissions boost, the PHP toolchain and audit aggregation.
-- Upload guard: `backend/upload_guard.php` centralises upload validation and runs it from both `upload` and `upload-chunk` — bypass-resistant extension checks (`photo.php.jpg`, `payload.php.`, `payload.php `, `payload.ph%70`), reserved server configuration names (`.htaccess`, `.user.ini`, `php.ini`, `.env`, `web.config`), file name length limits, optional allow list mode, content sniffing against the declared type (`finfo` with a magic-byte fallback) and active content detection (SVG scripts, event handlers, frames, external entities, meta refresh, polyglot images). `GET|POST /api/upload-guard` returns the active policy and can inspect a single path.
-- Security: `backend/security_headers.php` centralises the response header policy and emits it on every response - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `X-Permitted-Cross-Domain-Policies`, `Strict-Transport-Security` over HTTPS, plus a context-aware `Content-Security-Policy` (a locked-down policy for API and download responses, and a self-only policy for rendered pages). Overridable per deployment through `config.php`. Inspect it with `GET /api/security/headers`.
 
 ### Changed
-- Version: `version.json` is now the single source of truth. `api.php` and `tests/bootstrap.php` derive `VERSION` / `APP_VERSION` from it through `gojs_version()`, `shared/version.ts` imports it, and `package.json` / `package-lock.json` are kept in sync by `npm run version:bump` and verified by `npm run version:check`.
-- Deprecated: the `?api=<action>` query form now answers with `Deprecation`, `Sunset`, `Link ... rel="deprecation"` and `X-Gojs-Deprecations` headers and is scheduled for removal in 1.0.0.
-- Deprecated: the legacy access token (`?token=`, `X-Access-Token`, `POST /api/regenerate-access-token`) now answers with the same deprecation headers and `deprecated` / `removeIn` / `replacement` fields, and is scheduled for removal in 1.0.0.
-- `GET /api/bootstrap` returns a `deprecations` object with the full registry.
-- The removal schedule lives in `docs/deprecations.md`.
 - Audit log rows carry `user_id` (`gojs_log_operation`); the legacy access-token URL logs `token_login` and binds the session to the real admin user id.
 - TOTP secrets and recovery codes live in the per-user record (`users.json`) instead of `config.php`, with a one-time migration from the legacy global config.
 - Trash purge-all and other gated actions require a second admin when more than one admin exists; single-item trash purge stays un-gated.
 - `.user.ini` writes (JIT, include_path) are managed through `backend/php_ini.php` helpers.
 - `gojs_relative_path()` normalises directory separators, fixing Windows backslash leakage in file paths.
-
-### Fixed
-- WebShell: API requests now use the `/gojs/api/webshell` base path, restoring command execution, history, clear-history and autocomplete.
-- API client: `buildApiError` no longer crashes when the backend returns an empty error body.
-- i18n: added the missing `nav.webshell`, `nav.websiteMonitor` and `nav.customErrorPages` keys to the Chinese and English locales.
-- Versioning: the backend `VERSION` / `APP_VERSION` (and `tests/bootstrap.php`) now match the frontend `0.8.0`.
-
-### UX
-- System info and WebShell failures now show readable, localized messages instead of raw exception text.
-- WebShell history shows an explicit failure state with a retry action instead of a silent empty list.
-- File deletion confirmation now states that files are moved to the trash and can be restored.
-- Backup deletion now requires typing the backup filename to confirm, and states that the file is permanently removed.
-- Settings shows a warning when the frontend and backend versions differ.
 
 ### Breaking
 - Login is now username + password against `users.json`; the legacy admin-password-only login flow is replaced (the access-token URL keeps working for admins during the 0.8 compatibility window and is scheduled for removal in 1.0).
