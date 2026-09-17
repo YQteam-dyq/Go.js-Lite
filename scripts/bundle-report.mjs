@@ -3,9 +3,18 @@ import { dirname, resolve, join, relative } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
 const root = process.cwd()
+
+function print(line) {
+  process.stdout.write((line === undefined ? '' : String(line)) + '\n')
+}
+
+function printError(line) {
+  process.stderr.write(String(line) + '\n')
+}
+
 const dirIndex = process.argv.indexOf('--dir')
 if (dirIndex !== -1 && !process.argv[dirIndex + 1]) {
-  console.error('Usage error: --dir requires a non-empty path')
+  printError('Usage error: --dir requires a non-empty path')
   process.exit(1)
 }
 const distDir = resolve(root, dirIndex !== -1 ? process.argv[dirIndex + 1] : 'dist')
@@ -14,7 +23,7 @@ const budgetBytes = Math.round(budgetKb * 1024)
 const strict = !process.argv.includes('--warn')
 
 if (!existsSync(distDir)) {
-  console.error('Bundle report: dist directory not found at ' + distDir)
+  printError('Bundle report: dist directory not found at ' + distDir)
   process.exit(1)
 }
 
@@ -85,7 +94,7 @@ function collectClosure(entries) {
 
 const indexPath = join(distDir, 'index.html')
 if (!existsSync(indexPath)) {
-  console.error('Bundle report: index.html not found in ' + distDir)
+  printError('Bundle report: index.html not found in ' + distDir)
   process.exit(1)
 }
 
@@ -153,19 +162,19 @@ const initialTotal = initialJsBytes + initialCssBytes
 
 function printTable(title, items) {
   if (items.length === 0) return
-  console.log('')
-  console.log(title)
+  print('')
+  print(title)
   for (const item of items) {
-    console.log('  ' + formatKb(item.gzip).padStart(9) + ' KB gz  ' + formatKb(item.raw).padStart(10) + ' KB raw  ' + item.name)
+    print('  ' + formatKb(item.gzip).padStart(9) + ' KB gz  ' + formatKb(item.raw).padStart(10) + ' KB raw  ' + item.name)
   }
 }
 
-console.log('Bundle report for ' + toPosix(relative(root, distDir) || 'dist'))
-console.log('')
-console.log('  Initial JS   ' + formatKb(initialJsBytes) + ' KB gzip (' + initialJsStats.length + ' file(s), budget ' + budgetKb + ' KB)')
-console.log('  Initial CSS  ' + formatKb(initialCssBytes) + ' KB gzip (' + initialCssStats.length + ' file(s))')
-console.log('  Initial total ' + formatKb(initialTotal) + ' KB gzip')
-console.log('  Lazy chunks  ' + formatKb(sum(lazyStats)) + ' KB gzip (' + lazyStats.length + ' file(s))')
+print('Bundle report for ' + toPosix(relative(root, distDir) || 'dist'))
+print('')
+print('  Initial JS   ' + formatKb(initialJsBytes) + ' KB gzip (' + initialJsStats.length + ' file(s), budget ' + budgetKb + ' KB)')
+print('  Initial CSS  ' + formatKb(initialCssBytes) + ' KB gzip (' + initialCssStats.length + ' file(s))')
+print('  Initial total ' + formatKb(initialTotal) + ' KB gzip')
+print('  Lazy chunks  ' + formatKb(sum(lazyStats)) + ' KB gzip (' + lazyStats.length + ' file(s))')
 
 printTable('Initial JS chunks (counted against the budget):', initialJsStats)
 printTable('Initial CSS:', initialCssStats)
@@ -191,12 +200,12 @@ const report = {
 
 writeFileSync(join(distDir, 'bundle-report.json'), JSON.stringify(report, null, 2) + '\n')
 
-console.log('')
+print('')
 if (initialJsBytes <= budgetBytes) {
-  console.log('Budget OK: initial JS ' + formatKb(initialJsBytes) + ' KB gzip is within ' + budgetKb + ' KB.')
+  print('Budget OK: initial JS ' + formatKb(initialJsBytes) + ' KB gzip is within ' + budgetKb + ' KB.')
   process.exit(0)
 }
 
 const over = formatKb(initialJsBytes - budgetBytes)
-console.error('Budget exceeded: initial JS is ' + formatKb(initialJsBytes) + ' KB gzip, ' + over + ' KB over the ' + budgetKb + ' KB budget.')
+printError('Budget exceeded: initial JS is ' + formatKb(initialJsBytes) + ' KB gzip, ' + over + ' KB over the ' + budgetKb + ' KB budget.')
 process.exit(strict ? 1 : 0)
