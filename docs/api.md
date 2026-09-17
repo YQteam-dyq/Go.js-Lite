@@ -184,6 +184,8 @@ Notes:
 | Backup | `backup/download` | GET/POST | Download a backup |
 | Backup | `backup/delete` | POST | Delete a backup |
 | Backup | `backup/restore` | POST | Restore a backup |
+| Backup | `backup/verify` | GET/POST | Verify a backup against its integrity manifest |
+| Backup | `backup/precheck` | GET/POST | Restore precheck for a backup |
 | Backup Destination | `backup/destinations` | GET/POST | Destination list / create |
 | Backup Destination | `backup/destinations/{id}` | PUT/DELETE | Update / delete destination |
 | Backup Destination | `backup/destinations/test` | POST | Test destination |
@@ -598,7 +600,8 @@ First-time installation.
 #### `backup/create` (POST)
 
 - Parameters: `include_files`, `include_db`, `include_config`, `exclude_dirs` (array).
-- Returns `data`: `{ "filename", "size", "metadata" }`.
+- Returns `data`: `{ "filename", "size", "sha256", "metadata" }`.
+- Every archive carries a `manifest.json` entry that records the size and the SHA-256 of every other entry, plus a digest over that list. The archive SHA-256 is written to `<filename>.sha256` next to the archive.
 
 #### `backup/list` (GET/POST)
 
@@ -616,8 +619,23 @@ First-time installation.
 
 #### `backup/restore` (POST)
 
-- Parameters: `filename`.
+- Parameters: `filename`, `strict` (optional), `force` (optional).
+- Runs the restore precheck first. When the precheck fails the endpoint answers `409` with `error.code = "restore_precheck_failed"` and the full precheck report in `error.precheck`, and nothing is written.
+- `force` skips the precheck, and `strict` makes a missing integrity manifest an error instead of a warning.
 - Returns `data`: `{ "success": true }`.
+
+#### `backup/verify` (GET / POST)
+
+- Parameters: `filename`.
+- Recomputes every entry hash from the archive and compares it with `manifest.json`, then compares the archive SHA-256 with the `<filename>.sha256` sidecar when one exists.
+- Returns `data`: `{ "filename", "ok", "legacy", "code", "message", "entry_count", "entries_checked", "mismatched", "missing", "extra", "archive_sha256", "expected_archive_sha256" }`.
+- `code` is one of `ok`, `manifest_missing` (an archive written before this feature, `legacy` is true), `manifest_invalid`, `manifest_mismatch`, `entry_mismatch`, `entry_missing`, `entry_untracked`, `archive_hash_mismatch`, `invalid_filename`, `not_found`, `zip_unavailable`, `zip_open_failed`.
+
+#### `backup/precheck` (GET / POST)
+
+- Parameters: `filename`, `strict` (optional).
+- Runs `backup/verify` and then checks the restore target: metadata entry present, no parent directory segments, files root available and writable, free space against the uncompressed footprint, and whether the database dumps map to a configured connection.
+- Returns `data`: `{ "filename", "ok", "code", "message", "strict", "errors", "warnings", "verification", "stats", "free_space", "required_bytes", "known_databases" }`.
 
 #### `backup/destinations` (GET / POST)
 
