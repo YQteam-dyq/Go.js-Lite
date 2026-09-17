@@ -1,4 +1,5 @@
-import { useUiStore } from '@/stores/uiStore'
+import { useMemo } from 'react'
+import { selectLanguage, useUiStore } from '@/stores/uiStore'
 import { useI18n } from '@/hooks/useI18n'
 
 export function formatBytes(bytes: number, decimals = 1): string {
@@ -103,17 +104,20 @@ export function formatDuration(seconds: number): string {
 }
 
 export function useFormat() {
-  const language = useUiStore((s) => s.language)
+  const language = useUiStore(selectLanguage)
   const { t } = useI18n()
 
-  return {
-    formatDate: (ts: number) => formatDate(ts, language),
-    formatDateShort: (ts: number) => formatDateShort(ts, language),
-    formatRelativeTime: (ts: number) => formatRelativeTime(ts, language, t),
-    formatNumber: (n: number) => formatNumber(n, language),
-    formatDuration: (s: number) => formatDuration(s),
-    formatBytes,
-  }
+  return useMemo(
+    () => ({
+      formatDate: (ts: number) => formatDate(ts, language),
+      formatDateShort: (ts: number) => formatDateShort(ts, language),
+      formatRelativeTime: (ts: number) => formatRelativeTime(ts, language, t),
+      formatNumber: (n: number) => formatNumber(n, language),
+      formatDuration: (s: number) => formatDuration(s),
+      formatBytes,
+    }),
+    [language, t],
+  )
 }
 
 export function truncate(str: string, maxLen: number): string {

@@ -1,19 +1,27 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { ThemeMode, Language } from '@shared/types'
-
-function getInitialLanguage(): Language {
-  if (typeof navigator === 'undefined') return 'zh'
-  const lang = navigator.language
-  if (lang.startsWith('zh')) return 'zh'
-  return 'en'
-}
+import {
+  UI_STORAGE_KEY,
+  detectBrowserLanguage,
+  normalizeLanguage,
+  normalizeSelection,
+  normalizeTheme,
+  readStorageItem,
+  sameSelection,
+  writeStorageItem,
+} from '@/lib/storage'
 
 const SIDEBAR_COLLAPSED_KEY = 'gojs_sidebar_collapsed'
 
+const EMPTY_SELECTION: Set<string> = new Set<string>()
+
 function getInitialSidebarCollapsed(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === '1'
+  return readStorageItem(SIDEBAR_COLLAPSED_KEY) === '1'
+}
+
+function persistSidebarCollapsed(collapsed: boolean): void {
+  writeStorageItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
 }
 
 interface UiState {
@@ -53,38 +61,44 @@ export const useUiStore = create<UiState>()(
   persist(
     (set, get) => ({
       theme: 'system',
-      language: getInitialLanguage(),
+      language: detectBrowserLanguage(),
       sidebarOpen: true,
       sidebarCollapsed: getInitialSidebarCollapsed(),
-      multiSelection: new Set(),
+      multiSelection: EMPTY_SELECTION,
       toasts: [],
 
-      setTheme: (theme) => set({ theme }),
-      setLanguage: (language) => set({ language }),
+      setTheme: (theme) => set({ theme: normalizeTheme(theme) }),
+      setLanguage: (language) => set({ language: normalizeLanguage(language) }),
       toggleSidebar: () => set({ sidebarOpen: !get().sidebarOpen }),
       setSidebar: (open) => set({ sidebarOpen: open }),
       toggleSidebarCollapsed: () => {
         const next = !get().sidebarCollapsed
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, next ? '1' : '0')
-        }
+        persistSidebarCollapsed(next)
         set({ sidebarCollapsed: next })
       },
       setSidebarCollapsed: (collapsed) => {
-        if (typeof localStorage !== 'undefined') {
-          localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? '1' : '0')
-        }
+        persistSidebarCollapsed(collapsed)
         set({ sidebarCollapsed: collapsed })
       },
 
       toggleSelection: (path) => {
-        const next = new Set(get().multiSelection)
+        if (typeof path !== 'string' || path.length === 0) return
+        const current = get().multiSelection
+        const next = new Set(current)
         if (next.has(path)) next.delete(path)
         else next.add(path)
-        set({ multiSelection: next })
+        set({ multiSelection: next.size === 0 ? EMPTY_SELECTION : next })
       },
-      clearSelection: () => set({ multiSelection: new Set() }),
-      setSelection: (paths) => set({ multiSelection: new Set(paths) }),
+      clearSelection: () => {
+        if (get().multiSelection.size === 0) return
+        set({ multiSelection: EMPTY_SELECTION })
+      },
+      setSelection: (paths) => {
+        const next = normalizeSelection(paths)
+        const current = get().multiSelection
+        if (sameSelection(current, next)) return
+        set({ multiSelection: next.size === 0 ? EMPTY_SELECTION : next })
+      },
 
       addToast: (toast) => {
         const id = `toast-${++toastId}`
@@ -94,21 +108,40 @@ export const useUiStore = create<UiState>()(
         })
         if (duration > 0) {
           setTimeout(() => {
-            set({ toasts: get().toasts.filter((t) => t.id !== id) })
+            get().removeToast(id)
           }, duration)
         }
         return id
       },
       removeToast: (id) => {
-        set({ toasts: get().toasts.filter((t) => t.id !== id) })
+        const current = get().toasts
+        if (!current.some((t) => t.id === id)) return
+        set({ toasts: current.filter((t) => t.id !== id) })
       },
     }),
     {
-      name: 'gojs-ui',
+      name: UI_STORAGE_KEY,
+      version: 1,
       partialize: (state) => ({
         theme: state.theme,
         language: state.language,
       }),
+      merge: (persisted, current) => {
+        const stored = (persisted ?? {}) as Partial<UiState>
+        return {
+          ...current,
+          theme: normalizeTheme(stored.theme, current.theme),
+          language: normalizeLanguage(stored.language, current.language),
+        }
+      },
     },
   ),
 )
+
+export const selectTheme = (state: UiState): ThemeMode => state.theme
+export const selectLanguage = (state: UiState): Language => state.language
+export const selectMultiSelection = (state: UiState): Set<string> => state.multiSelection
+export const selectSelectedCount = (state: UiState): number => state.multiSelection.size
+export const selectToasts = (state: UiState): ToastItem[] => state.toasts
+
+export const EMPTY_MULTI_SELECTION = EMPTY_SELECTION
