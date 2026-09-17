@@ -145,6 +145,7 @@ Notes:
 | Files | `file-untargz` | POST | Extract tar.gz |
 | Files | `upload` | POST | Upload files |
 | Files | `upload-chunk` | POST | Chunked upload |
+| Files | `upload-guard` | GET/POST | Upload policy and content inspection |
 | Files | `download` | GET/POST | Download a file |
 | Trash | `trash` | GET | Trash list |
 | Trash | `trash/restore` | POST | Restore a file |
@@ -422,11 +423,47 @@ First-time installation.
 
 - Form fields: `target` (target directory), `files` (file array, or `file` for a single file).
 - Returns `data`: `{ "success": true, "files": [{ "name", "size" }], "errors": [...] }`.
+- Every file passes the upload guard before it is written and again after it lands on disk. Rejected files appear in `data.errors[]` with `name`, `error`, `code` and `reason`; see [Upload rejection reasons](#upload-rejection-reasons).
 
 #### `upload-chunk` (POST)
 
 - Parameters (JSON body): `chunk` (base64), `chunkIndex`, `totalChunks`, `fileName`, `target`, `uploadId`.
 - Returns `data`: `{ "success": true, "merged": bool, "progress": "n/total", "received", "totalChunks" }`.
+- The merged file is inspected with the same policy as `upload`; a rejection answers `400` with `error.code`, `error.reason` and `error.details`.
+
+#### `upload-guard` (GET/POST)
+
+- Returns `data`: `{ "success": true, "policy": { ... } }`.
+- `policy.enforce`: whether the guard is blocking requests.
+- `policy.sniff`: whether content sniffing is enabled.
+- `policy.block_active_content`: whether active markup (scripts, event handlers, frames) is rejected.
+- `policy.block_php_payload`: whether server-side script tags are rejected.
+- `policy.allow_active_svg`: whether SVG files may carry active content.
+- `policy.max_filename_bytes`: maximum accepted file name length in bytes.
+- `policy.max_scan_bytes`: content scan ceiling, `0` scans the whole file.
+- `policy.blocked_extensions`: extensions that are always rejected, including nested segments such as `photo.php.jpg`.
+- `policy.allowed_extensions`: when non-empty this list becomes the primary gate and everything else is rejected.
+- `policy.protected_names`: server configuration file names that cannot be uploaded.
+- `policy.php_payload_exempt_extensions`: extensions that keep the legacy exemption for embedded script tags.
+- `policy.sniff_available`: whether `finfo` or `mime_content_type` is available on this host.
+- Optional parameter `path` inspects one existing file and adds `data.inspection` (`ok`, `code`, `message`, `details`).
+
+#### Upload rejection reasons
+
+Both upload endpoints share one policy. A rejected file reports `error.code` (or `errors[].code`) as one of:
+
+- `blocked_extension`: the extension chain resolves to a server-executable extension such as `php`, `phtml`, `phar` or `pht`.
+- `protected_name`: the name is reserved by the server configuration (`.htaccess`, `.htpasswd`, `.user.ini`, `php.ini`, `.env`, `web.config`).
+- `extension_not_allowed`: an allow list is configured and the extension is not part of it.
+- `filename_too_long`: the normalised name exceeds `max_filename_bytes`.
+- `invalid_name`: the name becomes empty after normalisation.
+- `php_payload`: the content carries server-side script tags that do not match the extension.
+- `type_spoof`: the detected content type contradicts the extension.
+- `active_svg`: the SVG carries scripts, event handlers, frames or external entities.
+- `active_content`: non-SVG content carries active markup.
+- `unreadable`: the file could not be read for inspection.
+
+The name checks run before the file is written, so `blocked_extension`, `protected_name`, `extension_not_allowed`, `filename_too_long` and `invalid_name` never leave a file on disk.
 
 #### `download` (GET/POST)
 

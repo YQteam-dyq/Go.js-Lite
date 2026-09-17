@@ -1755,6 +1755,16 @@ function gojs_api_upload() {
             continue;
         }
 
+        $guard_name = gojs_upload_guard_check_name($basename);
+        if (empty($guard_name['ok'])) {
+            $errors[] = array(
+                'name' => $file['name'],
+                'error' => $guard_name['message'],
+                'code' => $guard_name['code'],
+            );
+            continue;
+        }
+
         if ($max_upload > 0 && $file['size'] > $max_upload) {
             $errors[] = array(
                 'name' => $file['name'],
@@ -1787,11 +1797,15 @@ function gojs_api_upload() {
             continue;
         }
 
-        if (gojs_detect_php_magic($final_path, $basename)) {
+        $guard_content = gojs_upload_guard_check_file($final_path, $basename);
+        if (empty($guard_content['ok'])) {
             @unlink($final_path);
+            $guard_reason = isset($guard_content['code']) ? $guard_content['code'] : 'upload_rejected';
             $errors[] = array(
                 'name' => $file['name'],
-                'error' => '文件内容疑似脚本伪装，已拒绝',
+                'error' => $guard_content['message'],
+                'code' => $guard_reason === 'php_payload' ? 'php_magic_detected' : $guard_reason,
+                'reason' => $guard_reason,
             );
             continue;
         }
@@ -1861,6 +1875,15 @@ function gojs_api_upload_chunk() {
         gojs_json_response(null, array(
             'code' => 'invalid_filename',
             'message' => '文件名无效',
+        ), 400);
+    }
+
+    $guard_name = gojs_upload_guard_check_name($file_name);
+    if (empty($guard_name['ok'])) {
+        gojs_json_response(null, array(
+            'code' => $guard_name['code'],
+            'message' => $guard_name['message'],
+            'details' => $guard_name['details'],
         ), 400);
     }
 
@@ -2009,12 +2032,16 @@ function gojs_api_upload_chunk() {
             ), 500);
         }
 
-        if (gojs_detect_php_magic($final_path, $final_name)) {
+        $guard_content = gojs_upload_guard_check_file($final_path, $final_name);
+        if (empty($guard_content['ok'])) {
             @unlink($final_path);
             gojs_recursive_delete($tmp_dir);
+            $guard_reason = isset($guard_content['code']) ? $guard_content['code'] : 'upload_rejected';
             gojs_json_response(null, array(
-                'code' => 'php_magic_detected',
-                'message' => '文件内容疑似脚本伪装，已拒绝',
+                'code' => $guard_reason === 'php_payload' ? 'php_magic_detected' : $guard_reason,
+                'message' => $guard_content['message'],
+                'reason' => $guard_reason,
+                'details' => $guard_content['details'],
             ), 400);
         }
 
