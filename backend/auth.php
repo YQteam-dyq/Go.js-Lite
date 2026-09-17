@@ -465,6 +465,9 @@ function gojs_api_login() {
     $_SESSION['login_at'] = time();
     $_SESSION['login_ip'] = gojs_get_client_ip();
     $_SESSION['login_ua'] = isset($_SERVER['HTTP_USER_AGENT']) ? (string)$_SERVER['HTTP_USER_AGENT'] : '';
+    if (function_exists('gojs_session_fingerprint_state_clear')) {
+        gojs_session_fingerprint_state_clear();
+    }
     $csrf_token = gojs_generate_csrf_token();
 
     if ($matched_user !== null && function_exists('gojs_users_upsert')) {
