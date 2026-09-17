@@ -1,65 +1,74 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { useAuthBootstrap } from '@/hooks/useAuth'
 import { useI18n } from '@/hooks/useI18n'
 import { Spinner } from '@/components/ui/Spinner'
-import Login from '@/routes/Login'
-import Install from '@/routes/Install'
 import AppLayout from '@/components/layout/AppLayout'
-import Dashboard from '@/routes/Dashboard'
-import FileList from '@/routes/files/FileList'
-import FileEditor from '@/routes/files/FileEditor'
-import DbConnections from '@/routes/db/DbConnections'
-import DbBrowser from '@/routes/db/DbBrowser'
-import SqlConsole from '@/routes/db/SqlConsole'
-import TableDataEditor from '@/routes/db/TableDataEditor'
-import TableStructureManager from '@/routes/db/TableStructureManager'
-import QueryBuilder from '@/routes/db/QueryBuilder'
-import ExportEnhanced from '@/routes/db/ExportEnhanced'
-import PhpInfo from '@/routes/PhpInfo'
-import System from '@/routes/System'
-import Settings from '@/routes/Settings'
 import NotFound from '@/routes/NotFound'
 import { useCapabilities } from '@/hooks/useCapabilities'
 import type { TranslationKey } from '@/hooks/useI18n'
-import DiskAnalysis from '@/routes/DiskAnalysis'
-import ErrorLog from '@/routes/ErrorLog'
-import Htaccess from '@/routes/Htaccess'
-import HealthCheck from '@/routes/HealthCheck'
-import EnvCheck from '@/routes/EnvCheck'
-import OperationLog from '@/routes/OperationLog'
-import Cron from '@/routes/Cron'
-import Backup from '@/routes/Backup'
-import SSL from '@/routes/SSL'
-import Ftp from '@/routes/Ftp'
-import Notifications from '@/routes/Notifications'
-import SecurityScan from '@/routes/SecurityScan'
-import Upgrade from '@/routes/Upgrade'
-import ApiTokens from '@/routes/ApiTokens'
-import Deploy from '@/routes/Deploy'
-import Users from '@/routes/Users'
-import Sessions from '@/routes/Sessions'
-import UserActivity from '@/routes/UserActivity'
-import Profile from '@/routes/Profile'
-import Groups from '@/routes/Groups'
-import Tokens from '@/routes/Tokens'
-import Invitations from '@/routes/Invitations'
-import InviteAccept from '@/routes/InviteAccept'
-import Devices from '@/routes/Devices'
-import NotificationPreferences from '@/routes/NotificationPreferences'
-import Approvals from '@/routes/Approvals'
-import Composer from '@/routes/Composer'
-import PhpOpcache from '@/routes/PhpOpcache'
-import PhpExtensions from '@/routes/PhpExtensions'
-import PhpErrors from '@/routes/PhpErrors'
-import PhpFpm from '@/routes/PhpFpm'
-import PhpBench from '@/routes/PhpBench'
-import PhpIni from '@/routes/PhpIni'
-import PhpProcesses from '@/routes/PhpProcesses'
-import PhpUpgrade from '@/routes/PhpUpgrade'
-import WebShell from '@/routes/WebShell'
-import WebsiteMonitor from '@/routes/WebsiteMonitor'
-import CustomErrorPages from '@/routes/CustomErrorPages'
+
+const Login = lazy(() => import('@/routes/Login'))
+const Install = lazy(() => import('@/routes/Install'))
+const InviteAccept = lazy(() => import('@/routes/InviteAccept'))
+const Dashboard = lazy(() => import('@/routes/Dashboard'))
+const FileList = lazy(() => import('@/routes/files/FileList'))
+const FileEditor = lazy(() => import('@/routes/files/FileEditor'))
+const DbConnections = lazy(() => import('@/routes/db/DbConnections'))
+const DbBrowser = lazy(() => import('@/routes/db/DbBrowser'))
+const SqlConsole = lazy(() => import('@/routes/db/SqlConsole'))
+const TableDataEditor = lazy(() => import('@/routes/db/TableDataEditor'))
+const TableStructureManager = lazy(() => import('@/routes/db/TableStructureManager'))
+const QueryBuilder = lazy(() => import('@/routes/db/QueryBuilder'))
+const ExportEnhanced = lazy(() => import('@/routes/db/ExportEnhanced'))
+const PhpInfo = lazy(() => import('@/routes/PhpInfo'))
+const System = lazy(() => import('@/routes/System'))
+const Settings = lazy(() => import('@/routes/Settings'))
+const DiskAnalysis = lazy(() => import('@/routes/DiskAnalysis'))
+const ErrorLog = lazy(() => import('@/routes/ErrorLog'))
+const Htaccess = lazy(() => import('@/routes/Htaccess'))
+const HealthCheck = lazy(() => import('@/routes/HealthCheck'))
+const EnvCheck = lazy(() => import('@/routes/EnvCheck'))
+const OperationLog = lazy(() => import('@/routes/OperationLog'))
+const Cron = lazy(() => import('@/routes/Cron'))
+const Backup = lazy(() => import('@/routes/Backup'))
+const SSL = lazy(() => import('@/routes/SSL'))
+const Ftp = lazy(() => import('@/routes/Ftp'))
+const Notifications = lazy(() => import('@/routes/Notifications'))
+const SecurityScan = lazy(() => import('@/routes/SecurityScan'))
+const Upgrade = lazy(() => import('@/routes/Upgrade'))
+const ApiTokens = lazy(() => import('@/routes/ApiTokens'))
+const Deploy = lazy(() => import('@/routes/Deploy'))
+const Users = lazy(() => import('@/routes/Users'))
+const Sessions = lazy(() => import('@/routes/Sessions'))
+const UserActivity = lazy(() => import('@/routes/UserActivity'))
+const Profile = lazy(() => import('@/routes/Profile'))
+const Groups = lazy(() => import('@/routes/Groups'))
+const Tokens = lazy(() => import('@/routes/Tokens'))
+const Invitations = lazy(() => import('@/routes/Invitations'))
+const Devices = lazy(() => import('@/routes/Devices'))
+const NotificationPreferences = lazy(() => import('@/routes/NotificationPreferences'))
+const Approvals = lazy(() => import('@/routes/Approvals'))
+const Composer = lazy(() => import('@/routes/Composer'))
+const PhpOpcache = lazy(() => import('@/routes/PhpOpcache'))
+const PhpExtensions = lazy(() => import('@/routes/PhpExtensions'))
+const PhpErrors = lazy(() => import('@/routes/PhpErrors'))
+const PhpFpm = lazy(() => import('@/routes/PhpFpm'))
+const PhpBench = lazy(() => import('@/routes/PhpBench'))
+const PhpIni = lazy(() => import('@/routes/PhpIni'))
+const PhpProcesses = lazy(() => import('@/routes/PhpProcesses'))
+const PhpUpgrade = lazy(() => import('@/routes/PhpUpgrade'))
+const WebShell = lazy(() => import('@/routes/WebShell'))
+const WebsiteMonitor = lazy(() => import('@/routes/WebsiteMonitor'))
+const CustomErrorPages = lazy(() => import('@/routes/CustomErrorPages'))
+
+function RouteFallback() {
+  return (
+    <div className="flex items-center justify-center py-24">
+      <Spinner size="lg" />
+    </div>
+  )
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { authenticated, loading } = useAuthBootstrap()
@@ -163,7 +172,7 @@ function getTitleKey(pathname: string): TranslationKey {
 }
 
 export default function App() {
-  const { loading, bootstrapFailed } = useAuthBootstrap()
+  const { loading, bootstrapFailed, authenticated } = useAuthBootstrap()
   const location = useLocation()
   const { t } = useI18n()
 
@@ -171,6 +180,14 @@ export default function App() {
     const titleKey = getTitleKey(location.pathname)
     document.title = t(titleKey)
   }, [t, location.pathname])
+
+  useEffect(() => {
+    if (!authenticated) return
+    const timer = window.setTimeout(() => {
+      void import('@/routes/Dashboard')
+    }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [authenticated])
 
   if (loading) {
     return (
@@ -188,67 +205,71 @@ export default function App() {
   }
 
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route path="/install" element={<Install />} />
-      <Route path="/invite/:token" element={<InviteAccept />} />
-      <Route
-        path="/*"
-        element={
-          <RequireAuth>
-            <AppLayout>
-              <Routes>
-                <Route index element={<Navigate to="/dashboard" replace />} />
-                <Route path="dashboard" element={<Dashboard />} />
-                <Route path="files/*" element={<FileList />} />
-                <Route path="edit/*" element={<FileEditor />} />
-                <Route path="db/*" element={<DbRoutes />} />
-                <Route path="phpinfo" element={<PhpInfo />} />
-                <Route path="system" element={<System />} />
-                <Route path="disk-analysis" element={<DiskAnalysis />} />
-                <Route path="error-log" element={<ErrorLog />} />
-                <Route path="operation-log" element={<OperationLog />} />
-                <Route path="htaccess" element={<Htaccess />} />
-                <Route path="health-check" element={<HealthCheck />} />
-                <Route path="env-check" element={<EnvCheck />} />
-                <Route path="cron" element={<Cron />} />
-                <Route path="backup" element={<Backup />} />
-                <Route path="ssl" element={<SSL />} />
-                <Route path="ftp" element={<Ftp />} />
-                <Route path="notifications" element={<Notifications />} />
-                <Route path="security-scan" element={<SecurityScan />} />
-                <Route path="upgrade" element={<Upgrade />} />
-                <Route path="api-tokens" element={<ApiTokens />} />
-                <Route path="deploy" element={<Deploy />} />
-                <Route path="users" element={<Users />} />
-                <Route path="sessions" element={<Sessions />} />
-                <Route path="user-activity" element={<UserActivity />} />
-                <Route path="profile" element={<Profile />} />
-                <Route path="groups" element={<Groups />} />
-                <Route path="tokens" element={<Tokens />} />
-                <Route path="invitations" element={<Invitations />} />
-                <Route path="devices" element={<Devices />} />
-                <Route path="notification-preferences" element={<NotificationPreferences />} />
-                <Route path="approvals" element={<Approvals />} />
-                <Route path="composer" element={<Composer />} />
-                <Route path="php-opcache" element={<PhpOpcache />} />
-                <Route path="php-extensions" element={<PhpExtensions />} />
-                <Route path="php-errors" element={<PhpErrors />} />
-                <Route path="php-fpm" element={<PhpFpm />} />
-                <Route path="php-bench" element={<PhpBench />} />
-                <Route path="php-ini" element={<PhpIni />} />
-                <Route path="php-processes" element={<PhpProcesses />} />
-                <Route path="php-upgrade" element={<PhpUpgrade />} />
-                <Route path="webshell" element={<WebShell />} />
-                <Route path="website-monitor" element={<WebsiteMonitor />} />
-                <Route path="custom-error-pages" element={<CustomErrorPages />} />
-                <Route path="settings" element={<Settings />} />
-                <Route path="*" element={<NotFound />} />
-              </Routes>
-            </AppLayout>
-          </RequireAuth>
-        }
-      />
-    </Routes>
+    <Suspense fallback={<RouteFallback />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route path="/install" element={<Install />} />
+        <Route path="/invite/:token" element={<InviteAccept />} />
+        <Route
+          path="/*"
+          element={
+            <RequireAuth>
+              <AppLayout>
+                <Suspense fallback={<RouteFallback />}>
+                  <Routes>
+                    <Route index element={<Navigate to="/dashboard" replace />} />
+                    <Route path="dashboard" element={<Dashboard />} />
+                    <Route path="files/*" element={<FileList />} />
+                    <Route path="edit/*" element={<FileEditor />} />
+                    <Route path="db/*" element={<DbRoutes />} />
+                    <Route path="phpinfo" element={<PhpInfo />} />
+                    <Route path="system" element={<System />} />
+                    <Route path="disk-analysis" element={<DiskAnalysis />} />
+                    <Route path="error-log" element={<ErrorLog />} />
+                    <Route path="operation-log" element={<OperationLog />} />
+                    <Route path="htaccess" element={<Htaccess />} />
+                    <Route path="health-check" element={<HealthCheck />} />
+                    <Route path="env-check" element={<EnvCheck />} />
+                    <Route path="cron" element={<Cron />} />
+                    <Route path="backup" element={<Backup />} />
+                    <Route path="ssl" element={<SSL />} />
+                    <Route path="ftp" element={<Ftp />} />
+                    <Route path="notifications" element={<Notifications />} />
+                    <Route path="security-scan" element={<SecurityScan />} />
+                    <Route path="upgrade" element={<Upgrade />} />
+                    <Route path="api-tokens" element={<ApiTokens />} />
+                    <Route path="deploy" element={<Deploy />} />
+                    <Route path="users" element={<Users />} />
+                    <Route path="sessions" element={<Sessions />} />
+                    <Route path="user-activity" element={<UserActivity />} />
+                    <Route path="profile" element={<Profile />} />
+                    <Route path="groups" element={<Groups />} />
+                    <Route path="tokens" element={<Tokens />} />
+                    <Route path="invitations" element={<Invitations />} />
+                    <Route path="devices" element={<Devices />} />
+                    <Route path="notification-preferences" element={<NotificationPreferences />} />
+                    <Route path="approvals" element={<Approvals />} />
+                    <Route path="composer" element={<Composer />} />
+                    <Route path="php-opcache" element={<PhpOpcache />} />
+                    <Route path="php-extensions" element={<PhpExtensions />} />
+                    <Route path="php-errors" element={<PhpErrors />} />
+                    <Route path="php-fpm" element={<PhpFpm />} />
+                    <Route path="php-bench" element={<PhpBench />} />
+                    <Route path="php-ini" element={<PhpIni />} />
+                    <Route path="php-processes" element={<PhpProcesses />} />
+                    <Route path="php-upgrade" element={<PhpUpgrade />} />
+                    <Route path="webshell" element={<WebShell />} />
+                    <Route path="website-monitor" element={<WebsiteMonitor />} />
+                    <Route path="custom-error-pages" element={<CustomErrorPages />} />
+                    <Route path="settings" element={<Settings />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </Suspense>
+              </AppLayout>
+            </RequireAuth>
+          }
+        />
+      </Routes>
+    </Suspense>
   )
 }
