@@ -42,7 +42,7 @@ Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, appr
 - Dead dependencies `recharts`, `date-fns`, `clsx` and `class-variance-authority`: none of them had a single import in `src/`, and charts are already served by the in-house `Sparkline` component. Removing them drops 37 packages from the lockfile.
 
 ### Added
-- Bundle budget: `npm run size` prints a per-chunk gzip report for `dist/` and fails when the initial JS exceeds the `180 KB` gzip budget (`BUNDLE_BUDGET_KB` overrides it). `npm run size:report` prints the same report without failing and `npm run build:analyze` runs it right after a build. The budget is enforced in CI. See [docs/bundle-budget.md](docs/bundle-budget.md).
+- Bundle budget: `npm run size` prints a per-chunk gzip report for `dist/` and fails when the initial JS exceeds the `180 KB` gzip budget (`BUNDLE_BUDGET_KB` overrides it). `npm run size:report` prints the same report without failing and `npm run build:analyze` runs it right after a build. The budget tooling is available locally, and CI enforcement is a follow-up. See [docs/bundle-budget.md](docs/bundle-budget.md).
 
 ### Fixed
 - WebShell: API requests now use the `/gojs/api/webshell` base path, restoring command execution, history, clear-history and autocomplete.

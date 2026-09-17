@@ -3,7 +3,12 @@ import { dirname, resolve, join, relative } from 'node:path'
 import { gzipSync } from 'node:zlib'
 
 const root = process.cwd()
-const distDir = resolve(root, process.argv.includes('--dir') ? process.argv[process.argv.indexOf('--dir') + 1] : 'dist')
+const dirIndex = process.argv.indexOf('--dir')
+if (dirIndex !== -1 && !process.argv[dirIndex + 1]) {
+  console.error('Usage error: --dir requires a non-empty path')
+  process.exit(1)
+}
+const distDir = resolve(root, dirIndex !== -1 ? process.argv[dirIndex + 1] : 'dist')
 const budgetKb = Number(process.env.BUNDLE_BUDGET_KB || 180)
 const budgetBytes = Math.round(budgetKb * 1024)
 const strict = !process.argv.includes('--warn')
