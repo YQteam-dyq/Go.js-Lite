@@ -20,6 +20,7 @@ require_once __DIR__ . '/groups.php';
 require_once __DIR__ . '/tokens.php';
 require_once __DIR__ . '/invitations.php';
 require_once __DIR__ . '/devices.php';
+require_once __DIR__ . '/session_fingerprint.php';
 require_once __DIR__ . '/exports.php';
 require_once __DIR__ . '/notification_prefs.php';
 require_once __DIR__ . '/approvals.php';
