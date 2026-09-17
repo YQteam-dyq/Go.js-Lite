@@ -37,6 +37,7 @@ require_once __DIR__ . '/php_include_path.php';
 require_once __DIR__ . '/php_autoload_audit.php';
 require_once __DIR__ . '/user_activity.php';
 require_once __DIR__ . '/auth.php';
+require_once __DIR__ . '/upload_guard.php';
 require_once __DIR__ . '/files.php';
 require_once __DIR__ . '/system.php';
 require_once __DIR__ . '/database.php';

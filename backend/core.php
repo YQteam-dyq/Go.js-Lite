@@ -374,7 +374,7 @@ function gojs_acl_route_precheck($api, $method) {
     $verb = strtoupper($method);
 
     $fileWrite = array('file-save','file-mkdir','file-touch','file-delete','file-rename','file-copy','file-chmod','file-zip','file-unzip','file-targz','file-untargz','upload','upload-chunk');
-    $fileRead  = array('files','file-content','file-search','download');
+    $fileRead  = array('files','file-content','file-search','download','upload-guard');
     if (in_array($api, $fileWrite, true)) {
         if (gojs_role_rank($role) < gojs_role_rank('operator')) {
             $boostAction = gojs_acl_action_name($api);
@@ -510,6 +510,7 @@ function gojs_build_router() {
     $r->add('POST', 'file-untargz', function () { gojs_api_file_untargz(); });
     $r->add('POST', 'upload', function () { gojs_api_upload(); });
     $r->add('POST', 'upload-chunk', function () { gojs_api_upload_chunk(); });
+    $r->add(array('GET', 'POST'), 'upload-guard', function () { gojs_api_upload_guard(); });
     $r->add($any, 'download', function () { gojs_api_download(); });
 
     $r->add($any, 'error-log', function () { gojs_api_error_log(); });
