@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useUiStore } from '@/stores/uiStore'
 import type { ThemeMode } from '@shared/types'
 
@@ -32,9 +32,14 @@ export function useTheme() {
       ? 'dark'
       : 'light'
 
-  return {
-    theme,
-    setTheme: (t: ThemeMode) => setTheme(t),
-    resolvedTheme,
-  }
+  const changeTheme = useCallback((next: ThemeMode) => setTheme(next), [setTheme])
+
+  return useMemo(
+    () => ({
+      theme,
+      setTheme: changeTheme,
+      resolvedTheme,
+    }),
+    [theme, changeTheme, resolvedTheme],
+  )
 }
