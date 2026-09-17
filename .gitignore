@@ -4,6 +4,9 @@ node_modules/
 # Build output
 dist/
 
+# Test output
+coverage/
+
 # Config files generated at runtime
 .gojs/
 

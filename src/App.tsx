@@ -1,9 +1,10 @@
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { lazy, Suspense, useEffect } from 'react'
+import { Suspense, lazy, useEffect } from 'react'
 import { useAuthBootstrap } from '@/hooks/useAuth'
 import { useI18n } from '@/hooks/useI18n'
 import { Spinner } from '@/components/ui/Spinner'
 import AppLayout from '@/components/layout/AppLayout'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import NotFound from '@/routes/NotFound'
 import { useCapabilities } from '@/hooks/useCapabilities'
 import type { TranslationKey } from '@/hooks/useI18n'
@@ -62,17 +63,9 @@ const WebShell = lazy(() => import('@/routes/WebShell'))
 const WebsiteMonitor = lazy(() => import('@/routes/WebsiteMonitor'))
 const CustomErrorPages = lazy(() => import('@/routes/CustomErrorPages'))
 
-function FullPageFallback() {
-  return (
-    <div className="min-h-screen flex items-center justify-center">
-      <Spinner size="lg" />
-    </div>
-  )
-}
-
 function RouteFallback() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="flex items-center justify-center py-24">
       <Spinner size="lg" />
     </div>
   )
@@ -180,7 +173,7 @@ function getTitleKey(pathname: string): TranslationKey {
 }
 
 export default function App() {
-  const { loading, bootstrapFailed } = useAuthBootstrap()
+  const { loading, bootstrapFailed, authenticated } = useAuthBootstrap()
   const location = useLocation()
   const { t } = useI18n()
 
@@ -188,6 +181,14 @@ export default function App() {
     const titleKey = getTitleKey(location.pathname)
     document.title = t(titleKey)
   }, [t, location.pathname])
+
+  useEffect(() => {
+    if (!authenticated) return
+    const timer = window.setTimeout(() => {
+      void import('@/routes/Dashboard').catch(() => {})
+    }, 1000)
+    return () => window.clearTimeout(timer)
+  }, [authenticated])
 
   if (loading) {
     return (
@@ -205,9 +206,10 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<FullPageFallback />}>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <ErrorBoundary fallback={<RouteFallback />}>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
         <Route path="/install" element={<Install />} />
         <Route path="/invite/:token" element={<InviteAccept />} />
         <Route
@@ -270,6 +272,7 @@ export default function App() {
           }
         />
       </Routes>
-    </Suspense>
+      </Suspense>
+    </ErrorBoundary>
   )
 }

@@ -23,13 +23,28 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     sourcemap: false,
-    reportCompressedSize: true,
-    chunkSizeWarningLimit: 300,
+    chunkSizeWarningLimit: 700,
     rollupOptions: {
       output: {
-        manualChunks: {
-          vendor: ['react', 'react-dom', 'react-router-dom'],
-          query: ['@tanstack/react-query'],
+        chunkFileNames: 'assets/[name]-[hash].js',
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('node_modules/@xterm')) return 'xterm'
+          if (id.includes('node_modules/recharts') || id.includes('node_modules/d3-')) {
+            return 'charts'
+          }
+          if (id.includes('node_modules/@tanstack')) return 'query'
+          if (id.includes('node_modules/lucide-react')) return 'icons'
+          if (
+            id.includes('node_modules/react/') ||
+            id.includes('node_modules/react-dom/') ||
+            id.includes('node_modules/react-router') ||
+            id.includes('node_modules/@remix-run/') ||
+            id.includes('node_modules/scheduler/')
+          ) {
+            return 'vendor'
+          }
+          return undefined
         },
       },
     },
