@@ -86,7 +86,17 @@ jobs:
           php-version: "8.4"
           tools: composer:v2
           coverage: none
-          cache: composer
+
+      - name: Cache Composer dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            vendor
+            ~/.composer/cache
+            ~/.cache/composer
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-composer-
 
       - name: Install dependencies
         run: composer install --no-interaction --no-progress --prefer-dist
@@ -155,20 +165,15 @@ jobs:
             pending=0
             failed=0
             for name in "${gate_names[@]}"; do
-              row=$(printf '%s\n' "$report" | awk -F '\t' -v n="$name" '$1 == n {last=$2 "\t" $3} END {print last}')
-              status=$(printf '%s' "$row" | cut -f 1)
-              conclusion=$(printf '%s' "$row" | cut -f 2)
-              if [ -z "$status" ]; then
-                echo "Gate ${name} has not reported yet."
-                pending=1
-              elif [ "$status" != "completed" ]; then
-                echo "Gate ${name} is ${status}."
-                pending=1
-              elif [ "$conclusion" != "success" ] && [ "$conclusion" != "skipped" ] && [ "$conclusion" != "neutral" ]; then
-                echo "::error::Gate ${name} finished with conclusion ${conclusion}."
+              verdicts=$(printf '%s\n' "$report" | awk -F '\t' -v n="$name" '$1 == n && $2 == "completed" {print $3}')
+              if printf '%s\n' "$verdicts" | grep -qx -e success -e skipped -e neutral; then
+                echo "Gate ${name} passed."
+              elif printf '%s\n' "$verdicts" | grep -qx -e failure -e timed_out -e action_required -e startup_failure; then
+                echo "::error::Gate ${name} failed."
                 failed=1
               else
-                echo "Gate ${name} passed with conclusion ${conclusion}."
+                echo "Gate ${name} has no completed verdict yet, a superseded or cancelled run is ignored while the replacement run is awaited."
+                pending=1
               fi
             done
             if [ "$failed" = "1" ]; then
