@@ -4,6 +4,7 @@ import { useAuthBootstrap } from '@/hooks/useAuth'
 import { useI18n } from '@/hooks/useI18n'
 import { Spinner } from '@/components/ui/Spinner'
 import AppLayout from '@/components/layout/AppLayout'
+import ErrorBoundary from '@/components/ErrorBoundary'
 import NotFound from '@/routes/NotFound'
 import { useCapabilities } from '@/hooks/useCapabilities'
 import type { TranslationKey } from '@/hooks/useI18n'
@@ -184,7 +185,7 @@ export default function App() {
   useEffect(() => {
     if (!authenticated) return
     const timer = window.setTimeout(() => {
-      void import('@/routes/Dashboard')
+      void import('@/routes/Dashboard').catch(() => {})
     }, 1000)
     return () => window.clearTimeout(timer)
   }, [authenticated])
@@ -205,9 +206,10 @@ export default function App() {
   }
 
   return (
-    <Suspense fallback={<RouteFallback />}>
-      <Routes>
-        <Route path="/login" element={<Login />} />
+    <ErrorBoundary fallback={<RouteFallback />}>
+      <Suspense fallback={<RouteFallback />}>
+        <Routes>
+          <Route path="/login" element={<Login />} />
         <Route path="/install" element={<Install />} />
         <Route path="/invite/:token" element={<InviteAccept />} />
         <Route
@@ -270,6 +272,7 @@ export default function App() {
           }
         />
       </Routes>
-    </Suspense>
+      </Suspense>
+    </ErrorBoundary>
   )
 }
