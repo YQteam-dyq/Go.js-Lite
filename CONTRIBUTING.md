@@ -121,7 +121,20 @@ vendor/bin/phpunit
 vendor/bin/phpunit tests/AuthTest.php
 ```
 
-The frontend does not yet include a unit testing framework; please use `npm run typecheck` and `npm run lint` to ensure frontend code quality.
+The frontend uses Vitest with jsdom. Tests live next to the code they cover, in `src/__tests__/*.test.ts`:
+
+```bash
+# Run the frontend suite once
+npm run test:run
+
+# Re-run on change
+npm test
+
+# Run the suite and enforce the coverage gate on the core modules
+npm run test:coverage
+```
+
+Coverage is reported for `src/api/client.ts`, `src/stores/authStore.ts`, `src/hooks/useI18n.ts`, `src/i18n`, `src/lib` and `shared/version.ts`. The gate fails below 70% lines, branches, functions and statements on those modules. Add a test whenever you touch one of them.
 
 ---
 
