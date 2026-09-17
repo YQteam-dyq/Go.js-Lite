@@ -74,10 +74,12 @@ expect(
 
 if (failures.length > 0) {
   for (const failure of failures) {
-    console.error(`version-check: ${failure}`)
+    process.stderr.write(`version-check: ${failure}\n`)
   }
-  console.error(`version-check: ${failures.length} problem(s) found, the version must have a single source of truth`)
+  process.stderr.write(
+    `version-check: ${failures.length} problem(s) found, the version must have a single source of truth\n`,
+  )
   process.exit(1)
 }
 
-console.log(`version-check: every version source agrees on ${version}`)
+process.stdout.write(`version-check: every version source agrees on ${version}\n`)

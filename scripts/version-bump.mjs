@@ -8,7 +8,7 @@ const SEMVER = /^[0-9]+\.[0-9]+\.[0-9]+(?:[-+][0-9A-Za-z.-]+)?$/
 const next = (process.argv[2] || '').trim()
 
 if (!SEMVER.test(next)) {
-  console.error(`version-bump: usage: node scripts/version-bump.mjs <x.y.z>`)
+  process.stderr.write(`version-bump: usage: node scripts/version-bump.mjs <x.y.z>\n`)
   process.exit(1)
 }
 
@@ -36,5 +36,9 @@ for (const relative of ['README.md', 'README.zh-CN.md']) {
   writeText(relative, text)
 }
 
-console.log(`version-bump: ${next} written to version.json, package.json, package-lock.json and the README badges`)
-console.log('version-bump: add the matching "## [<version>]" section to CHANGELOG.md and the docs before releasing')
+process.stdout.write(
+  `version-bump: ${next} written to version.json, package.json, package-lock.json and the README badges\n`,
+)
+process.stdout.write(
+  'version-bump: add the matching "## [<version>]" section to CHANGELOG.md and the docs before releasing\n',
+)
