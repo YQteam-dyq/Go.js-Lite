@@ -144,13 +144,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
           MAX_ATTEMPTS: 60
           POLL_INTERVAL: 15
         run: |
           set -u
           gate_names=("English Only" "PR Review")
           for attempt in $(seq 1 "$MAX_ATTEMPTS"); do
-            report=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/check-runs" --paginate --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' 2>/dev/null || true)
+            report=$(gh api "repos/${GITHUB_REPOSITORY}/commits/${HEAD_SHA}/check-runs" --paginate --jq '.check_runs[] | [.name, .status, (.conclusion // "")] | @tsv' 2>/dev/null || true)
             pending=0
             failed=0
             for name in "${gate_names[@]}"; do
