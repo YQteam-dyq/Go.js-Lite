@@ -401,7 +401,7 @@ function gojs_acl_route_precheck($api, $method) {
             if (gojs_role_rank($role) < gojs_role_rank('admin')) $deny = true;
         } elseif (strpos($api, 'tokens') === 0) {
             if (gojs_role_rank($role) < gojs_role_rank('operator')) $deny = true;
-        } elseif (strpos($api, 'devices') === 0) {
+        } elseif (strpos($api, 'devices') === 0 || $api === 'session-fingerprint') {
 
         } elseif (strpos($api, 'notification-preferences') === 0) {
 
@@ -563,6 +563,7 @@ function gojs_build_router() {
     $r->add($any, 'backup/download', function () { gojs_api_backup_download(); });
     $r->add('POST', 'backup/delete', function () { gojs_api_backup_delete(); });
     $r->add('POST', 'backup/restore', function () { gojs_api_backup_restore(); });
+    $r->add(array('GET', 'POST'), 'session-fingerprint', function () { gojs_api_session_fingerprint(); });
     $r->add(array('GET', 'POST'), 'backup/verify', function () { gojs_api_backup_verify(); });
     $r->add(array('GET', 'POST'), 'backup/precheck', function () { gojs_api_backup_precheck(); });
     $r->add('GET', 'trash', function () { gojs_api_trash_list(); });

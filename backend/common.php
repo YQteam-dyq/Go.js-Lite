@@ -570,6 +570,10 @@ function gojs_check_auth() {
         ), 401);
     }
 
+    if (function_exists('gojs_session_fingerprint_enforce')) {
+        gojs_session_fingerprint_enforce();
+    }
+
     $_SESSION['last_activity'] = time();
 }
 

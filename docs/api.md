@@ -184,6 +184,7 @@ Notes:
 | Backup | `backup/download` | GET/POST | Download a backup |
 | Backup | `backup/delete` | POST | Delete a backup |
 | Backup | `backup/restore` | POST | Restore a backup |
+| Session Fingerprint | `session-fingerprint` | GET/POST | Session binding state, or rotate the binding now |
 | Backup | `backup/verify` | GET/POST | Verify a backup against its integrity manifest |
 | Backup | `backup/precheck` | GET/POST | Restore precheck for a backup |
 | Backup Destination | `backup/destinations` | GET/POST | Destination list / create |
@@ -862,6 +863,17 @@ The policy is emitted automatically and can be tuned through the `security_heade
 #### `ftp/export` (POST)
 
 - Exports the FTP configuration.
+
+### Session Fingerprint
+
+#### `session-fingerprint` (GET / POST)
+
+- GET returns the binding state of the current session; POST rotates the fingerprint now and returns the new state.
+- Available to every signed-in account, like `devices`.
+- Returns `data`: `{ "bound", "signals", "enforce", "rotateSeconds", "issuedAt", "age", "rotations", "mismatches", "lastMismatchAt" }`.
+- The fingerprint itself is never returned. It is derived from the client signals listed in `signals` and a random per-session salt, and a new salt is issued every `rotateSeconds` (900 by default).
+- When `enforce` is on and the client signals no longer match the binding, the request is rejected with `401` and `error.code = "session_fingerprint_mismatch"`, and the session is destroyed.
+- Configure it through `session_fingerprint` in `config.php`: `enforce` (default `true`), `rotate_seconds` (default `900`, minimum `60`), and `signals` as a subset of `ip`, `ua`, `lang` (default all three). The `ip` signal compares the first three IPv4 octets, or the first three IPv6 hextets, so a new address inside the same subnet stays valid. Narrow `signals` to `["ua", "lang"]` on deployments where client addresses change often.
 
 ### API Token / REST
 
