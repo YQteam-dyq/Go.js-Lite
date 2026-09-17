@@ -41,6 +41,7 @@ const initialState = {
   capabilities: null,
   user: null,
   backendVersion: '',
+  frontendVersion: VERSION,
 };
 
 beforeEach(() => {
