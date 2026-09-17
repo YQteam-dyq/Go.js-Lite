@@ -1,0 +1,19 @@
+{
+  "name": "Go.js Lite Control Panel",
+  "short_name": "Go.js",
+  "description": "Lightweight server management panel for PHP shared hosting.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0f1115",
+  "theme_color": "#0f1115",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

@@ -12,6 +12,7 @@ import {
   type NotificationChannelPrefs,
 } from '@/api/notificationPrefs'
 import { useI18n } from '@/hooks/useI18n'
+import { PushStatusCard } from '@/components/notifications/PushStatusCard'
 import { resolveErrorText } from '@/lib/errorMessages'
 
 const CHANNELS: Array<{ key: keyof Prefs; icon: string }> = [
@@ -174,6 +175,8 @@ export default function NotificationPreferencesPage() {
           {t('notificationPrefs.nonAdminNote')}
         </div>
       )}
+
+      <PushStatusCard />
     </div>
   )
 }
