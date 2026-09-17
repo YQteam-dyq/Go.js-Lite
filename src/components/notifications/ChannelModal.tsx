@@ -113,7 +113,7 @@ export function ChannelModal({ open, onClose, initial }: ChannelModalProps) {
       return notificationChannelsApi.create(payload as never)
     },
     onSuccess: () => {
-      toast({ type: 'success', title: t('common.saveSuccess', { defaultValue: '保存成功' }) })
+      toast({ type: 'success', title: t('common.saveSuccess') })
       queryClient.invalidateQueries({ queryKey: ['notificationChannels'] })
       onClose()
     },
