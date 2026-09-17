@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { X } from 'lucide-react'
 import { Button } from './Button'
 import { Input } from './Input'
 import { useIsMobile } from '@/hooks/useMediaQuery'
+import { useFocusTrap } from '@/hooks/useFocusTrap'
 import { useI18n } from '@/hooks/useI18n'
 
 interface ModalProps {
@@ -27,6 +28,9 @@ export function Modal({
   const isMobile = useIsMobile()
   const dialogRef = useRef<HTMLDivElement>(null)
   const { t } = useI18n()
+  const titleId = useId()
+
+  useFocusTrap(dialogRef, { active: open, onEscape: onClose })
 
   useEffect(() => {
     if (!open) return
@@ -34,16 +38,10 @@ export function Modal({
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', handler)
-
     return () => {
       document.body.style.overflow = prevOverflow
-      window.removeEventListener('keydown', handler)
     }
-  }, [open, onClose])
+  }, [open])
 
   if (!open) return null
 
@@ -64,13 +62,15 @@ export function Modal({
       />
       <div
         ref={dialogRef}
-        className={`relative w-full ${sizeClasses[size]} bg-bg-elevated rounded-2xl shadow-2xl border border-border/50 animate-scale-in will-change-transform ${fullscreen}`}
+        tabIndex={-1}
+        className={`relative w-full ${sizeClasses[size]} bg-bg-elevated rounded-2xl shadow-2xl border border-border/50 animate-scale-in will-change-transform outline-none ${fullscreen}`}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={title ? titleId : undefined}
       >
         {(title || !closeOnBackdrop === false) && (
           <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
-            <h3 className="text-base font-semibold text-fg">{title}</h3>
+            <h3 id={titleId} className="text-base font-semibold text-fg">{title}</h3>
             <Button
               variant="ghost"
               size="icon-sm"
