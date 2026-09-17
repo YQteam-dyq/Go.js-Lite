@@ -585,6 +585,9 @@ function gojs_check_access_token() {
     }
 
     if (!empty($_SESSION['access_token_valid']) && $_SESSION['access_token_valid'] === true) {
+        if (function_exists('gojs_deprecation_emit')) {
+            gojs_deprecation_emit('legacy_access_token');
+        }
         return;
     }
 
@@ -599,6 +602,10 @@ function gojs_check_access_token() {
 
     if (!$token) {
         return;
+    }
+
+    if (function_exists('gojs_deprecation_emit')) {
+        gojs_deprecation_emit('legacy_access_token');
     }
 
     if (hash_equals($config['access_token'], $token)) {

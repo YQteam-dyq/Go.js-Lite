@@ -15,7 +15,7 @@
 | 0.7.x | 0.8.0 |
 |---|---|
 | Single admin password only (`POST /api/login` with `password`) | Username + password against `users.json` (`401 invalid_credentials` on failure) |
-| Legacy `?token=<access_token>` URL logs in the implicit admin | Still works for admins (compatibility window), logs a `token_login` audit entry and binds the session to the real admin `user_id`. Deprecated in 0.9.5, removed in 1.0 |
+| Legacy `?token=<access_token>` URL logs in the implicit admin | Still works for admins (compatibility window), logs a `token_login` audit entry and binds the session to the real admin `user_id`. Deprecated in 0.8.0, removed in 1.0.0 — see [deprecations.md](deprecations.md#legacy_access_token) |
 | No 2FA per user | TOTP enrolment, recovery codes and login challenges are per user |
 
 Action: after upgrading, sign in as `admin` with the previous panel password, then create real accounts (Users page) and set strong per-user passwords.

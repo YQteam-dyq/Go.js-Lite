@@ -1,7 +1,9 @@
 <?php
 
-define('VERSION', '0.8.0');
-define('APP_VERSION', '0.8.0');
+require_once __DIR__ . '/backend/version.php';
+
+define('VERSION', gojs_version());
+define('APP_VERSION', gojs_version());
 define('ROOT', dirname(__FILE__));
 define('PANEL_ROOT', ROOT);
 define('CONFIG_DIR', ROOT . '/.gojs');

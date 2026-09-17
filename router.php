@@ -55,6 +55,10 @@ if ($query) {
             $cfg = include $configFile;
             if (is_array($cfg) && !empty($cfg['access_token']) && hash_equals($cfg['access_token'], $queryParams['token'])) {
                 $_SESSION['access_token_valid'] = true;
+                if (strpos($raw_uri, 'webcron.php') === false) {
+                    require_once __DIR__ . '/backend/deprecations.php';
+                    gojs_deprecation_emit('legacy_access_token');
+                }
             }
         }
     }

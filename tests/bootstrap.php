@@ -1,7 +1,9 @@
 <?php
 
-define('VERSION', '0.8.0');
-define('APP_VERSION', '0.8.0');
+require_once dirname(__DIR__) . '/backend/version.php';
+
+define('VERSION', gojs_version());
+define('APP_VERSION', gojs_version());
 if (!defined('ROOT')) {
     define('ROOT', dirname(__DIR__));
 }
