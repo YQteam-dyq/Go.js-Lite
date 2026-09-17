@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback, useEffect } from 'react'
+import { useState, useMemo, useRef, useCallback, useEffect, memo } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { SkeletonTable } from '@/components/ui/Skeleton'
+import { VirtualList } from '@/components/ui/VirtualList'
 import { EmptyFolder, EmptySearch, EmptyError } from '@/components/ui/EmptyState'
 import { Modal, Confirm } from '@/components/ui/Modal'
 import { ContextMenu } from '@/components/ui/ContextMenu'
@@ -48,10 +49,21 @@ import { useI18n } from '@/hooks/useI18n'
 import { useIsMobile } from '@/hooks/useMediaQuery'
 import { resolveErrorText } from '@/lib/errorMessages'
 import { useCapabilities } from '@/hooks/useCapabilities'
+import {
+  patchEntry,
+  removeEntries,
+  renameEntry,
+  type FileListPayload,
+} from '@/lib/optimistic'
 
 type SortField = 'name' | 'size' | 'mtime'
 type SortOrder = 'asc' | 'desc'
 type ViewMode = 'list' | 'grid'
+
+const FILE_ROW_HEIGHT = 48
+const FILE_CELL_HEIGHT = 116
+const FILE_GRID_GAP = 12
+const VIRTUAL_THRESHOLD = 60
 
 type NewItemType = 'file' | 'folder' | null
 
@@ -281,28 +293,34 @@ export default function FileList() {
     }
   }
 
-  const handleContextMenu = (e: React.MouseEvent, file: FileEntry) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent, file: FileEntry) => {
     e.preventDefault()
     e.stopPropagation()
     setContextMenu({ x: e.clientX, y: e.clientY, file })
-  }
+  }, [])
 
-  const handleMoreActions = (e: React.MouseEvent, file: FileEntry) => {
-    e.stopPropagation()
-    if (isMobile) {
-      setActionSheetFile(file)
-    } else {
-      setContextMenu({ x: e.clientX, y: e.clientY, file })
-    }
-  }
+  const handleMoreActions = useCallback(
+    (e: React.MouseEvent, file: FileEntry) => {
+      e.stopPropagation()
+      if (isMobile) {
+        setActionSheetFile(file)
+      } else {
+        setContextMenu({ x: e.clientX, y: e.clientY, file })
+      }
+    },
+    [isMobile],
+  )
 
-  const handleOpenFile = (file: FileEntry) => {
-    if (file.type === 'dir') {
-      navigate(`/files${file.path}`)
-    } else {
-      navigate(`/edit${file.path}`)
-    }
-  }
+  const handleOpenFile = useCallback(
+    (file: FileEntry) => {
+      if (file.type === 'dir') {
+        navigate(`/files${file.path}`)
+      } else {
+        navigate(`/edit${file.path}`)
+      }
+    },
+    [navigate],
+  )
 
   const handleRename = (file: FileEntry) => {
     setRenameFile(file)
@@ -328,15 +346,27 @@ export default function FileList() {
       return
     }
 
+    const source = renameFile
+    const snapshots = queryClient.getQueriesData<FileListPayload>({ queryKey: ['files'] })
+
     setRenaming(true)
+    queryClient.setQueriesData<FileListPayload>({ queryKey: ['files'] }, (data) =>
+      renameEntry(data, source.path, targetName),
+    )
+    setRenameFile(null)
+    setRenameName('')
+    setRenameError('')
+
     try {
-      await filesApi.renameFile(renameFile.path, targetName)
+      await filesApi.renameFile(source.path, targetName)
       toast({ type: 'success', title: t('files.renameSuccess') })
-      setRenameFile(null)
-      setRenameName('')
-      setRenameError('')
       invalidateFiles()
     } catch (err) {
+      for (const [key, data] of snapshots) {
+        queryClient.setQueryData(key, data)
+      }
+      setRenameFile(source)
+      setRenameName(targetName)
       setRenameError(resolveErrorText(err) || t('files.renameFailed'))
     } finally {
       setRenaming(false)
@@ -355,21 +385,30 @@ export default function FileList() {
   const handleDeleteConfirm = async () => {
     if (deleteConfirm.files.length === 0) return
 
+    const snapshots = queryClient.getQueriesData<FileListPayload>({ queryKey: ['files'] })
+    const paths = deleteConfirm.files.map((f) => f.path)
+
     setDeleting(true)
+    setExitingIds(new Set(paths))
+    setDeleteConfirm({ open: false, files: [] })
+    clearSelection()
+
+    window.setTimeout(() => {
+      queryClient.setQueriesData<FileListPayload>({ queryKey: ['files'] }, (data) =>
+        removeEntries(data, paths),
+      )
+      setExitingIds(new Set())
+    }, 250)
+
     try {
-      const paths = deleteConfirm.files.map((f) => f.path)
       const result = await filesApi.deleteFiles(paths)
-
-      setExitingIds(new Set(paths))
-      setTimeout(() => {
-        setExitingIds(new Set())
-      }, 250)
-
       toast({ type: 'success', title: result.trashed ? t('trash.trashed') : t('files.deleteSuccess') })
-      setDeleteConfirm({ open: false, files: [] })
-      clearSelection()
       invalidateFiles()
     } catch (err) {
+      for (const [key, data] of snapshots) {
+        queryClient.setQueryData(key, data)
+      }
+      setExitingIds(new Set())
       toast({
         type: 'error',
         title: t('files.deleteFailed'),
@@ -454,17 +493,29 @@ export default function FileList() {
       return
     }
 
+    const target = chmodModal.file
+    const snapshots = queryClient.getQueriesData<FileListPayload>({ queryKey: ['files'] })
+
     setChmodLoading(true)
+    queryClient.setQueriesData<FileListPayload>({ queryKey: ['files'] }, (data) =>
+      patchEntry(data, target.path, { perms: mode }),
+    )
+    setChmodModal({ open: false, file: null, mode: '', error: '' })
+
     try {
-      await filesApi.chmod(chmodModal.file.path, mode)
+      await filesApi.chmod(target.path, mode)
       toast({ type: 'success', title: t('files.chmodSuccess') })
-      setChmodModal({ open: false, file: null, mode: '', error: '' })
       invalidateFiles()
     } catch (err) {
-      setChmodModal((s) => ({
-        ...s,
+      for (const [key, data] of snapshots) {
+        queryClient.setQueryData(key, data)
+      }
+      setChmodModal({
+        open: true,
+        file: target,
+        mode,
         error: err instanceof Error ? resolveErrorText(err) : t('files.chmodFailed'),
-      }))
+      })
     } finally {
       setChmodLoading(false)
     }
@@ -731,57 +782,61 @@ export default function FileList() {
             </div>
           )}
 
-          <div className="flex-1 overflow-auto">
-            {isLoading || (isSearching && searchLoading) ? (
+          {isLoading || (isSearching && searchLoading) ? (
+            <div className="flex-1 overflow-auto">
               <SkeletonTable rows={8} columns={4} />
-            ) : error ? (
+            </div>
+          ) : error ? (
+            <div className="flex-1 overflow-auto">
               <EmptyError
                 error={resolveErrorText(error) || t('common.unknownError')}
                 onRetry={() => refetch()}
                 className="py-16"
               />
-            ) : filteredFiles.length === 0 ? (
-              search ? (
+            </div>
+          ) : filteredFiles.length === 0 ? (
+            <div className="flex-1 overflow-auto">
+              {search ? (
                 <EmptySearch query={search} className="py-16" />
               ) : (
                 <EmptyFolder className="py-16" />
-              )
-            ) : viewMode === 'list' ? (
-              <ul className="divide-y divide-border">
-                {filteredFiles.map((file, index) => (
+              )}
+            </div>
+          ) : (
+            <VirtualList
+              items={filteredFiles}
+              layout={viewMode}
+              itemHeight={viewMode === 'grid' ? FILE_CELL_HEIGHT : FILE_ROW_HEIGHT}
+              gap={FILE_GRID_GAP}
+              threshold={VIRTUAL_THRESHOLD}
+              getKey={getFileKey}
+              roleLabel={t('files.title')}
+              className="flex-1 overflow-auto"
+              renderItem={(file) =>
+                viewMode === 'list' ? (
                   <FileRow
-                    key={file.path}
                     file={file}
-                    index={index}
                     selected={multiSelection.has(file.path)}
                     exiting={exitingIds.has(file.path)}
-                    isNew={false}
-                    onToggleSelect={() => toggleSelection(file.path)}
-                    onContextMenu={(e) => handleContextMenu(e, file)}
-                    onMoreActions={(e) => handleMoreActions(e, file)}
-                    onOpen={() => handleOpenFile(file)}
+                    onToggleSelect={toggleSelection}
+                    onContextMenu={handleContextMenu}
+                    onMoreActions={handleMoreActions}
+                    onOpen={handleOpenFile}
                   />
-                ))}
-              </ul>
-            ) : (
-              <div className="p-4 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                {filteredFiles.map((file, index) => (
+                ) : (
                   <FileGridItem
-                    key={file.path}
                     file={file}
-                    index={index}
                     selected={multiSelection.has(file.path)}
                     exiting={exitingIds.has(file.path)}
-                    isNew={false}
-                    onToggleSelect={() => toggleSelection(file.path)}
-                    onContextMenu={(e) => handleContextMenu(e, file)}
-                    onMoreActions={(e) => handleMoreActions(e, file)}
-                    onOpen={() => handleOpenFile(file)}
+                    onToggleSelect={toggleSelection}
+                    onContextMenu={handleContextMenu}
+                    onMoreActions={handleMoreActions}
+                    onOpen={handleOpenFile}
                   />
-                ))}
-              </div>
-            )}
-          </div>
+                )
+              }
+            />
+          )}
         </Card>
       </div>
 
@@ -1173,54 +1228,52 @@ export default function FileList() {
   )
 }
 
-function FileRow({
+type FileItemHandlers = {
+  onToggleSelect: (path: string) => void
+  onContextMenu: (e: React.MouseEvent, file: FileEntry) => void
+  onMoreActions: (e: React.MouseEvent, file: FileEntry) => void
+  onOpen: (file: FileEntry) => void
+}
+
+type FileItemProps = FileItemHandlers & {
+  file: FileEntry
+  selected: boolean
+  exiting: boolean
+}
+
+const FileRow = memo(function FileRow({
   file,
-  index,
   selected,
   exiting,
-  isNew,
   onToggleSelect,
   onContextMenu,
   onMoreActions,
   onOpen,
-}: {
-  file: FileEntry
-  index: number
-  selected: boolean
-  exiting: boolean
-  isNew: boolean
-  onToggleSelect: () => void
-  onContextMenu: (e: React.MouseEvent) => void
-  onMoreActions: (e: React.MouseEvent) => void
-  onOpen: () => void
-}) {
+}: FileItemProps) {
   const { t } = useI18n()
   const { formatDate, formatBytes } = useFormat()
-  const { handlers, active } = useLongPress<HTMLLIElement>(onToggleSelect, {
+  const handleLongPress = useCallback(
+    () => onToggleSelect(file.path),
+    [onToggleSelect, file.path],
+  )
+  const { handlers, active } = useLongPress<HTMLDivElement>(handleLongPress, {
     delay: 400,
   })
 
   const Icon = getFileIcon(file)
-
-  const animationClass = exiting
-    ? 'animate-list-exit'
-    : isNew
-    ? 'animate-list-enter'
-    : ''
+  const animationClass = exiting ? 'animate-list-exit' : ''
 
   return (
-    <li
+    <div
       {...handlers}
-      onContextMenu={onContextMenu}
+      onContextMenu={(e) => onContextMenu(e, file)}
       className={`
-        flex items-center gap-3 px-3 md:px-4 py-2.5 md:py-2
-        min-h-[48px]
+        h-full w-full flex items-center gap-3 px-3 md:px-4
         transition-colors cursor-pointer
         ${selected ? 'bg-accent/10' : 'hover:bg-fg/5'}
         ${active ? 'bg-bg-sunken' : ''}
         ${animationClass}
       `}
-      style={{ animationDelay: isNew ? `${index * 30}ms` : undefined }}
     >
       {selected && (
         <div className="w-5 h-5 rounded border-2 border-accent bg-accent flex items-center justify-center shrink-0">
@@ -1238,7 +1291,7 @@ function FileRow({
         <Icon size={18} />
       </div>
 
-      <div className="flex-1 min-w-0" onClick={!selected ? onOpen : undefined}>
+      <div className="flex-1 min-w-0" onClick={!selected ? () => onOpen(file) : undefined}>
         <span
           className="text-sm text-fg truncate block hover:text-accent transition-colors"
         >
@@ -1265,64 +1318,50 @@ function FileRow({
       <div className="flex justify-end md:w-10 md:block">
         <button
           className="min-h-[44px] min-w-[44px] md:min-h-0 md:min-w-0 flex items-center justify-center p-1.5 rounded-md text-fg-subtle hover:text-fg hover:bg-bg-sunken transition-colors"
-          onClick={onMoreActions}
+          onClick={(e) => onMoreActions(e, file)}
           aria-label={t('files.moreActions')}
         >
           <MoreVertical size={16} />
         </button>
       </div>
-    </li>
+    </div>
   )
-}
+})
 
-function FileGridItem({
+const FileGridItem = memo(function FileGridItem({
   file,
-  index,
   selected,
   exiting,
-  isNew,
   onToggleSelect,
   onContextMenu,
   onMoreActions,
   onOpen,
-}: {
-  file: FileEntry
-  index: number
-  selected: boolean
-  exiting: boolean
-  isNew: boolean
-  onToggleSelect: () => void
-  onContextMenu: (e: React.MouseEvent) => void
-  onMoreActions: (e: React.MouseEvent) => void
-  onOpen: () => void
-}) {
+}: FileItemProps) {
   const { t } = useI18n()
   const { formatBytes } = useFormat()
-  const { handlers, active } = useLongPress<HTMLDivElement>(onToggleSelect, {
+  const handleLongPress = useCallback(
+    () => onToggleSelect(file.path),
+    [onToggleSelect, file.path],
+  )
+  const { handlers, active } = useLongPress<HTMLDivElement>(handleLongPress, {
     delay: 400,
   })
 
   const Icon = getFileIcon(file)
-
-  const animationClass = exiting
-    ? 'animate-list-exit'
-    : isNew
-    ? 'animate-list-enter'
-    : ''
+  const animationClass = exiting ? 'animate-list-exit' : ''
 
   return (
     <div
       {...handlers}
-      onContextMenu={onContextMenu}
+      onContextMenu={(e) => onContextMenu(e, file)}
       className={`
-        relative flex flex-col items-center gap-2 p-3 rounded-lg
+        relative h-full w-full flex flex-col items-center justify-start gap-2 p-3 rounded-lg
         transition-all duration-150 cursor-pointer
         ${selected ? 'bg-accent/10 ring-2 ring-accent/30' : 'hover:bg-fg/5'}
         ${active ? 'bg-bg-sunken' : ''}
         ${animationClass}
       `}
-      style={{ animationDelay: isNew ? `${index * 30}ms` : undefined }}
-      onClick={!selected ? onOpen : undefined}
+      onClick={!selected ? () => onOpen(file) : undefined}
     >
       {selected && (
         <div className="absolute top-2 right-2 w-5 h-5 rounded border-2 border-accent bg-accent flex items-center justify-center z-10">
@@ -1334,7 +1373,7 @@ function FileGridItem({
 
       <div
         className={`
-          w-14 h-14 rounded-lg flex items-center justify-center
+          w-14 h-14 rounded-lg flex items-center justify-center shrink-0
           ${file.type === 'dir' ? 'bg-accent/10 text-accent' : 'bg-bg-sunken text-fg-muted'}
         `}
       >
@@ -1354,7 +1393,7 @@ function FileGridItem({
         className="absolute bottom-1 right-1 p-1 rounded-md text-fg-subtle hover:text-fg hover:bg-bg-sunken transition-colors opacity-0 hover:opacity-100"
         onClick={(e) => {
           e.stopPropagation()
-          onMoreActions(e)
+          onMoreActions(e, file)
         }}
         aria-label={t('files.moreActions')}
       >
@@ -1362,7 +1401,9 @@ function FileGridItem({
       </button>
     </div>
   )
-}
+})
+
+const getFileKey = (file: FileEntry) => file.path
 
 function getFileIcon(file: FileEntry) {
   if (file.type === 'dir') return FolderOpen
