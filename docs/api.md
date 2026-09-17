@@ -185,6 +185,8 @@ Notes:
 | Backup | `backup/delete` | POST | Delete a backup |
 | Backup | `backup/restore` | POST | Restore a backup |
 | Session Fingerprint | `session-fingerprint` | GET/POST | Session binding state, or rotate the binding now |
+| Backup | `backup/verify` | GET/POST | Verify a backup against its integrity manifest |
+| Backup | `backup/precheck` | GET/POST | Restore precheck for a backup |
 | Backup Destination | `backup/destinations` | GET/POST | Destination list / create |
 | Backup Destination | `backup/destinations/{id}` | PUT/DELETE | Update / delete destination |
 | Backup Destination | `backup/destinations/test` | POST | Test destination |
@@ -226,6 +228,7 @@ Notes:
 | Deploy | `deploy/run` | POST | Run deployment |
 | Security Scan | `secscan/frontend` | GET/POST | Frontend security scan |
 | Security Scan | `secscan/backend` | GET/POST | Backend security scan |
+| Security Headers | `security/headers` | GET | Effective HTTP response header policy |
 | FTP | `ftp/capabilities` | GET | FTP capabilities |
 | FTP | `ftp/accounts` | GET/POST | Account list / create |
 | FTP | `ftp/accounts/{id}` | PUT/DELETE | Update / delete account |
@@ -599,7 +602,8 @@ First-time installation.
 #### `backup/create` (POST)
 
 - Parameters: `include_files`, `include_db`, `include_config`, `exclude_dirs` (array).
-- Returns `data`: `{ "filename", "size", "metadata" }`.
+- Returns `data`: `{ "filename", "size", "sha256", "metadata" }`.
+- Every archive carries a `manifest.json` entry that records the size and the SHA-256 of every other entry, plus a digest over that list. The archive SHA-256 is written to `<filename>.sha256` next to the archive.
 
 #### `backup/list` (GET/POST)
 
@@ -617,8 +621,23 @@ First-time installation.
 
 #### `backup/restore` (POST)
 
-- Parameters: `filename`.
+- Parameters: `filename`, `strict` (optional), `force` (optional).
+- Runs the restore precheck first. When the precheck fails the endpoint answers `409` with `error.code = "restore_precheck_failed"` and the full precheck report in `error.precheck`, and nothing is written.
+- `force` skips the precheck, and `strict` makes a missing integrity manifest an error instead of a warning.
 - Returns `data`: `{ "success": true }`.
+
+#### `backup/verify` (GET / POST)
+
+- Parameters: `filename`.
+- Recomputes every entry hash from the archive and compares it with `manifest.json`, then compares the archive SHA-256 with the `<filename>.sha256` sidecar when one exists.
+- Returns `data`: `{ "filename", "ok", "legacy", "code", "message", "entry_count", "entries_checked", "mismatched", "missing", "extra", "archive_sha256", "expected_archive_sha256" }`.
+- `code` is one of `ok`, `manifest_missing` (an archive written before this feature, `legacy` is true), `manifest_invalid`, `manifest_mismatch`, `entry_mismatch`, `entry_missing`, `entry_untracked`, `archive_hash_mismatch`, `invalid_filename`, `not_found`, `zip_unavailable`, `zip_open_failed`.
+
+#### `backup/precheck` (GET / POST)
+
+- Parameters: `filename`, `strict` (optional).
+- Runs `backup/verify` and then checks the restore target: metadata entry present, no parent directory segments, files root available and writable, free space against the uncompressed footprint, and whether the database dumps map to a configured connection.
+- Returns `data`: `{ "filename", "ok", "code", "message", "strict", "errors", "warnings", "verification", "stats", "free_space", "required_bytes", "known_databases" }`.
 
 #### `backup/destinations` (GET / POST)
 
@@ -801,6 +820,23 @@ See the `auth/totp/*` endpoints in the [Authentication & Installation](#authenti
 #### `secscan/backend` (GET / POST)
 
 - GET returns scan results; POST triggers a scan.
+
+### Security Headers
+
+#### `security/headers` (GET)
+
+- Admin only. Returns the effective header policy that the panel emits on every response.
+- `data.https`: whether the current request is considered HTTPS, which controls `Strict-Transport-Security`.
+- `data.defaultContext`: the context used when a response does not declare one (`api`).
+- `data.headers`: the name to value map for the default context.
+- `data.contexts`: the same map per response context (`api` for JSON and attachment responses, `html` for rendered pages).
+- `data.count`: number of headers in the default context.
+
+The policy is emitted automatically and can be tuned through the `security_headers` key of `config.php`:
+
+- `security_headers.disable`: array of header names to stop sending.
+- `security_headers.overrides`: array of header name to replacement value; names are matched case-insensitively.
+- `security_headers.csp`: array of context (`api`, `html`) to a replacement `Content-Security-Policy`.
 
 ### FTP
 

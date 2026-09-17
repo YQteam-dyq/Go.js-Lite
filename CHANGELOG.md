@@ -23,6 +23,7 @@ Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, appr
 - Frontend pages: Users, Sessions, User Activity, Profile, Groups, API Tokens, Invitations, Devices, Notification Preferences, Approvals, Composer, OPcache, PHP Extensions, PHP Errors, PHP-FPM, PHP Benchmark, PHP Config/JIT, PHP Processes, PHP Upgrade.
 - Composer integration: `backend/autoload.php` transparently requires `vendor/autoload.php` when present.
 - Tests: 314 PHPUnit tests (from 106) covering users, ACL, sessions, quotas, groups, tokens, invitations, devices, exports, notification preferences, approvals, permissions boost, the PHP toolchain and audit aggregation.
+- Security: `backend/security_headers.php` centralises the response header policy and emits it on every response - `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `X-Permitted-Cross-Domain-Policies`, `Strict-Transport-Security` over HTTPS, plus a context-aware `Content-Security-Policy` (a locked-down policy for API and download responses, and a self-only policy for rendered pages). Overridable per deployment through `config.php`. Inspect it with `GET /api/security/headers`.
 
 ### Changed
 - Version: `version.json` is now the single source of truth. `api.php` and `tests/bootstrap.php` derive `VERSION` / `APP_VERSION` from it through `gojs_version()`, `shared/version.ts` imports it, and `package.json` / `package-lock.json` are kept in sync by `npm run version:bump` and verified by `npm run version:check`.
