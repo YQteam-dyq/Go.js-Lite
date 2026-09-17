@@ -41,6 +41,7 @@ require_once __DIR__ . '/system.php';
 require_once __DIR__ . '/database.php';
 require_once __DIR__ . '/htaccess.php';
 require_once __DIR__ . '/backup.php';
+require_once __DIR__ . '/backup_integrity.php';
 require_once __DIR__ . '/ssl.php';
 require_once __DIR__ . '/notifications.php';
 require_once __DIR__ . '/secscan.php';

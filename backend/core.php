@@ -570,6 +570,8 @@ function gojs_build_router() {
     $r->add($any, 'backup/download', function () { gojs_api_backup_download(); });
     $r->add('POST', 'backup/delete', function () { gojs_api_backup_delete(); });
     $r->add('POST', 'backup/restore', function () { gojs_api_backup_restore(); });
+    $r->add(array('GET', 'POST'), 'backup/verify', function () { gojs_api_backup_verify(); });
+    $r->add(array('GET', 'POST'), 'backup/precheck', function () { gojs_api_backup_precheck(); });
     $r->add('GET', 'trash', function () { gojs_api_trash_list(); });
     $r->add('POST', 'trash/restore', function () { gojs_api_trash_restore(); });
     $r->add('POST', 'trash/purge', function () { gojs_api_trash_purge(); });

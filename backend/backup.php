@@ -103,14 +103,25 @@ function gojs_api_backup_create() {
 
     
     $zip->addFromString('backup.json', json_encode($metadata, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT));
+
     $zip->close();
 
+    $manifest = gojs_backup_integrity_build_manifest_from_file($backup_file);
+    if (is_array($manifest)) {
+        gojs_backup_integrity_append_manifest($backup_file, $manifest);
+    }
+
     $size = @filesize($backup_file);
+    $archive_hash = gojs_backup_integrity_file_hash($backup_file);
+    if ($archive_hash !== '') {
+        gojs_backup_integrity_write_sidecar($backup_name . '.zip', $archive_hash);
+    }
     gojs_log_operation('backup_create', $backup_name . '.zip', true);
 
     gojs_json_response(array(
         'filename' => $backup_name . '.zip',
         'size' => $size,
+        'sha256' => $archive_hash,
         'metadata' => $metadata,
     ));
 }
@@ -376,6 +387,21 @@ function gojs_api_backup_restore() {
             'code' => 'zip_not_available',
             'message' => 'ZipArchive 扩展不可用',
         ), 500);
+    }
+
+    $force = gojs_get_param('force', '');
+    $force = ($force === '1' || $force === 'true' || $force === true);
+    $strict = gojs_get_param('strict', '');
+    $strict = ($strict === '1' || $strict === 'true' || $strict === true);
+
+    $precheck = gojs_backup_restore_precheck($filename, $strict);
+    if (!$force && empty($precheck['ok'])) {
+        gojs_log_operation('backup_restore_precheck', $filename, false, $precheck['code']);
+        gojs_json_response(null, array(
+            'code' => 'restore_precheck_failed',
+            'message' => 'Backup restore precheck failed: ' . $precheck['message'],
+            'precheck' => $precheck,
+        ), 409);
     }
 
     $zip = new ZipArchive();
