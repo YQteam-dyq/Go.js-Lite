@@ -193,6 +193,18 @@ opcache.max_accelerated_files = 10000 ; enough slots for the codebase
 
 The backend logic has been split from a single monolithic `api.php` into modules under `backend/` (auth, files, database, ssl, backup, system, settings, cron, notifications, misc, …). A lightweight `autoload.php` loads only the modules needed for the current request, instead of parsing the whole file every time. This keeps the per-request parse footprint small and makes the codebase easier to maintain.
 
+### Large Directory Rendering
+
+The file manager renders long directories through a windowed list (`src/components/ui/VirtualList.tsx`). Only the rows inside the viewport, plus a small overscan margin, are mounted; the scroll container keeps the full height so the scrollbar behaves normally. Listings below 60 entries keep the plain markup so find-in-page and the tab order stay untouched. The same component drives the grid view, where the column count follows the container width.
+
+### Offline Shell and Web Push
+
+The frontend ships a service worker (`public/sw.js`) that precaches the application shell and serves a standalone offline page when navigation fails. API calls are never cached, so the panel does not show stale server data. Web Push registration is optional: the panel detects the missing API (no service worker, insecure context, missing push manager) and reports the reason in **Notification preferences** instead of failing silently. The service worker is registered in production builds only.
+
+### Service Status Page
+
+`/status` is a public, session-independent page that reports panel availability and component versions, and adds storage usage, configuration checks and thresholds once an authenticated session is present. It is linked from the command palette and reachable without signing in, which makes it suitable for uptime monitoring.
+
 ### API Routes
 
 The panel accepts both API call shapes; pick whichever suits your client:

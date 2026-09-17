@@ -7,6 +7,7 @@ import AppLayout from '@/components/layout/AppLayout'
 import ErrorBoundary from '@/components/ErrorBoundary'
 import NotFound from '@/routes/NotFound'
 import { useCapabilities } from '@/hooks/useCapabilities'
+import { applyDocumentLanguage } from '@/lib/locale'
 import type { TranslationKey } from '@/hooks/useI18n'
 
 const Login = lazy(() => import('@/routes/Login'))
@@ -157,6 +158,7 @@ const routeTitleMap: Record<string, TranslationKey> = {
   '/webshell': 'webshell.documentTitle',
   '/website-monitor': 'websiteMonitor.documentTitle',
   '/custom-error-pages': 'customErrorPages.documentTitle',
+  '/status': 'statusPage.documentTitle',
   '/invite': 'inviteAccept.documentTitle',
   '/404': 'notFound.documentTitle',
 }
@@ -175,7 +177,11 @@ function getTitleKey(pathname: string): TranslationKey {
 export default function App() {
   const { loading, bootstrapFailed, authenticated } = useAuthBootstrap()
   const location = useLocation()
-  const { t } = useI18n()
+  const { t, language } = useI18n()
+
+  useEffect(() => {
+    applyDocumentLanguage(language)
+  }, [language])
 
   useEffect(() => {
     const titleKey = getTitleKey(location.pathname)

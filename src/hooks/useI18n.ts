@@ -1,5 +1,5 @@
 import { useCallback, useMemo } from 'react'
-import { useUiStore } from '@/stores/uiStore'
+import { selectLanguage, useUiStore } from '@/stores/uiStore'
 import { locales } from '@/i18n'
 import type { Translation, LocaleKey } from '@/i18n'
 
@@ -38,7 +38,7 @@ function interpolate(text: string, params?: Record<string, string | number>): st
 }
 
 export function useI18n() {
-  const language = useUiStore((s) => s.language)
+  const language = useUiStore(selectLanguage)
   const setLanguage = useUiStore((s) => s.setLanguage)
 
   const currentLocale = useMemo(() => {
@@ -64,10 +64,12 @@ export function useI18n() {
     [currentLocale],
   )
 
+  const changeLanguage = useCallback((lang: LocaleKey) => setLanguage(lang), [setLanguage])
+
   return {
     t,
     hasKey,
     language,
-    setLanguage: (lang: LocaleKey) => setLanguage(lang),
+    setLanguage: changeLanguage,
   }
 }
