@@ -91,6 +91,12 @@ Removal behaviour in 1.0.0:
 | Frozen | 0.9.9 | 2027-Q1 | Last release that accepts the deprecated surfaces. New code must not use them. |
 | Removed | 1.0.0 | 2027-06-30 or later | The surfaces listed above stop working. `docs/migration-0.9-to-1.0.md` ships the exact replacement steps. |
 
+> Status note: the notice is currently emitted on the wire only - the response headers listed under
+> "Runtime signals" and the `deprecations` field of `GET /api/bootstrap`. The rest of the Warn
+> milestone, repeating the notice in the login and settings surfaces and in the upgrade report, is
+> still outstanding. Nothing breaks either way; a caller can already detect the deprecated surface
+> from the headers alone.
+
 The sunset date is the earliest removal date, not a promise: 1.0.0 ships when the
 timeline above is complete, which may be later than 2027-06-30.
 
