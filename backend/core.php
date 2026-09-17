@@ -269,6 +269,10 @@ function gojs_get_param($key, $default = null) {
 }
 
 function gojs_dispatch() {
+    if (function_exists('gojs_request_api_style') && gojs_request_api_style() === 'query') {
+        gojs_deprecation_emit('query_api');
+    }
+
     $api = isset($_GET['api']) ? $_GET['api'] : '';
     if (!is_string($api) || strpos($api, "\0") !== false || strlen($api) > 512) {
         gojs_json_response(null, array(

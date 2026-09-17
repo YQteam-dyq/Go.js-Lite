@@ -86,6 +86,7 @@ function gojs_api_bootstrap() {
         'capabilities' => $capabilities,
         'backendVersion' => VERSION,
         'frontendVersion' => VERSION,
+        'deprecations' => function_exists('gojs_deprecation_payload') ? gojs_deprecation_payload() : array(),
     );
 
     if ($authenticated) {
@@ -743,6 +744,10 @@ function gojs_api_profile_update() {
 function gojs_api_regenerate_access_token() {
     global $config;
 
+    if (function_exists('gojs_deprecation_emit')) {
+        gojs_deprecation_emit('legacy_access_token');
+    }
+
     $new_token = bin2hex(random_bytes(24));
     $config['access_token'] = $new_token;
     gojs_save_config();
@@ -752,6 +757,9 @@ function gojs_api_regenerate_access_token() {
     gojs_log_operation('token_regenerate', 'access_token', true);
     gojs_json_response(array(
         'accessToken' => $new_token,
+        'deprecated' => true,
+        'removeIn' => '1.0.0',
+        'replacement' => 'tokens',
     ));
 }
 

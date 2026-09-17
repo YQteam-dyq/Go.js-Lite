@@ -34,7 +34,7 @@ Project location: `/workspace/Go.js-Lite`
 
 ### Request Entry
 
-- Route prefix: `/api/<action>` (path form) or `?api=<action>` (query parameter form).
+- Route prefix: `/api/<action>` (path form). The `?api=<action>` query parameter form still works but is **deprecated** since 0.8.0 and is removed in 1.0.0; see [deprecations.md](deprecations.md#query_api). Requests that use it receive `Deprecation`, `Sunset` and `X-Gojs-Deprecations` response headers.
 - Note: `router.php` strips the deployment prefix (e.g. `/gojs/`), so the backend only cares about the `/api/<action>` part.
 - In this project, most actions are registered by `gojs_build_router()` in `backend/core.php`; dynamic endpoints (containing `{id}`) are registered with `addPrefix()`.
 
@@ -88,7 +88,8 @@ Notes:
 
 - Public routes (no login required): `bootstrap`, `install`, `login`, `env-check`.
 - All other routes require `gojs_check_auth()` (session authentication) and `gojs_check_csrf()` (CSRF validation).
-- Some endpoints support access via `?token=<access_token>` (e.g. `bootstrap`, `login`).
+- Some endpoints support access via `?token=<access_token>` (e.g. `bootstrap`, `login`). This legacy access token is **deprecated** since 0.8.0 and is removed in 1.0.0; use a scoped API token instead. See [deprecations.md](deprecations.md#legacy_access_token) for the headers and the removal schedule.
+- Deprecated surfaces answer with `Deprecation`, `Sunset`, `Link ... rel="deprecation"` and `X-Gojs-Deprecations` headers; `GET /api/bootstrap` also returns the whole registry in its `deprecations` field.
 - Requests authenticated with an API Token can only access the `api/*` REST endpoints; otherwise `403 token_not_allowed` is returned.
 
 ---

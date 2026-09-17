@@ -25,6 +25,11 @@ Multi-user collaboration on a single panel instance: RBAC, path ACL, audit, appr
 - Tests: 314 PHPUnit tests (from 106) covering users, ACL, sessions, quotas, groups, tokens, invitations, devices, exports, notification preferences, approvals, permissions boost, the PHP toolchain and audit aggregation.
 
 ### Changed
+- Version: `version.json` is now the single source of truth. `api.php` and `tests/bootstrap.php` derive `VERSION` / `APP_VERSION` from it through `gojs_version()`, `shared/version.ts` imports it, and `package.json` / `package-lock.json` are kept in sync by `npm run version:bump` and verified by `npm run version:check`.
+- Deprecated: the `?api=<action>` query form now answers with `Deprecation`, `Sunset`, `Link ... rel="deprecation"` and `X-Gojs-Deprecations` headers and is scheduled for removal in 1.0.0.
+- Deprecated: the legacy access token (`?token=`, `X-Access-Token`, `POST /api/regenerate-access-token`) now answers with the same deprecation headers and `deprecated` / `removeIn` / `replacement` fields, and is scheduled for removal in 1.0.0.
+- `GET /api/bootstrap` returns a `deprecations` object with the full registry.
+- The removal schedule lives in `docs/deprecations.md`.
 - Audit log rows carry `user_id` (`gojs_log_operation`); the legacy access-token URL logs `token_login` and binds the session to the real admin user id.
 - TOTP secrets and recovery codes live in the per-user record (`users.json`) instead of `config.php`, with a one-time migration from the legacy global config.
 - Trash purge-all and other gated actions require a second admin when more than one admin exists; single-item trash purge stays un-gated.
