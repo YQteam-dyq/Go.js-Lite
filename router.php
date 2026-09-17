@@ -73,6 +73,24 @@ if (strpos($uri, '/api/') === 0 || $uri === '/api') {
     return true;
 }
 
+$securityHeadersModule = __DIR__ . '/backend/security_headers.php';
+if (file_exists($securityHeadersModule)) {
+    if (!isset($GLOBALS['config']) || !is_array($GLOBALS['config'])) {
+        $GLOBALS['config'] = array();
+        $panelConfigFile = __DIR__ . '/.gojs/config.php';
+        if (file_exists($panelConfigFile)) {
+            $panelConfig = include $panelConfigFile;
+            if (is_array($panelConfig)) {
+                $GLOBALS['config'] = $panelConfig;
+            }
+        }
+    }
+    require_once $securityHeadersModule;
+    if (function_exists('gojs_security_headers_apply')) {
+        gojs_security_headers_apply('html');
+    }
+}
+
 $staticPath = str_replace('\\', '/', (string)$uri);
 $staticPath = str_replace("\0", '', $staticPath);
 
