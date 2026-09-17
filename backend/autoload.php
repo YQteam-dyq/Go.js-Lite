@@ -7,6 +7,8 @@ if (!class_exists('Composer\\Autoload\\ClassLoader', false) && file_exists($gojs
 
 require_once __DIR__ . '/Context.php';
 require_once __DIR__ . '/Router.php';
+require_once __DIR__ . '/version.php';
+require_once __DIR__ . '/deprecations.php';
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/common.php';
 require_once __DIR__ . '/monitor.php';
