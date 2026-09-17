@@ -106,6 +106,10 @@ function gojs_init() {
         gojs_waf_enforce_request();
     }
 
+    if (function_exists('gojs_security_headers_apply_base')) {
+        gojs_security_headers_apply_base();
+    }
+
     if (!defined('GOJS_SKIP_DISPATCH') || !GOJS_SKIP_DISPATCH) {
         gojs_dispatch();
     }
@@ -186,22 +190,11 @@ function gojs_json_response($data = null, $error = null, $status_code = 200) {
     }
 
     if (!headers_sent()) {
-        $sent_headers = array_map(function ($h) {
-            $parts = explode(':', $h, 2);
-            return strtolower(trim($parts[0]));
-        }, headers_list());
-
         header('Content-Type: application/json; charset=utf-8');
         http_response_code($status_code);
 
-        if (!in_array('x-content-type-options', $sent_headers)) {
-            header('X-Content-Type-Options: nosniff');
-        }
-        if (!in_array('x-frame-options', $sent_headers)) {
-            header('X-Frame-Options: DENY');
-        }
-        if (!in_array('referrer-policy', $sent_headers)) {
-            header('Referrer-Policy: strict-origin-when-cross-origin');
+        if (function_exists('gojs_security_headers_apply')) {
+            gojs_security_headers_apply('api');
         }
     }
 
@@ -637,6 +630,8 @@ function gojs_build_router() {
         if ($m === 'GET') { gojs_json_response(gojs_secscan_backend(false)); }
         else { gojs_json_response(gojs_secscan_backend(true)); }
     });
+
+    $r->add('GET', 'security/headers', function () { gojs_api_security_headers(); });
 
     $r->add('GET', 'ftp/capabilities', function () { gojs_api_ftp_capabilities(); });
     $r->add(array('GET', 'POST'), 'ftp/accounts', function ($m) {

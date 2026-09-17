@@ -225,6 +225,7 @@ Notes:
 | Deploy | `deploy/run` | POST | Run deployment |
 | Security Scan | `secscan/frontend` | GET/POST | Frontend security scan |
 | Security Scan | `secscan/backend` | GET/POST | Backend security scan |
+| Security Headers | `security/headers` | GET | Effective HTTP response header policy |
 | FTP | `ftp/capabilities` | GET | FTP capabilities |
 | FTP | `ftp/accounts` | GET/POST | Account list / create |
 | FTP | `ftp/accounts/{id}` | PUT/DELETE | Update / delete account |
@@ -800,6 +801,23 @@ See the `auth/totp/*` endpoints in the [Authentication & Installation](#authenti
 #### `secscan/backend` (GET / POST)
 
 - GET returns scan results; POST triggers a scan.
+
+### Security Headers
+
+#### `security/headers` (GET)
+
+- Admin only. Returns the effective header policy that the panel emits on every response.
+- `data.https`: whether the current request is considered HTTPS, which controls `Strict-Transport-Security`.
+- `data.defaultContext`: the context used when a response does not declare one (`api`).
+- `data.headers`: the name to value map for the default context.
+- `data.contexts`: the same map per response context (`api` for JSON and attachment responses, `html` for rendered pages).
+- `data.count`: number of headers in the default context.
+
+The policy is emitted automatically and can be tuned through the `security_headers` key of `config.php`:
+
+- `security_headers.disable`: array of header names to stop sending.
+- `security_headers.overrides`: array of header name to replacement value; names are matched case-insensitively.
+- `security_headers.csp`: array of context (`api`, `html`) to a replacement `Content-Security-Policy`.
 
 ### FTP
 
