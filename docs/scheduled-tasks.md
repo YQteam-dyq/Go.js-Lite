@@ -113,9 +113,45 @@ If History is empty and "Not triggered yet" is shown, the URL is not being calle
 
 ## Screenshots
 
-This repository does not embed images. A maintainer should capture the following states to illustrate the guide:
+Captured from a local installation of this revision, on a host where `exec()`
+is available and no `internal_cron_token` has been set yet. The captures show
+the panel in its Chinese localization; the English build lays the page out
+identically.
 
-- Cron page, top section: the capabilities banner showing one of "Cron Available" (with an `exec` or `file` method badge), "Cron partially available", or "Cron management unavailable".
-- Cron page, Webcron section: the "Webcron Trigger URL" field with the masked token, the "Last triggered" and "Next backup run" values, and the "History" list with at least one Success entry expanded.
-- Cron page, job list: one system cron job expanded in the edit modal showing the Cron Expression and command fields.
-- Backup page, Schedules tab: the schedule list with one schedule, the "Webcron Trigger URL" field, and the "Regenerate token" action.
+### The Cron page
+
+![The Cron page: the capability banner, the empty job list and the Webcron internal tasks card](images/scheduled-tasks-overview.png)
+
+Left to right, top to bottom:
+
+- **The capability banner.** Here it reads `Cron available` with the `exec`
+  method badge and the reason "manages jobs by invoking the crontab command,
+  suitable for CLI or less restricted environments". This is the line that
+  tells you which of the three layers on this host is actually usable. On a
+  host without `exec()` the same banner reports management as unavailable
+  instead.
+- **The job list (empty).** `No cron jobs. Click "New task" to start adding
+  one.` The counter next to the section title reads `0`. These are the system
+  crontab entries, and they only exist when the `exec` layer is usable.
+- **The Webcron internal tasks card.** This is the layer that still works
+  without shell access, described under [Internal scheduler and
+  WebCron](#internal-scheduler-and-webcron) above:
+  - **Webcron trigger URL** — the field shows `internal_cron_t...` unset, which
+    is the state before a token exists. Set `internal_cron_token` and this
+    becomes the full `webcron.php?token=...` URL to hand to the provider, with
+    a copy button. It is masked here because no token has been issued.
+  - **Last triggered** — `Not triggered yet`, and **Next backup run** — `None`.
+    Both stay empty until the URL is called at least once and a backup schedule
+    exists.
+  - **History** — the execution log; empty until the first tick.
+
+### Screens not captured here
+
+Worth adding once an instance has been driven for a while:
+
+- **Cron page, job list populated** — one system cron job expanded in the edit
+  modal, showing the Cron Expression and command fields.
+- **Cron page, Webcron section with a token set** — the full trigger URL beside
+  the copy button, plus a History entry expanded to show the Success result.
+- **Backup page, Schedules tab** — the schedule list with one schedule, its
+  Webcron trigger URL, and the Regenerate token action.

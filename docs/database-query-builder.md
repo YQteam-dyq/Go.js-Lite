@@ -166,15 +166,48 @@ Clicking Preview (10 rows) instead would send the same clauses to
 
 ## Screenshots
 
-This repository does not embed images in docs. To illustrate this guide, capture
-the following from the Query builder page (`/db/:connId/query/builder`) after
-opening a real table:
+Captured from a local installation of this revision, on a host with no MySQL
+server reachable, so the column list is empty and no query was run. That makes
+the capture useful for the layout and the controls, but it cannot show the
+operators, the generated SQL or a result grid.
 
-1. The full builder with a condition row filled in: Columns with a few boxes ticked,
-   a Conditions row showing `status` / `eq` / `shipped`, an Order by row set to
-   `total` / `DESC`, and `20` in Row limit. Both action buttons
-   (Preview (10 rows), Run query) visible.
-2. The result state after Run query: the Generated SQL panel showing the produced
-   `SELECT`, and the Result grid below it with the returned rows.
-3. Optionally, the same page after clicking Preview (10 rows), to show the
-   `LIMIT 10` SQL and the first ten-row grid.
+### The builder, one condition added
+
+![The Query builder page with one condition row added](images/database-query-builder.png)
+
+Read this against the endpoint reference above:
+
+- **Columns** — `No columns available`, because the builder could not reach the
+  connection to read the schema, with the reminder `No selection means SELECT *`.
+  On a working connection this is a list of checkboxes. Note that leaving it
+  empty is what produces `SELECT *`, and an unchecked box behaves the same as a
+  missing one.
+- **Conditions** — one row, added by **Add condition**: a column selector, an
+  operator selector, a value input and a delete button. The operator list is the
+  ten values in the table above (`eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `like`,
+  `in`, `null`, `notnull`), rendered as `=`, `!=`, `>`, `>=`, `<`, `<=`, `LIKE`,
+  `IN`, `IS NULL`, `IS NOT NULL`. The column selector is empty here because the
+  schema could not be read.
+- **Group by** and **Order by** — `Add order` adds ordering rows; both feed
+  `group_by` / `order_by` in the request body.
+- **Row limit** — `100`, which becomes the `limit` sent to `db/query/execute`.
+- **Preview (10 rows)** and **Run query** — the two paths to the same endpoint
+  described under [the Overview](#overview). Preview
+  overrides the row limit with `LIMIT 10`.
+
+> **The builder is not localized.** Every label on this page is English even
+> when the panel is set to another language, while the surrounding navigation
+> and the rest of the panel are translated. The strings are hard-coded rather
+> than read through the i18n layer.
+
+### Screens not captured here
+
+These need a reachable MySQL server:
+
+- **The builder with a real schema** — Columns with boxes ticked, a condition row
+  reading `status` / `eq` / `shipped`, Order by set to `total` / `DESC`, and the
+  operator dropdown open to show all ten options.
+- **After Run query** — the Generated SQL panel with the produced `SELECT`, and
+  the result grid beneath it.
+- **After Preview (10 rows)** — the same SQL with `LIMIT 10` forced on, to
+  illustrate the difference the warning above is about.

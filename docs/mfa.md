@@ -160,25 +160,57 @@ the secret, recovery codes, and used-code set for that account.
 
 ## Screenshots
 
-This repository does not embed images in the docs. When illustrating the guide,
-capture the following exact page states (operator-facing, English UI):
+Captured from a local installation of this revision, in the light theme. The
+enrolment below was left pending on purpose, so no account ever needed a code.
+The captures show the panel in its Chinese localization; the English build lays
+the same card out identically.
 
-- **Settings > Two-Factor Authentication (TOTP) card, 2FA disabled:** the card
-  header, the `Disabled` status badge, and the `Enable 2FA` button.
-- **Settings, enrolment in progress (Pending activation):** the QR image, the
-  read-only **Secret Key** and `otpauth` URL fields with their copy buttons,
-  the `Enter 6-digit code` field, and the "Recovery codes are shown only once"
-  panel listing the 8 codes.
-- **Recovery codes modal after activation:** the warning banner, the grid of 8
-  codes, and the `Download recovery codes` button.
-- **Login challenge:** the password step completed, then the second field
-  labelled **Two-Factor Code** with placeholder `6-digit code` and the
-  `Use a recovery code instead` toggle visible.
-- **Login, recovery-code mode:** the field switched to **Recovery code (16
+### Two-factor authentication disabled
+
+![The Two-Factor Authentication (TOTP) card with 2FA disabled](images/mfa-settings-disabled.png)
+
+Settings, the **Two-Factor Authentication (TOTP)** card. The status badge reads
+`Disabled` and the only action is **Enable 2FA**.
+
+### Enrolment in progress
+
+![Enrolment in progress: the setup image, the copyable Secret Key, the verification code field and the eight recovery codes](images/mfa-settings-enrolling.png)
+
+**Enable 2FA** switches the card to `Pending activation` and expands the
+enrolment block:
+
+- the setup image, and below it the copyable **Secret Key** and `otpauth` URL;
+- the **Enter 6-digit code** field, which feeds **Activate 2FA**;
+- the eight recovery codes, four groups of four characters each, inside the
+  *"Recovery codes are shown only once. Save them in a safe place."* panel. They
+  are listed here as well as in the modal shown after activation;
+- **Cancel**, which abandons the pending enrolment.
+
+> ⚠️ **The setup image is not a scannable QR code.** The hint under it reads
+> "Scan this QR code with an authenticator app such as Google Authenticator,
+> Authy, or 1Password", but `gojs_totp_build_qr_svg_data_url()` in
+> `backend/auth.php` encodes nothing: it draws a dark panel with the issuer, the
+> Base32 secret and the `otpauth` URL rendered as text, and no QR matrix. No
+> authenticator app can read it. The secret inside the panel is also wider than
+> the panel, so it is clipped at both edges, as the capture above shows.
+>
+> Enrol by copying the **Secret Key** field instead: that value is complete and
+> correct and is what the authenticator needs. Treat the image as decorative
+> until the generator is fixed.
+
+### Screens not captured here
+
+Each of these needs an account with an activated authenticator, so they are
+still to be captured:
+
+- **Recovery codes modal after activation** — the warning banner, the grid of
+  eight codes and the `Download recovery codes` button.
+- **Login challenge** — after the password step, the **Two-Factor Code** field
+  with placeholder `6-digit code` and the `Use a recovery code instead` toggle.
+- **Login, recovery-code mode** — the field switched to **Recovery code (16
   chars)** with placeholder `e.g. ABCD-EFGH-IJKL-MNOP`.
-- **Re-enter admin password dialog:** the modal titled for re-entering the
-  admin password, shown when disabling 2FA or viewing/regenerating recovery
-  codes.
-- **Settings > Two-Factor Authentication (TOTP) card, 2FA enabled:** the
-  `Enabled` badge, the recovery-code count, and the three buttons `View
-  Recovery Codes`, `Regenerate recovery codes`, and `Disable 2FA`.
+- **Re-enter admin password dialog** — shown when disabling 2FA, and when
+  viewing or regenerating recovery codes.
+- **The card with 2FA enabled** — the `Enabled` badge, the recovery-code count,
+  and the `View Recovery Codes`, `Regenerate recovery codes` and `Disable 2FA`
+  buttons.
