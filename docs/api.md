@@ -241,6 +241,53 @@ Notes:
 | REST | `api/status` | GET | Service status |
 | REST | `api/backup/run` | POST | Trigger a backup run |
 | REST | `api/files` | GET | File REST list |
+| Composer | `composer/status` | GET | Composer availability and project lock statistics |
+| Composer | `composer/install` | POST | Run composer install |
+| Composer | `composer/require` | POST | Add a composer dependency |
+| Composer | `composer/update` | POST | Update composer dependencies |
+| Composer | `composer/json` | GET | Read composer.json and composer.lock |
+| PHP Toolchain | `php/opcache/status` | GET | OPcache statistics |
+| PHP Toolchain | `php/opcache/reset` | POST | Reset the OPcache |
+| PHP Toolchain | `php/opcache/toggle` | POST | Enable or disable OPcache |
+| PHP Toolchain | `php/opcache/profile` | POST | Apply a recommended OPcache profile |
+| PHP Toolchain | `php/extensions` | GET | List loaded PHP extensions |
+| PHP Toolchain | `php/extensions/favorite` | POST | Toggle a favorite extension |
+| PHP Toolchain | `php/errors` | GET | Parse and aggregate the PHP error log |
+| PHP Toolchain | `php/fpm/status` | GET | PHP-FPM pool status |
+| PHP Toolchain | `php/fpm/slowlog` | GET | Tail the PHP-FPM slow log |
+| PHP Toolchain | `php/bench/run` | POST | Run PHP micro-benchmarks |
+| PHP Toolchain | `php/bench/compare` | GET | Compare two benchmark runs |
+| PHP Toolchain | `php/ini-diff` | GET | Diff current php.ini against the baseline |
+| PHP Toolchain | `php/jit` | GET/POST | Read or set the JIT configuration |
+| PHP Toolchain | `php/include-path` | GET/POST | Read or set the include_path |
+| PHP Toolchain | `php/processes` | GET | List PHP processes |
+| PHP Toolchain | `php/processes/snapshot` | GET/POST | Capture or download a PHP snapshot |
+| PHP Toolchain | `php/upgrade-check` | GET | Check PHP version upgrade blockers |
+| PHP Toolchain | `php/autoload-audit` | GET | Audit backend autoload statements |
+| Database | `db/table/data` | GET/POST/PUT/DELETE | Browse table rows (paginated) |
+| Database | `db/table/insert` | POST | Insert one row |
+| Database | `db/table/update` | POST | Update one row |
+| Database | `db/table/delete` | POST | Delete one row |
+| Database | `db/table/create` | POST | Create a table |
+| Database | `db/table/alter` | POST | Alter a table column |
+| Database | `db/table/create-index` | POST | Create an index |
+| Database | `db/table/drop-index` | POST | Drop an index |
+| Database | `db/query/builder` | POST | Build and run a SELECT query |
+| Database | `db/query/preview` | POST | Preview a SELECT query (LIMIT 10) |
+| Database | `db/export/enhanced` | POST | Export database (sql/json/csv/xml) |
+| App Store | `appstore/list` | GET | List installed apps |
+| App Store | `appstore/install` | POST | Install an app |
+| App Store | `appstore/uninstall` | POST | Uninstall an app |
+| File Sharing | `share/create` | POST | Create a share link |
+| File Sharing | `share/list` | GET | List share links |
+| File Sharing | `share/revoke` | POST | Revoke a share link |
+| Directory Protection | `dir-protect/status` | GET | Directory protection status |
+| Directory Protection | `dir-protect/enable` | POST | Enable directory protection |
+| Directory Protection | `dir-protect/disable` | POST | Disable directory protection |
+| Directory Protection | `dir-protect/users` | POST | Manage directory users |
+| Accounts | `profile` | GET/POST/PATCH/PUT | Read / update account profile |
+| Accounts | `logout-all` | POST | Log out all sessions |
+| Accounts | `audit/aggregate` | GET | Aggregate audit log |
 | Internal | `internal/cron` | POST | Internal cron trigger |
 | Internal | `internal/cron/tick` | POST | Internal cron trigger |
 | Internal | `internal/cron/regenerate-token` | POST | Regenerate internal token |
@@ -620,6 +667,75 @@ The name checks run before the file is written, so `blocked_extension`, `protect
 - Form fields: `connId`, `database`, `file` (.sql), `allowDangerous` (optional boolean).
 - Returns `data`: `{ "success": true, "executed", "failed", "errors" }`.
 
+### Database Tables
+
+#### `db/table/data` (GET / POST / PUT / DELETE)
+
+- Parameters: `connId`, `database`, `table`, `page` (default 1), `limit` (default 50), `sortField`, `sortOrder` (ASC/DESC).
+- Returns `data`: `{ "success", "data", "pagination": { "page", "limit", "total", "totalPages" } }`.
+- The handler does not branch on the HTTP method; every method returns the same paginated row slice.
+
+#### `db/table/insert` (POST)
+
+- Parameters: `connId`, `database`, `table`, `data` (associative array of column => value).
+- Returns `data`: `{ "success", "insertId", "sql" }`.
+- Failure codes: `invalid_request` (400) when database, table or data is missing.
+
+#### `db/table/update` (POST)
+
+- Parameters: `connId`, `database`, `table`, `primaryKey`, `primaryKeyValue`, `data`.
+- Returns `data`: `{ "success", "affectedRows", "sql" }`.
+- Failure codes: `invalid_request` (400) when a required parameter is missing.
+
+#### `db/table/delete` (POST)
+
+- Parameters: `connId`, `database`, `table`, `primaryKey`, `primaryKeyValue`.
+- Returns `data`: `{ "success", "affectedRows", "sql" }`.
+- Failure codes: `invalid_request` (400) when a required parameter is missing.
+
+#### `db/table/create` (POST)
+
+- Parameters: `connId`, `database`, `tableName`, `columns` (array of column definitions), `engine` (default InnoDB), `charset` (default utf8mb4).
+- Returns `data`: `{ "success", "sql" }`.
+- Failure codes: `invalid_request` (400), `invalid_table_name` (400), `invalid_engine` (400), `invalid_charset` (400), `invalid_column_definition` (400).
+
+#### `db/table/alter` (POST)
+
+- Parameters: `connId`, `database`, `tableName`, `action` (`ADD`/`DROP`/`MODIFY`), `column` (definition array).
+- Returns `data`: `{ "success", "sql" }`.
+- Failure codes: `invalid_request` (400), `invalid_table_name` (400), `invalid_action` (400), `invalid_column_definition` (400), `invalid_column_name` (400), `invalid_after_column` (400).
+
+#### `db/table/create-index` (POST)
+
+- Parameters: `connId`, `database`, `tableName`, `indexName`, `columns` (array), `indexType` (default INDEX).
+- Returns `data`: `{ "success", "sql" }`.
+- Failure codes: `invalid_request` (400), `invalid_table_name` (400), `invalid_index_name` (400), `invalid_index_type` (400), `invalid_column_name` (400).
+
+#### `db/table/drop-index` (POST)
+
+- Parameters: `connId`, `database`, `tableName`, `indexName`.
+- Returns `data`: `{ "success", "sql" }`.
+- Failure codes: `invalid_request` (400), `invalid_table_name` (400), `invalid_index_name` (400).
+
+### Database Query Builder
+
+#### `db/query/builder` (POST)
+
+- Parameters: `connId`, `database`, `table`, `columns`, `conditions`, `groupBy`, `orderBy`, `limit` (default 100), `offset` (default 0).
+- Builds a `SELECT` statement from the supplied clauses, executes it, and returns `data`: `{ "success", "data", "sql", "count" }`.
+- `conditions` use operators `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `like`, `in`, `null`, `notnull`.
+
+#### `db/query/preview` (POST)
+
+- Parameters: `connId`, `database`, `table`, `columns`, `conditions`, `groupBy`, `orderBy`.
+- Builds the same `SELECT` statement but ignores `limit`/`offset` and appends `LIMIT 10`, executes it, and returns `data`: `{ "success", "data", "sql", "count" }`.
+
+#### `db/export/enhanced` (POST)
+
+- Parameters: `connId`, `database`, `tables` (array, optional), `format` (sql/json/csv/xml, default sql), `compression` (default none), `includeStructure` (default true), `includeData` (default true), `whereClause` (default empty).
+- Returns a file download in the chosen `format` (an SQL/JSON/CSV/XML dump); this is a binary stream, not a JSON `data` object.
+- Failure codes: `db_export_failed` (400) when the output stream cannot be opened.
+
 ### HTACCESS
 
 #### `htaccess` (GET/POST)
@@ -934,6 +1050,534 @@ The policy is emitted automatically and can be tuned through the `security_heade
 
 - File REST list endpoint.
 
+### Composer
+
+- Admin only: the ACL pre-check in `core.php` restricts every `composer` and `php/` action to the admin role.
+
+#### `composer/status` (GET)
+
+- Returns `data`: `{ "available", "executable", "php_version", "php_requirement", "composer_json", "composer_lock", "composer_json_path", "composer_lock_path", "vendor_autoload", "vendor_present", "lock", "install_guide" }`.
+- `lock` carries `{ "packages", "dev_packages", "depth", "content_hash", "plugin_api_version", "platform" }`.
+- When composer is unavailable, `install_guide` lists install steps.
+
+#### `composer/install` (POST)
+
+- Runs `composer install --no-dev --no-interaction`.
+- Returns `data`: `{ "ok": true, "log" }` (last 80 install log lines).
+- Failure returns `composer_failed` (500) with `detail` and `log`.
+- Returns `501 composer_unavailable` when no composer executable is found.
+
+#### `composer/require` (POST)
+
+- Parameters (JSON body): `package` (vendor/name), `version` (optional).
+- Validates the package name; invalid form returns `400 invalid_package`.
+- Returns `data`: `{ "ok": true, "package", "log" }`. Failure returns `composer_failed` (500).
+- Returns `501 composer_unavailable` when no composer executable is found.
+
+#### `composer/update` (POST)
+
+- Runs `composer update --no-interaction`.
+- Returns `data`: `{ "ok": true, "log" }`. Failure returns `composer_failed` (500).
+- Returns `501 composer_unavailable` when no composer executable is found.
+
+#### `composer/json` (GET)
+
+- Returns `data`: `{ "json", "lock", "json_path", "lock_path" }` (decoded `composer.json` and `composer.lock`, or null).
+
+### PHP Toolchain
+
+- Admin only: the ACL pre-check in `core.php` restricts every `php/` and `composer` action to the admin role.
+
+#### `php/opcache/status` (GET)
+
+- Returns `data`: `{ "available": true, "summary", "raw", "config" }`.
+- `summary`: `{ "enabled", "hits", "misses", "hit_rate", "cached_scripts", "used_memory", "free_memory", "wasted_memory", "oom_restarts", "hash_restarts", "manual_restarts", "jit" }`.
+- `config` reflects `opcache.enable`, `opcache.memory_consumption`, `opcache.jit`, `opcache.jit_buffer_size`.
+- When OPcache is unavailable returns `501 opcache_unavailable`.
+
+#### `php/opcache/reset` (POST)
+
+- Resets the OPcache. Returns `data`: `{ "reset": true, "summary" }`.
+- Returns `501 opcache_reset_failed` if the reset fails (e.g. restricted by `opcache.restrict_api`).
+- Returns `501 opcache_unavailable` if OPcache is missing.
+
+#### `php/opcache/toggle` (POST)
+
+- Parameters (JSON body): `enable` (bool) or `state` (`on`/`off`/`enable`/`disable`/`1`/`0`).
+- Returns `data`: `{ "target", "runtime", "effective", "current", "reload_required" }`.
+- Invalid state returns `400 invalid_state`.
+- When the value cannot change at runtime returns `501 ini_readonly` with the same payload.
+- Returns `501 opcache_unavailable` if OPcache is missing.
+
+#### `php/opcache/profile` (POST)
+
+- Applies a recommended OPcache profile (tracing JIT + 256M buffers). Returns `data`: `{ "applied", "php_ini_required", "profile" }`.
+- Returns `501 ini_readonly` when no directive could be applied at runtime.
+
+#### `php/extensions` (GET)
+
+- Returns `data`: `{ "count", "zend_count", "favorites" (array), "extensions" }`.
+- Each extension is `{ "name", "version", "zend", "favorite" }`.
+
+#### `php/extensions/favorite` (POST)
+
+- Parameters (JSON body): `name`, `favorite` (optional bool; defaults to toggling).
+- Returns `data`: `{ "name", "favorite", "favorites" }`.
+- Returns `400 invalid_name` when the name is missing, `404 extension_not_loaded` when it is not loaded, `500 write_failed` when the favorites file cannot be written.
+
+#### `php/errors` (GET)
+
+- Parameters: `since` (default `24h`; accepts `<n>[smhd]` or a date string) and `severity` (comma-separated `fatal`/`warning`/`notice`/`deprecated`).
+- Returns `data`: `{ "since", "since_ts", "severity_filter", "sources", "sources_count", "parsed_total", "aggregate" }`.
+- `aggregate`: `{ "total", "by_severity", "by_code", "buckets", "top_codes" }`.
+
+#### `php/fpm/status` (GET)
+
+- Optional parameter `port` selects the FPM status port (default 9000).
+- Returns `data`: `{ "url", "status" }`, where `status` is `{ "pool", "active", "idle", "total", "max_active", "max_children_reached", "accepted_conn", "listen_queue", "requests_per_sec", "format", "raw" }`.
+- Returns `501 fpm_not_applicable` when the SAPI is not fpm-fcgi/cgi-fcgi.
+- Returns `502 fpm_status_unreachable` or `502 fpm_status_unparsable` on endpoint failure.
+
+#### `php/fpm/slowlog` (GET)
+
+- Optional parameter `path` points at a slowlog file.
+- Returns `data`: `{ "path", "count", "lines" }` (last 100 lines).
+- Returns `501 fpm_not_applicable` when the SAPI is not applicable.
+- Returns `404 slowlog_not_configured` or `404 slowlog_unreadable` when no file is found or readable.
+
+#### `php/bench/run` (POST)
+
+- Parameters (JSON body): `iterations` (1-100000, optional).
+- Returns `data`: `{ "id", "created_at", "iterations", "duration_ms", "items" }`.
+- Each item is `{ "name", "available", "reason", "avg_us", "ops_per_sec" }`.
+- Out of range returns `400 invalid_iterations`. The run is saved for later comparison.
+
+#### `php/bench/compare` (GET)
+
+- Parameters: `version` (comma-separated run ids, optional).
+- Returns `data`: `{ "a", "b", "rows" }`, where each row is `{ "name", "a_avg_us", "b_avg_us", "diff_pct", "faster" }`.
+- Returns `404 not_enough_runs` when fewer than two runs exist, or `404 bench_run_not_found` for unknown ids.
+
+#### `php/ini-diff` (GET)
+
+- Returns `data`: `{ "loaded_file", "scanned_file", "baseline_file", "total", "mismatch", "rows" }`.
+- Each row is `{ "directive", "current", "recommended", "severity", "note", "match" }`.
+
+#### `php/jit` (GET / POST)
+
+- GET: returns `data`: `{ "raw_mode", "mode", "buffer_size", "buffer_size_mb", "user_ini_path" }`.
+- POST: parameters `mode` (`tracing`/`function`/`none`) and `buffer_size_mb` (0-4096). Writes to `.user.ini` and attempts a runtime change.
+- Returns `data`: `{ "saved_to_ini", "user_ini_path", "runtime", "effective", "current", "reload_required" }`.
+- Invalid values return `400 invalid_mode` or `400 invalid_buffer`.
+- Returns `501 ini_readonly` when the change could not be applied at runtime.
+
+#### `php/include-path` (GET / POST)
+
+- GET: returns `data`: `{ "current", "user_ini_path", "user_ini", "user_ini_include_path", "writable", "separator" }`.
+- POST: parameter `paths` (array of strings). Writes to `.user.ini` and attempts a runtime change.
+- Returns `data`: `{ "saved", "user_ini_path", "include_path", "paths", "runtime", "reload_required" }`.
+- Returns `400 invalid_paths` when `paths` is not an array or contains NUL/newline characters.
+- Returns `500 write_failed` when `.user.ini` cannot be written.
+
+#### `php/processes` (GET)
+
+- Returns `data`: `{ "supported", "os", "self_pid", "php_binary", "sapi", "count", "processes" }`.
+- Each process is `{ "pid", "user", "mem_percent", "cpu_percent", "elapsed", "cmdline", "mem_kb" }`.
+- `supported` is false when `shell_exec` is unavailable.
+
+#### `php/processes/snapshot` (GET / POST)
+
+- POST: captures `php -m` and `php -i`, writes `php_snapshot.txt`. Returns `data`: `{ "path", "bytes", "modules_lines", "php_binary" }`.
+- Returns `501 snapshot_unavailable` when the PHP CLI cannot be run; `500 write_failed` on write failure.
+- GET: returns the saved snapshot. Returns `data`: `{ "path", "bytes", "content" }`.
+- Returns `404 snapshot_missing` when no snapshot has been captured yet.
+
+#### `php/upgrade-check` (GET)
+
+- Returns `data`: `{ "current", "required_constraint", "required_min", "recommended", "upgrade_needed", "blocker_count", "blockers" }`.
+- Each blocker is `{ "file", "line", "msg", "requires" }`.
+
+#### `php/autoload-audit` (GET)
+
+- Returns `data`: `{ "backend_dir", "autoload_file", "vendor_autoload_present", "registered_count", "unregistered_count", "registered", "suggestions" }`.
+- Returns `500 no_panel_root` when `PANEL_ROOT` is not defined.
+
+### App Store
+
+#### `appstore/list` (GET)
+
+- Returns `data`: `{ "apps": [{ "id", "installed", ...manifest fields }] }` from each app's `manifest.json`.
+
+#### `appstore/install` (POST)
+
+- Parameters: `app_id`.
+- Runs the app install script (or `install.php`), writes the install marker, and returns `data`: `{ "app_id", "success", "steps" }`.
+- Failure codes: `missing_param` (400), `app_not_found` (404), `invalid_manifest` (500).
+
+#### `appstore/uninstall` (POST)
+
+- Parameters: `app_id`.
+- Runs the app uninstall script (or `uninstall.php`), removes the install marker, and returns `data`: `{ "app_id", "success" }`.
+- Two-person approval: when two or more admins exist this route returns `202` with `data` `{ "status": "approval_pending", "approval" }` and defers execution until a second admin approves; a single admin returns `409` (`single_admin_no_second_factor`), or `409` (`approval_already_pending`) if a request is already open.
+- Failure codes: `missing_param` (400), `app_not_found` (404), `not_installed` (400).
+
+### File Sharing
+
+#### `share/create` (POST)
+
+- Parameters: `path`, `expires_in` (hours, default 24), `password` (default empty), `max_downloads` (default 0).
+- Returns `data`: `{ "share_url", "token", "expires_at", "expires_in" }`.
+- Failure codes: `missing_param` (400), `invalid_param` (400, non-string password/expires_in/max_downloads), `forbidden` (403, path access denied), `not_found` (404).
+
+#### `share/list` (GET)
+
+- Returns `data`: `{ "shares": [{ "token", "path", "created_at", "expires_at", "remaining_seconds", "max_downloads", "download_count", "has_password", "is_dir" }] }`.
+
+#### `share/revoke` (POST)
+
+- Parameters: `token` (32 hex chars).
+- Returns `data`: `{ "success": true }`.
+- Failure codes: `missing_param` (400) when the token is missing or malformed.
+
+### Directory Protection
+
+#### `dir-protect/status` (GET)
+
+- Parameters: `path`.
+- Returns `data`: `{ "protected", "auth_name", "users" }`.
+- Failure codes: `missing_param` (400), `forbidden` (403).
+
+#### `dir-protect/enable` (POST)
+
+- Parameters: `path`, `auth_name` (default "Restricted Area"), `users` (array of `{ "username", "password" }`).
+- Writes `.htpasswd` and `.htaccess` and returns `data`: `{ "success", "protected", "auth_name" }`.
+- Failure codes: `missing_param` (400), `forbidden` (403), `not_writable` (403).
+
+#### `dir-protect/disable` (POST)
+
+- Parameters: `path`.
+- Strips the auth block from `.htaccess` and removes `.htpasswd`; returns `data`: `{ "success", "protected": false }`.
+- Failure codes: `missing_param` (400), `forbidden` (403).
+
+#### `dir-protect/users` (POST)
+
+- Parameters: `path`, `action` (`add`/`delete`/`change-password`), `username`, `password`.
+- Returns `data`: `{ "success", "users" }` (array of remaining usernames).
+- Failure codes: `missing_param` (400), `forbidden` (403), `invalid_password` (400), `missing_password` (400), `invalid_action` (400).
+
+### Users
+
+#### `users` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "users": [ sanitized user objects ], "total" }`.
+- Each user object omits `password_hash` and `totp`.
+- Restricted: admin only (ACL pre-check).
+
+#### `users` (POST)
+
+- Parameters: `username`, `password`, `role` (admin / operator / viewer, default viewer), `path_allowlist` (array), `permissions_boost` (array).
+- Returns `data`: the created (sanitized) user object.
+- Failure codes: `invalid_username` (400), `invalid_role` (400), `weak_password` (400), `username_exists` (409), `write_failed` (500).
+- Restricted: admin only; answers `201` on success.
+
+#### `users/{id}` (PATCH)
+
+- Parameters: `role`, `username`, `path_allowlist`, `permissions_boost`, `disabled`, `password`.
+- Returns `data`: the updated (sanitized) user object.
+- Failure codes: `not_found` (404), `cannot_change_own_role` (409), `cannot_disable_own` (409), `weak_password` (400), `write_failed` (500).
+- Restricted: admin only.
+
+#### `users/{id}` (DELETE)
+
+- Parameters: none.
+- Returns `data`: `{ "success": true }`.
+- Failure codes: `not_found` (404), `cannot_delete_last_admin` (409), `write_failed` (500).
+- Restricted: admin only.
+
+### Sessions
+
+#### `sessions` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "sessions": [ ... ], "total" }`.
+- Restricted: admin only (ACL pre-check).
+
+#### `sessions/kick` (POST)
+
+- Parameters: `sid` (session fingerprint).
+- Returns `data`: `{ "success": true, "sid" }`.
+- Failure codes: `invalid_sid` (400), `cannot_kick_self` (409), `session_not_found` (404).
+- Restricted: admin only.
+
+#### `sessions/{sid}/kick` (POST)
+
+- Parameters: none (the fingerprint is taken from the path).
+- Returns `data`: `{ "success": true, "sid" }`.
+- Failure codes: `invalid_sid` (400), `cannot_kick_self` (409), `session_not_found` (404).
+- Restricted: admin only.
+
+### Groups
+
+#### `groups` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "groups": [ ... ], "total" }`.
+- Restricted: admin only (ACL pre-check).
+
+#### `groups` (POST)
+
+- Parameters: `name`, `path_allowlist` (array), `member_ids` (array).
+- Returns `data`: the created group object.
+- Failure codes: `invalid_name` (400), `name_exists` (409), `write_failed` (500).
+- Restricted: admin only; answers `201` on success.
+
+#### `groups/{id}` (PATCH / PUT)
+
+- Parameters: `name`, `path_allowlist` (array), `member_ids` (array).
+- Returns `data`: the updated group object.
+- Failure codes: `not_found` (404), `invalid_name` (400), `name_exists` (409), `write_failed` (500).
+- Restricted: admin only.
+
+#### `groups/{id}` (DELETE)
+
+- Parameters: none.
+- Returns `data`: `{ "success": true }`.
+- Failure codes: `not_found` (404), `write_failed` (500).
+- Restricted: admin only.
+
+#### `groups/{id}/members` (POST)
+
+- Parameters: `add` (array of user ids), `remove` (array of user ids).
+- Returns `data`: the updated group object.
+- Failure codes: `not_found` (404), `write_failed` (500).
+- Restricted: admin only.
+
+### API Tokens
+
+#### `tokens` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "tokens": [ sanitized token objects ], "total" }`.
+- A non-admin only sees tokens whose `created_by` equals the caller.
+- Restricted: operator or admin (ACL pre-check).
+
+#### `tokens` (POST)
+
+- Parameters: `name`, `scopes` (array), `path_prefix`, `rate_limit_per_min`, `expires_at`.
+- Returns `data`: the created token object, including `token_plain_once` (the only time the secret is shown).
+- Failure codes: `invalid_name` (400), `invalid_scopes` (400), `scope_not_allowed` (403), `invalid_expires_at` (400), `write_failed` (500).
+- Restricted: operator or admin; answers `201` on success.
+
+#### `tokens/{id}` (DELETE)
+
+- Parameters: none.
+- Returns `data`: `{ "success": true }`.
+- Failure codes: `not_found` (404), `insufficient_role` (403), `write_failed` (404).
+- Restricted: operator or admin; a non-admin may only revoke tokens they created.
+
+### Invitations
+
+#### `invitations` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "invitations": [ ... ], "total" }`.
+- Restricted: admin only (ACL pre-check).
+
+#### `invitations` (POST)
+
+- Parameters: `email`, `role` (admin / operator / viewer, default viewer), `path_allowlist` (array), `groups` (array), `message`.
+- Returns `data`: the created invitation object, including `token` and `invite_url`.
+- Failure codes: `invalid_email` (400), `invalid_role` (400), `already_pending` (409), `write_failed` (500).
+- Restricted: admin only; answers `201` on success.
+
+#### `invitations/{id}` (DELETE)
+
+- Parameters: none.
+- Returns `data`: `{ "success": true }`.
+- Failure codes: `not_found` (404), `not_pending` (409), `write_failed` (409).
+- Restricted: admin only.
+
+#### `invitations/preview` (GET)
+
+- Parameters: `token` (the invitation token, query string).
+- Returns `data`: `{ "status", "role", "email_masked", "expires_at", "suggested_username" }`.
+- Failure codes: `invite_not_found` (404).
+- Public: reachable without a session. The ACL pre-check returns before the role test for this route, so the invitation token is the only credential.
+
+#### `invitations/accept` (POST)
+
+- Parameters: `token`, `username`, `password`.
+- Returns `data`: `{ "success": true, "username", "role" }`.
+- Failure codes: `invalid_token` (400), `invalid_password` (400), `invite_not_found` (404), `invite_expired` (410), `invite_revoked` (410), `invite_used` (409), `invalid_username` (400), `username_exists` (409), `weak_password` (400), `write_failed` (500).
+- Public: reachable without a session. The ACL pre-check returns before the role test for this route, so the invitation token authorizes the acceptance.
+
+### Approvals
+
+#### `approvals` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "pending": [ ... ], "mine": [ ... ], "total", "pending_total", "admin_count", "ttl_seconds", "policy" }`.
+- `policy` lists the gated action names: `database.delete`, `monitoring.disable`, `sessions.kick_all`, `trash.purge_all`, `appstore.uninstall`.
+- Restricted: admin only (ACL pre-check).
+
+#### `approvals/{id}/approve` (POST)
+
+- Parameters: `reason` (optional).
+- Returns `data`: `{ "status", "approval", "result" }`.
+- Failure codes: `unauthorized` (401), `invalid_decision` (400), `approval_expired` (410), `approval_already_decided` (409), `cannot_self_approve` (409), `not_found` (404), `write_failed` (500).
+- Restricted: admin only.
+
+#### `approvals/{id}/deny` (POST)
+
+- Parameters: `reason` (optional).
+- Returns `data`: `{ "status", "approval", "result" }`.
+- Failure codes: `unauthorized` (401), `invalid_decision` (400), `approval_expired` (410), `approval_already_decided` (409), `cannot_self_approve` (409), `not_found` (404), `write_failed` (500).
+- Restricted: admin only.
+
+Two-person approval gate (defined in `approvals.php`, not an account endpoint): when an admin performs a gated action (db/import, monitor/disable, logout-all, trash/purge, appstore/uninstall) and fewer than two admins exist, the request answers `409` with `single_admin_no_second_factor`; otherwise the action is deferred and the request answers `202` with `status: approval_pending` and the `approval` object. If an identical pending request already exists the request answers `409` with `approval_already_pending`. None of the account endpoints documented above are gated by this flow.
+
+### Trusted Devices
+
+#### `devices` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "devices": [ ... ], "total", "ttl_days" }`.
+- Available to every signed-in account; scoped to the current account.
+
+#### `devices/trust` (POST)
+
+- Parameters: none (trusts the caller's current device).
+- Returns `data`: the trusted device object.
+- Failure codes: `unauthorized` (401), `write_failed` (500).
+- Available to every signed-in account; answers `201` on success.
+
+#### `devices/{fingerprint}` (DELETE)
+
+- Parameters: none (the fingerprint is taken from the path).
+- Returns `data`: `{ "success": true }`.
+- Failure codes: `invalid_fingerprint` (400), `user_not_found` (400), `not_found` (404), `write_failed` (400).
+- Available to every signed-in account; scoped to the current account.
+
+### Profile Export
+
+#### `profile/export` (POST)
+
+- Parameters: none.
+- Returns `data`: `{ "export_id", "bytes", "signed_expires_at", "download_path" }`.
+- Failure codes: `unauthorized` (401), `write_failed` (500).
+- Available to every signed-in account; scoped to the current account; answers `202` on success.
+
+#### `profile/export/{id}` (GET)
+
+- Parameters: `exp`, `sig` (the signed query returned in `download_path`).
+- Returns: a zip file stream (`Content-Disposition: attachment`).
+- Failure codes: `unauthorized` (401), `export_not_found` (404), `forbidden` (403), `export_link_expired` (410), `invalid_signature` (403), `export_file_missing` (410).
+- Available to every signed-in account; scoped to the current account.
+
+### Notification Preferences
+
+#### `notification-preferences` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "notifications", "defaults", "levels", "categories", "role" }`.
+- Available to every signed-in account; scoped to the current account.
+
+#### `notification-preferences` (PATCH / PUT)
+
+- Parameters: `notifications` (per-channel `severity_min` and `categories`), or the channel map directly.
+- Channels are `email` and `inapp`; categories are `security`, `auth`, `system`, `files`, `backup`, `cron`.
+- Returns `data`: the same shape as GET.
+- Failure codes: `unauthorized` (401).
+- Available to every signed-in account; scoped to the current account.
+
+### User Activity
+
+#### `user_activity` (GET)
+
+- Parameters: `since` (default `24h`).
+- Returns `data`: `{ "since", "since_ts", "total", "failed", "rows" }` (aggregate by user).
+- Restricted: admin only (ACL pre-check, unlisted action).
+
+#### `user_activity/recent` (GET)
+
+- Parameters: `since` (default `24h`).
+- Same response as `user_activity` (the router maps `user_activity` GET to `user_activity/recent`).
+- Restricted: admin only.
+
+#### `user_activity/online` (GET)
+
+- Parameters: none.
+- Returns `data`: `{ "sessions": [ ... ], "total" }` (currently active sessions).
+- Restricted: admin only.
+
+#### `user_activity/{id}` (GET)
+
+- Parameters: `since` (default `7d`), `limit` (default 100, max 500).
+- Returns `data`: `{ "user_id", "username", "role", "since", "since_ts", "count", "entries" }`.
+- Restricted: admin only.
+
+---
+
+## Part 2 - Overview rows
+
+| Users | `users` | GET | List users |
+| Users | `users` | POST | Create a user |
+| Users | `users/{id}` | PATCH | Update a user |
+| Users | `users/{id}` | DELETE | Delete a user |
+| Sessions | `sessions` | GET | List active sessions |
+| Sessions | `sessions/kick` | POST | Kick a session by fingerprint |
+| Sessions | `sessions/{sid}/kick` | POST | Kick a session by path fingerprint |
+| Groups | `groups` | GET | List groups |
+| Groups | `groups` | POST | Create a group |
+| Groups | `groups/{id}` | PATCH/PUT | Update a group |
+| Groups | `groups/{id}` | DELETE | Delete a group |
+| Groups | `groups/{id}/members` | POST | Add or remove group members |
+| API Tokens | `tokens` | GET | List API tokens |
+| API Tokens | `tokens` | POST | Create an API token |
+| API Tokens | `tokens/{id}` | DELETE | Revoke an API token |
+| Invitations | `invitations` | GET | List invitations |
+| Invitations | `invitations` | POST | Create an invitation |
+| Invitations | `invitations/{id}` | DELETE | Revoke an invitation |
+| Invitations | `invitations/preview` | GET | Preview an invitation |
+| Invitations | `invitations/accept` | POST | Accept an invitation |
+| Approvals | `approvals` | GET | List pending and own approvals |
+| Approvals | `approvals/{id}/approve` | POST | Approve a request |
+| Approvals | `approvals/{id}/deny` | POST | Deny a request |
+| Trusted Devices | `devices` | GET | List trusted devices |
+| Trusted Devices | `devices/trust` | POST | Trust the current device |
+| Trusted Devices | `devices/{fingerprint}` | DELETE | Revoke a trusted device |
+| Profile Export | `profile/export` | POST | Create a profile export |
+| Profile Export | `profile/export/{id}` | GET | Download a profile export |
+| Notification Preferences | `notification-preferences` | GET | Read notification preferences |
+| Notification Preferences | `notification-preferences` | PATCH/PUT | Update notification preferences |
+| User Activity | `user_activity` | GET | Recent activity aggregate |
+| User Activity | `user_activity/recent` | GET | Recent activity aggregate (alias) |
+| User Activity | `user_activity/online` | GET | Currently active sessions |
+| User Activity | `user_activity/{id}` | GET | Activity feed for a user |
+
+### Accounts
+
+#### `profile` (GET / POST / PATCH / PUT)
+
+- GET: read the current account profile.
+  - Returns `data`: `{ "id", "username", "role", "path_allowlist", "avatar_color", "preferences" }`.
+- POST / PATCH / PUT: update preferences.
+  - Parameters (JSON body): `theme` (light/dark/system), `language` (en/zh), `dashboardLayout`, `notifications`.
+  - Returns `data`: the updated `preferences` object.
+- Failure codes: `unauthorized` (401) when not signed in.
+
+#### `logout-all` (POST)
+
+- Revokes all other sessions, destroys the current session, and returns `data`: `{ "success": true }`.
+- Two-person approval: when two or more admins exist this route returns `202` with `data` `{ "status": "approval_pending", "approval" }` and defers execution until a second admin approves; a single admin returns `409` (`single_admin_no_second_factor`), or `409` (`approval_already_pending`) if a request is already open.
+
+#### `audit/aggregate` (GET)
+
+- Parameters: `since` (relative like `24h` or absolute time, default `24h`), `by` (`user_id`/`action`/`hour`, default `user_id`).
+- Returns `data`: `{ "since", "since_ts", "by", "total", "failed", "rows" }` where each row is `{ "key", "total", "failed", "last_at", "error_rate" }`.
+- Failure codes: `invalid_by` (400).
+
 ### Internal Cron / WebCron
 
 #### `internal/cron` / `internal/cron/tick` (POST)
@@ -951,3 +1595,9 @@ The policy is emitted automatically and can be tuned through the `security_heade
 #### `webcron/status` (GET)
 
 - Returns WebCron status.
+
+#### `internal/cron/tick` (POST)
+
+- Parameters: `internal_cron_token` (optional, query/body or `X-Internal-Cron-Token` header); an authenticated admin session is also accepted.
+- Runs due backup schedules, drains the notification outbox and records a tick; returns `data`: `{ "processed_schedules", "processed_runs", "drained_outbox", "tick_at" }`.
+- Failure codes: `forbidden` (403) when the token is missing/invalid and the caller is not an admin.

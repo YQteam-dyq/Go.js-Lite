@@ -4,11 +4,24 @@
 
 **English** (primary) · [Full Chinese Translation (全文中文)](README.zh-CN.md)
 
-[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](LICENSE)
 [![PHP](https://img.shields.io/badge/PHP-%3E%3D7.4-777bb4.svg)](https://php.net)
 [![React](https://img.shields.io/badge/React-18-61dafb.svg)](https://react.dev)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6.svg)](https://www.typescriptlang.org)
 [![Version](https://img.shields.io/badge/version-0.8.0-blue.svg)](CHANGELOG.md)
+
+---
+
+## What's new in 0.9.0 (unreleased)
+
+- **Two-factor authentication** — per-user TOTP, with eight single-use recovery codes issued at enrolment and a code challenge at login. See [docs/mfa.md](docs/mfa.md).
+- **Hardened uploads** — filenames are validated before the file is written, and active SVG is refused unless it is explicitly allowed.
+- **Session binding** — a session is tied to the client signals it was created with and rotates on a schedule, so a stolen cookie is not enough on its own.
+- **Backup verification** — a backup is checked against its manifest and checksums before a restore is allowed to start.
+- **Response header policy** — one place to add, override or disable the security headers, including the Content-Security-Policy.
+- **Documented scheduling** — the three layers that run recurring work, and how to drive them from `webcron.php` when the host gives you no shell. See [docs/scheduled-tasks.md](docs/scheduled-tasks.md).
+
+Upgrading from 0.8.x: [docs/migration-0.8-to-0.9.md](docs/migration-0.8-to-0.9.md) describes each behavioural change and the configuration keys that control it.
 
 ---
 
@@ -51,7 +64,7 @@ See [CHANGELOG.md](CHANGELOG.md) for the full list and [docs/migration-0.7-to-0.
 
 ## What's new in 0.7.0
 
-- **REST contract** — keeps the historical query form `/gojs/api?api=<action>` as the default, and adds the path form `/gojs/api/<action>` as an alias. Both forms are recognised by `router.php` and `.htaccess` and dispatched to the same handler.
+- **REST contract** — adds the path form `/gojs/api/<action>` next to the historical query form `/gojs/api?api=<action>`. Both are recognised by `router.php` and `.htaccess` and dispatched to the same handler. The query form was deprecated in 0.8.0; see [API Routes](#api-routes).
 - **File manager** — per-save history snapshots, in-browser preview for images / video / audio / Markdown / PDF / CSV, bulk operations, optional per-file AES-256-GCM encryption.
 - **Database manager** — persistent connections, slow-query log, schema snapshots, sensitive-column masking on SQL export.
 - **Monitoring** — CPU / memory / disk trend charts with 5m / 1h / 24h windows.
@@ -116,6 +129,8 @@ Visit http://localhost:5173/gojs/ to start developing.
 - **[System]** System info — PHP info, server environment, disk usage, **memory monitor**, process CPU.
 - **[Trends]** Resource trends — CPU / memory / disk trend charts in the dashboard.
 - **[Lockout]** Brute-force lockout — IP + UA + country triple check.
+- **[2FA]** Two-factor authentication — Per-user TOTP with eight single-use recovery codes, challenged at login.
+- **[Tasks]** Scheduled tasks — Cron entries through `exec()` or a flat file, plus internal webcron jobs for hosts without shell access.
 - **[Audit]** Operation log — Every write log carries `request_id` / `trace_id` for traceability.
 - **[i18n]** Bilingual (EN/ZH) — Built-in i18n, supports both Chinese and English.
 - **[Theme]** Light / dark themes — Supports light / dark / system preference.
@@ -149,24 +164,29 @@ Visit http://localhost:5173/gojs/ to start developing.
 After deployment on the server:
 
 ```
-public_html/              <- Your user site (panel never touches it)
+public_html/              <- Your user site (the panel never touches it)
 ├── index.html / index.php <- Keep your original content as-is
-└── gojs/                  <- Panel lives here, access through this path
+└── gojs/                  <- The panel lives here, reached through this path
     ├── api.php            # Backend API (single file)
-    ├── .htaccess          # Apache rewrite rules (RewriteBase /gojs/)
-    └── dist/              # Frontend build
-        ├── index.html
-        └── assets/
+    ├── router.php         # Router for the PHP built-in server (php -S)
+    ├── .htaccess          # Apache rewrite rules (relative, adapts to any mount point)
+    ├── dist/              # Frontend build
+    │   ├── index.html
+    │   └── assets/
+    └── .gojs/             # Runtime config, created by the installer; web access blocked
+        ├── config.php     # Main config (PHP array)
+        └── auth.log       # Login log (brute-force protection)
 ```
 
-Config files are automatically created in the panel's parent directory:
+> `.gojs/` lives **inside** the panel directory, next to `api.php`: the panel resolves it as `dirname(__FILE__) . '/.gojs'`. A rewrite rule rejects any request whose path contains a `.gojs` segment, so the directory is never served.
 
-```
-public_html/
-└── .gojs/
-    ├── config.php         # Main config (PHP array, web access blocked)
-    └── auth.log           # Login log (brute-force protection)
-```
+> **When the panel is not mounted at `/gojs/`** (for example `panel/`, or the web root itself): the backend `.htaccess` and `router.php` adapt on their own, but frontend asset paths are baked in at build time from `vite base`. If the frontend 404s, rebuild with the real path:
+>
+> ```bash
+> npx vite build --base=/panel/    # use --base=/ when the panel owns the web root
+> ```
+>
+> Then upload `dist/` again.
 
 ---
 
@@ -207,14 +227,31 @@ The frontend ships a service worker (`public/sw.js`) that precaches the applicat
 
 ### API Routes
 
-The panel accepts both API call shapes; pick whichever suits your client:
+The panel accepts both API call shapes:
 
 | Form | Example | Notes |
 |------|---------|-------|
-| Query form (default) | `/gojs/api?api=login` | The historical default used by the bundled frontend. |
-| Path form (alias) | `/gojs/api/login` | Recognised by `router.php` and `.htaccess`, dispatched to the same handler. |
+| Path form (recommended) | `/gojs/api/login` | The supported shape. `router.php` and `.htaccess` dispatch it. |
+| Query form (deprecated) | `/gojs/api?api=login` | The historical default, deprecated in 0.8.0 and removed in 1.0.0. Responses carry deprecation headers. |
 
-Both forms end up at the same `api.php` action handler — there is only one code path.
+Both forms end up at the same `api.php` action handler — there is only one code path. See [docs/deprecations.md](docs/deprecations.md) for the removal schedule.
+
+---
+
+## Documentation
+
+| Document | What it covers |
+|---|---|
+| [CHANGELOG.md](CHANGELOG.md) | Every release, with the breaking changes and the migration note for each one. |
+| [docs/api.md](docs/api.md) | The backend API reference: conventions, the endpoint overview table and a reference entry per endpoint. |
+| [docs/deprecations.md](docs/deprecations.md) | What is deprecated, how it is announced at runtime, and the 1.0.0 removal schedule. |
+| [docs/migration-0.7-to-0.8.md](docs/migration-0.7-to-0.8.md) | Upgrading from the single-admin panel to multi-user. |
+| [docs/migration-0.8-to-0.9.md](docs/migration-0.8-to-0.9.md) | Upgrading to the hardened 0.9.0 release: uploads, session binding, backup verification and response headers. |
+| [docs/scheduled-tasks.md](docs/scheduled-tasks.md) | Running recurring work through the system crontab or, without shell access, through `webcron.php`. |
+| [docs/mfa.md](docs/mfa.md) | Per-user two-factor authentication: enrolment, the login challenge and recovery codes. |
+| [docs/database-query-builder.md](docs/database-query-builder.md) | Building and running queries from the panel, and what the preview endpoint actually does. |
+| [docs/waf_integration.md](docs/waf_integration.md) | The Web Application Firewall rules, modes and integration points. |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development workflow, the language policy and the gates a pull request has to pass. |
 
 ---
 
@@ -225,6 +262,7 @@ Both forms end up at the same `api.php` action handler — there is only one cod
 | Feature | Description | Status |
 |---------|-------------|--------|
 | Auth System | Setup wizard, login/logout, change password, session timeout, brute-force lockout | OK |
+| Two-factor Auth | Per-user TOTP with eight single-use recovery codes, challenged at login | OK |
 | Secret Access | Token-based access URL, hides panel existence | OK |
 | Dashboard | System overview, disk usage, file stats, recently modified files | OK |
 | File Manager | Directory browser, file editor, upload/download, create/delete/rename, permissions, history snapshots, in-browser preview | OK |
@@ -238,6 +276,7 @@ Both forms end up at the same `api.php` action handler — there is only one cod
 | PHP Info | Version, extensions, ini directives, one-click copy php.ini path | OK |
 | System Info | Disk, load, uptime, memory usage, process CPU, Cron | OK |
 | Resource Trends | CPU / memory / disk trend charts | OK |
+| Scheduled Tasks | Cron entries through `exec()` or a flat file, plus internal webcron jobs for hosts without shell access | OK |
 | Website Monitor | Uptime / response-time / SSL-certificate monitoring with alerting and trend charts | OK |
 | Notifications | Email / SMTP / Webhook / DingTalk / Lark / Telegram / Microsoft Teams / Slack incoming webhooks | OK |
 | Operation Log | Every write log carries `request_id` / `trace_id` | OK |
